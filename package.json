@@ -2,6 +2,7 @@
   "name": "ccusage-dashboards",
   "version": "0.1.0",
   "description": "Local-first customizable usage dashboards powered by the official ccusage CLI",
+  "license": "MIT",
   "type": "module",
   "engines": {
     "node": ">=20"
