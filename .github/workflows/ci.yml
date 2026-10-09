@@ -36,6 +36,13 @@ jobs:
         run: |
           node bin/ccusage-dashboards.mjs --version
           node bin/ccusage-dashboards.mjs --help
+      - name: Install published tarball into a clean temporary project
+        shell: bash
+        run: |
+          npm pack --silent
+          npm install --prefix .package-smoke --no-audit --no-fund ./ccusage-dashboards-0.1.0.tgz
+          node .package-smoke/node_modules/ccusage-dashboards/bin/ccusage-dashboards.mjs --version
+          node scripts/smoke-installed.mjs
       - name: Official CLI JSON smoke test (offline, no user logs)
         shell: bash
         run: |
