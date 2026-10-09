@@ -364,6 +364,7 @@ $("config-export").addEventListener("click", () => {
     $("config-status").textContent = "Exported view settings only; no usage reports or credentials.";
   } catch (error) { $("config-status").textContent = error.message; }
 });
+$("config-import-trigger").addEventListener("click", () => $("config-import").click());
 $("config-import").addEventListener("change", async (event) => {
   const file = event.target.files?.[0];
   event.target.value = "";

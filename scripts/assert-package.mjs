@@ -17,6 +17,7 @@ const required = [
   "public/analytics.mjs",
   "public/normalize.mjs",
   "public/widget-registry.mjs",
+  "public/dashboard-config.mjs",
   "README.md"
 ];
 for (const f of required) if (!names.has(f)) throw new Error("Missing npm tarball file: " + f);

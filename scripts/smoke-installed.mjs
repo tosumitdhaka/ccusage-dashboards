@@ -41,7 +41,7 @@ async function waitForUrl() {
 
 try {
   const url = await waitForUrl();
-  for (const asset of ["/", "/styles.css", "/dashboard.js", "/analytics.mjs", "/widget-registry.mjs"]) {
+  for (const asset of ["/", "/styles.css", "/dashboard.js", "/analytics.mjs", "/widget-registry.mjs", "/dashboard-config.mjs"]) {
     const response = await fetch(url + asset);
     if (!response.ok) throw new Error("Packaged dashboard failed to serve " + asset + ": HTTP " + response.status);
     if (!(await response.text()).length) throw new Error("Empty browser asset: " + asset);
