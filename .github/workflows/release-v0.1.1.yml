@@ -1,0 +1,58 @@
+# One-shot, exact-SHA v0.1.1 GitHub release.
+# This workflow only runs when its own file is first merged to main.
+name: Finalize dashboard-v0.1.1
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/release-v0.1.1.yml]
+permissions:
+  contents: write
+jobs:
+  github-release:
+    if: github.repository == 'tosumitdhaka/ccusage-dashboards'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create exact-SHA GitHub release (idempotent)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          RELEASE_SHA: e0ee556e45ae3f97ee0ca9ab13c255f8a4e4a271
+        shell: bash
+        run: |
+          set -euo pipefail
+          status="$(gh api "repos/$REPOSITORY/compare/$RELEASE_SHA...${GITHUB_SHA}" --jq '.status')"
+          if [[ "$status" != ahead && "$status" != identical ]]; then
+            echo "Release SHA is not an ancestor of main; refusing to tag." >&2
+            exit 1
+          fi
+          if gh release view dashboard-v0.1.1 -R "$REPOSITORY" >/dev/null 2>&1; then
+            echo "dashboard-v0.1.1 is already released."
+            exit 0
+          fi
+          cat > release-notes.md <<'NOTES'
+          ## ccusage-dashboards v0.1.1
+
+          First working CLI release of the standalone, local-first **AI Usage Observatory**.
+
+          ### What's included
+          - Token, cache and estimated API-equivalent cost charts for ccusage-supported local coding agents
+          - Daily, weekly, monthly and observed-hourly usage trends, provider/model filters, and session insights
+          - npm/Bun direct launcher: `npx --yes ccusage-dashboards@0.1.1` or `bunx ccusage-dashboards@0.1.1`
+          - MIT license; official `ccusage@20.0.26` dependency; Windows/Linux CI
+
+          ### Packaging repair
+          v0.1.1 corrects the npm executable mapping removed during v0.1.0 publication.
+          Use v0.1.1 instead of v0.1.0.
+
+          ### Data limitations
+          Costs represent estimated API-equivalent pricing, **not** subscription charges.
+          Some models are unpriced, and hourly points are differences between local observations,
+          not actual historical event timestamps. Subscription quotas are not inferred.
+
+          ### Requirements
+          Node.js 20+, local agent logs, and a recent npm or Bun.
+          Dashboard binds to `http://127.0.0.1:4177` by default.
+          NOTES
+          gh release create dashboard-v0.1.1 -R "$REPOSITORY" \
+            --target "$RELEASE_SHA" --title "ccusage-dashboards v0.1.1" \
+            --notes-file release-notes.md --latest
