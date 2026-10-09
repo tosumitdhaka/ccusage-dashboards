@@ -1,6 +1,6 @@
 {
   "name": "ccusage-dashboards",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Local-first customizable usage dashboards powered by the official ccusage CLI",
   "license": "MIT",
   "type": "module",
@@ -18,7 +18,7 @@
     "ccusage": "20.0.26"
   },
   "bin": {
-    "ccusage-dashboards": "./bin/ccusage-dashboards.mjs"
+    "ccusage-dashboards": "bin/ccusage-dashboards.mjs"
   },
   "files": [
     "bin/",

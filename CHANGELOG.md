@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.1 — Restore published npm executable (proposed)
+
+- Fix the npm `bin` path so publish-time manifest normalization retains `ccusage-dashboards`.
+- Add regression checks for npm dry-run publication and the generated executable shim in clean installations.
+- The initial v0.1.0 publication omitted the executable declaration; use v0.1.1 after release.
+
 ## v0.1.0 — Standalone dashboard migration (release candidate)
 
 - Independent project `tosumitdhaka/ccusage-dashboards`, without vendored upstream Rust/CLI source.

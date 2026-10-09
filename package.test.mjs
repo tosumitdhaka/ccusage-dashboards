@@ -10,7 +10,8 @@ const pkg = JSON.parse(await readFile(new URL("./package.json", import.meta.url)
 test("publishable npm package includes CLI, server and all browser assets", () => {
   assert.equal(pkg.private, undefined);
   assert.equal(pkg.name, "ccusage-dashboards");
-  assert.equal(pkg.bin["ccusage-dashboards"], "./bin/ccusage-dashboards.mjs");
+  assert.equal(pkg.version, "0.1.1");
+  assert.equal(pkg.bin["ccusage-dashboards"], "bin/ccusage-dashboards.mjs");
   for (const name of ["bin/", "public/", "server.mjs", "ccusage-adapter.mjs", "snapshots.mjs"]) {
     assert.ok(pkg.files.includes(name), "Missing package asset: " + name);
   }
