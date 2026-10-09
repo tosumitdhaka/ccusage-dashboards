@@ -56,7 +56,7 @@ bunx ccusage daily --sections daily,weekly,monthly,session --by-agent -j
 - Graph metric toggle between reported tokens, input, output, cache read/write and **estimated USD cost**.
 - **Session token and cost charts**, top-model bars and provider comparisons.
 - **Observed hourly deltas** stored locally and preserved across restarts. These are measured differences between reports, **not retroactive hourly event data**.
-- **Future customization foundation:** versioned dashboard configuration, widget registry and supported metric registry. A full drag/drop editor is planned, not yet shipped.
+- **v0.2 development:** Customize widget visibility, locally saved filters/view title, reset defaults, and validated JSON import/export. Drag/drop and resizing remain future work.
 - Native auto-refresh and conservative pricing warnings; no fabricated rates for `model_placeholder_*` IDs.
 
 ## Privacy and accuracy
@@ -105,3 +105,12 @@ file list on Windows and Ubuntu before publication.
 
 Maintainers: see [npm publishing checklist](docs/PUBLISHING.md).
 The app is **not available through npx/bunx until publication succeeds**.
+
+## v0.2 customization branch (not yet published)
+
+The `feat/customizable-dashboards-v0.2.0` branch adds browser-local customization.
+Open **Customize** to select panels, edit the view name, reset preferences or import/export a JSON preset.
+Selections and metric/provider/model/period filters are stored in your browser's localStorage for the dashboard origin.
+This data contains no agent sessions, private logs, pricing catalog, or API keys.
+A different port or browser has different preferences; import/export provides manual transfer.
+Until v0.2 ships, npm `@latest` continues to be v0.1.1.

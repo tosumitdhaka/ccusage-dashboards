@@ -24,7 +24,7 @@ test("schema v1 rejects unknown or malformed preferences before importing", () =
   assert.throws(() => validateDashboardConfig({ ...base, widgets: [] }), /widgets/);
   assert.throws(() => validateDashboardConfig({ ...base, filters: { metric: "totalCost", newFlag: true } }), /filter/);
   assert.throws(() => validateDashboardConfig({ ...base, filters: { period: "tomorrow" } }), /period/);
-  assert.throws(() => validateDashboardConfig({ ...base, filters: { provider: "\\n" } }), /provider/);
+  assert.throws(() => validateDashboardConfig({ ...base, filters: { provider: "" } }), /provider/);
   assert.throws(() => validateDashboardConfig({ ...base, title: "x".repeat(81) }), /title/);
   assert.throws(() => validateDashboardConfig({ ...base, exportSessionId: "sensitive" }), /field/);
 });

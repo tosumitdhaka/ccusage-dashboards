@@ -1,5 +1,9 @@
 import { buildView } from "./normalize.mjs";
-import { METRIC_NAMES, DEFAULT_DASHBOARD, validateDashboardConfig } from "./widget-registry.mjs";
+import { METRIC_NAMES, DEFAULT_DASHBOARD, WIDGET_REGISTRY, validateDashboardConfig } from "./widget-registry.mjs";
+import {
+  MAX_DASHBOARD_JSON_LENGTH, readDashboardConfig, saveDashboardConfig,
+  resetDashboardConfig, parseDashboardJSON, stringifyDashboardConfig
+} from "./dashboard-config.mjs";
 import { buildChart, buildObservedHourly, buildSessions, chartCatalog } from "./analytics.mjs";
 
 const $ = (id) => document.getElementById(id);
@@ -8,8 +12,54 @@ const state = { report: null, hourly: [], section: "daily", agent: "all", model:
 const compact = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 2 });
 const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 });
 const COLORS = ["#53d6be", "#7ea7ff", "#f3bd72", "#bb94f3", "#ed879e", "#9bd0a0"];
-// Validate declarative dashboard metadata before rendering the first view.
-validateDashboardConfig(DEFAULT_DASHBOARD);
+// Customization holds only presentation settings in browser-local storage.
+let dashboardConfig = validateDashboardConfig(DEFAULT_DASHBOARD);
+let storageWarning = "";
+try { dashboardConfig = readDashboardConfig(window.localStorage); }
+catch { storageWarning = "Saved dashboard preferences are unavailable; defaults are in use."; }
+function applyFilterState(filters) {
+  state.section = filters.period;
+  state.agent = filters.provider;
+  state.model = filters.model;
+  state.metric = filters.metric;
+  state.breakdown = filters.breakdown;
+  state.sessionMetric = filters.sessionMetric;
+  $("metric").value = state.metric;
+  $("breakdown").value = state.breakdown;
+  $("session-metric").value = state.sessionMetric;
+}
+function configWithCurrentFilters(config = dashboardConfig) {
+  return validateDashboardConfig({ ...config, filters: {
+    period: state.section, provider: state.agent, model: state.model,
+    metric: state.metric, breakdown: state.breakdown, sessionMetric: state.sessionMetric
+  } });
+}
+function showWidgetSelection() {
+  const enabled = new Set(dashboardConfig.widgets);
+  document.querySelectorAll("[data-widget]").forEach((node) => {
+    node.hidden = !enabled.has(node.dataset.widget);
+  });
+  document.querySelectorAll("[data-widget-group]").forEach((group) => {
+    group.hidden = [...group.querySelectorAll("[data-widget]")].every((node) => node.hidden);
+  });
+  $("view-name").textContent = dashboardConfig.title;
+}
+function persistDashboardConfig(config) {
+  dashboardConfig = validateDashboardConfig(config);
+  storageWarning = "";
+  try { saveDashboardConfig(window.localStorage, dashboardConfig); }
+  catch { storageWarning = "Could not save to browser storage. This layout works until the page reloads."; }
+  showWidgetSelection();
+}
+function persistFilters() { persistDashboardConfig(configWithCurrentFilters()); }
+function replaceDashboardConfig(config, persist = true) {
+  if (persist) persistDashboardConfig(config);
+  else { dashboardConfig = validateDashboardConfig(config); showWidgetSelection(); }
+  applyFilterState(dashboardConfig.filters);
+  if (state.report) { updateSelectors(); render(); }
+}
+applyFilterState(dashboardConfig.filters);
+showWidgetSelection();
 const fmt = (n, metric = "totalTokens") => metric === "totalCost" ? money.format(n ?? 0) : compact.format(n ?? 0);
 function el(tag, cls = "", text) {
   const node = document.createElement(tag);
@@ -23,8 +73,8 @@ function svgEl(tag, attrs = {}) {
   return node;
 }
 function empty(target, msg) { target.replaceChildren(el("p", "empty", msg)); }
-function choices(select, names, allLabel) {
-  const selected = select.value;
+function choices(select, names, allLabel, desired = select.value) {
+  const selected = desired;
   select.replaceChildren();
   for (const name of ["all", ...names]) {
     const option = el("option", "", name === "all" ? allLabel : name);
@@ -167,11 +217,15 @@ function drawSessionTable(rows) {
 }
 function updateSelectors() {
   const catalog = chartCatalog(state.report);
-  state.agent = choices($("agent"), catalog.agents, "All providers");
-  state.model = choices($("model"), availableModels(state.report, state.agent), "All models");
+  state.agent = choices($("agent"), catalog.agents, "All providers", state.agent);
+  state.model = choices($("model"), availableModels(state.report, state.agent), "All models", state.model);
 }
 function render() {
   if (!state.report) return;
+  showWidgetSelection();
+  $("metric").value = state.metric;
+  $("breakdown").value = state.breakdown;
+  $("session-metric").value = state.sessionMetric;
   const period = state.section === "hourly" ? "daily" : state.section;
   const view = buildView(state.report, { section: period, agent: state.agent });
   const current = { period, agent: state.agent, model: state.model };
@@ -249,13 +303,82 @@ async function load() {
   } finally { button.disabled = false; button.textContent = "↻  Refresh data"; }
 }
 document.querySelectorAll(".period").forEach((button) => button.addEventListener("click", () => {
-  state.section = button.dataset.period; render();
+  state.section = button.dataset.period; persistFilters(); render();
 }));
-$("agent").addEventListener("change", () => { state.agent = $("agent").value; updateSelectors(); render(); });
-$("model").addEventListener("change", () => { state.model = $("model").value; render(); });
-$("metric").addEventListener("change", () => { state.metric = $("metric").value; render(); });
-$("breakdown").addEventListener("change", () => { state.breakdown = $("breakdown").value; render(); });
-$("session-metric").addEventListener("change", () => { state.sessionMetric = $("session-metric").value; render(); });
+$("agent").addEventListener("change", () => { state.agent = $("agent").value; updateSelectors(); persistFilters(); render(); });
+$("model").addEventListener("change", () => { state.model = $("model").value; persistFilters(); render(); });
+$("metric").addEventListener("change", () => { state.metric = $("metric").value; persistFilters(); render(); });
+$("breakdown").addEventListener("change", () => { state.breakdown = $("breakdown").value; persistFilters(); render(); });
+$("session-metric").addEventListener("change", () => { state.sessionMetric = $("session-metric").value; persistFilters(); render(); });
+
+function populateCustomizeDialog() {
+  $("dashboard-title").value = dashboardConfig.title;
+  $("config-status").textContent = storageWarning;
+  const group = $("widget-options");
+  group.replaceChildren();
+  for (const [key, widget] of Object.entries(WIDGET_REGISTRY)) {
+    const label = el("label", "widget-option");
+    const input = el("input");
+    input.type = "checkbox"; input.value = key;
+    input.checked = dashboardConfig.widgets.includes(key);
+    label.append(input, document.createTextNode(widget.title));
+    group.append(label);
+  }
+}
+$("customize").addEventListener("click", () => {
+  populateCustomizeDialog();
+  $("customize-dialog").showModal();
+});
+$("customize-cancel").addEventListener("click", () => $("customize-dialog").close());
+$("customize-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  try {
+    const widgets = [...$("widget-options").querySelectorAll("input:checked")].map((input) => input.value);
+    const title = $("dashboard-title").value.trim();
+    persistDashboardConfig(configWithCurrentFilters({ ...dashboardConfig, title, widgets }));
+    $("customize-dialog").close();
+    if (state.report) render();
+  } catch (error) {
+    $("config-status").textContent = error instanceof Error ? error.message : "Invalid dashboard preferences.";
+  }
+});
+$("config-reset").addEventListener("click", () => {
+  try {
+    const defaults = resetDashboardConfig(window.localStorage);
+    replaceDashboardConfig(defaults, false);
+    storageWarning = "";
+    populateCustomizeDialog();
+  } catch (error) {
+    $("config-status").textContent = error instanceof Error ? error.message : "Unable to reset preferences.";
+  }
+});
+$("config-export").addEventListener("click", () => {
+  try {
+    const json = stringifyDashboardConfig(configWithCurrentFilters());
+    const blob = new Blob([json], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const anchor = el("a");
+    anchor.href = url; anchor.download = "ccusage-dashboard-view.json";
+    document.body.append(anchor); anchor.click(); anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    $("config-status").textContent = "Exported view settings only; no usage reports or credentials.";
+  } catch (error) { $("config-status").textContent = error.message; }
+});
+$("config-import").addEventListener("change", async (event) => {
+  const file = event.target.files?.[0];
+  event.target.value = "";
+  if (!file) return;
+  try {
+    if (file.size > MAX_DASHBOARD_JSON_LENGTH) throw new Error("Dashboard JSON exceeds 16 KiB.");
+    const imported = parseDashboardJSON(await file.text());
+    replaceDashboardConfig(imported);
+    populateCustomizeDialog();
+    $("config-status").textContent = storageWarning || "View imported. Filters and visible widgets updated.";
+  } catch (error) {
+    $("config-status").textContent = error instanceof Error ? error.message : "Unable to import dashboard JSON.";
+  }
+});
+
 $("refresh").addEventListener("click", load);
 // A viewport resize changes both SVG dimensions and label spacing. Recompute
 // the plot when the browser resizes rather than stretching the old coordinates.
