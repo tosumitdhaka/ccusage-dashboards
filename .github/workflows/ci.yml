@@ -31,6 +31,14 @@ jobs:
         run: |
           npm pack --dry-run --json > package-preview.json
           node scripts/assert-package.mjs package-preview.json
+      - name: Verify dry-run npm publishing keeps the CLI executable
+        shell: bash
+        run: |
+          npm publish --dry-run --access public > publish-preview.log 2>&1 || { cat publish-preview.log; exit 1; }
+          if grep -Fi 'invalid and removed' publish-preview.log; then
+            cat publish-preview.log
+            exit 1
+          fi
       - name: Verify published CLI help/version commands
         shell: bash
         run: |
@@ -40,7 +48,7 @@ jobs:
         shell: bash
         run: |
           npm pack --silent
-          npm install --prefix .package-smoke --no-audit --no-fund ./ccusage-dashboards-0.1.0.tgz
+          npm install --prefix .package-smoke --no-audit --no-fund ./ccusage-dashboards-0.1.1.tgz
           node .package-smoke/node_modules/ccusage-dashboards/bin/ccusage-dashboards.mjs --version
           node scripts/smoke-installed.mjs
       - name: Official CLI JSON smoke test (offline, no user logs)
