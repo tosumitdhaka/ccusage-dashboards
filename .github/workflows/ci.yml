@@ -35,7 +35,7 @@ jobs:
         shell: bash
         run: |
           npm publish --dry-run --access public > publish-preview.log 2>&1 || { cat publish-preview.log; exit 1; }
-          if grep -Ei 'bin\\[ccusage-dashboards\\].*invalid and removed' publish-preview.log; then
+          if grep -Fi 'invalid and removed' publish-preview.log; then
             cat publish-preview.log
             exit 1
           fi
