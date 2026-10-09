@@ -17,3 +17,14 @@ test("new dashboard definitions validate future customization boundaries", () =>
   assert.throws(()=>validateDashboardConfig({schemaVersion:1,id:"bad",widgets:["script"]}),/widget/);
   assert.throws(()=>validateDashboardConfig({schemaVersion:1,id:"duplicate",widgets:["trend","trend"]}),/Duplicate/);
 });
+
+test("schema v1 rejects unknown or malformed preferences before importing", () => {
+  const base = structuredClone(DEFAULT_DASHBOARD);
+  assert.throws(() => validateDashboardConfig({ ...base, widgets: ["constructor"] }), /widget/);
+  assert.throws(() => validateDashboardConfig({ ...base, widgets: [] }), /widgets/);
+  assert.throws(() => validateDashboardConfig({ ...base, filters: { metric: "totalCost", newFlag: true } }), /filter/);
+  assert.throws(() => validateDashboardConfig({ ...base, filters: { period: "tomorrow" } }), /period/);
+  assert.throws(() => validateDashboardConfig({ ...base, filters: { provider: "\\n" } }), /provider/);
+  assert.throws(() => validateDashboardConfig({ ...base, title: "x".repeat(81) }), /title/);
+  assert.throws(() => validateDashboardConfig({ ...base, exportSessionId: "sensitive" }), /field/);
+});
