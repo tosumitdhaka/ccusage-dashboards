@@ -12,7 +12,9 @@ The previous implementation lived in the `apps/dashboard/` folder of `tosumitdha
 
 ## Migrate existing Windows installation
 
-Stop the old dashboard (Ctrl+C), then:
+Stop the old dashboard (Ctrl+C). After npm publication, launch without a checkout using `npx ccusage-dashboards@latest` or `bunx ccusage-dashboards@latest`.
+
+Until then, install from the new feature branch as follows:
 
 ```powershell
 git clone https://github.com/tosumitdhaka/ccusage-dashboards.git

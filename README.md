@@ -4,33 +4,50 @@
 
 Monitor Claude Code, Codex, Antigravity and other supported sources using interactive, local-only token and cost visualizations. This project is **independent of upstream ccusage**: no Rust source, no fork release workflow, no private API integration.
 
-## Quick start
+## Install without cloning GitHub
 
-Requires **Node.js 20+ with npm**, or Bun with its package installer.
+Once this package is **published to npm**, simply run:
 
 ```powershell
-git clone https://github.com/tosumitdhaka/ccusage-dashboards.git
+npx ccusage-dashboards@latest
+```
+
+Or with Bun:
+
+```powershell
+bunx ccusage-dashboards@latest
+```
+
+Both commands automatically install the dashboard and its official `ccusage` CLI dependency from npm into the package-manager cache, then launch the local web app. Open **http://127.0.0.1:4177**. Use `Ctrl+C` to stop.
+
+**Important:** The npm package is a release candidate, **not yet published**. These `npx`/`bunx` commands will work only after the maintainer publishes `ccusage-dashboards` to npm. The public GitHub repository and PR alone do not create a registry package. Node.js 20+ must currently be installed even when starting through Bun, because the executable uses a Node shebang.
+
+For a persistent command after publication:
+
+```powershell
+npm install --global ccusage-dashboards
+ccusage-dashboards
+ccusage-dashboards --port 4178
+```
+
+## Developer checkout (works before npm publication)
+
+Requires Node.js 20+ with npm (Bun may manage dependencies as an alternative).
+
+```powershell
+git clone -b feat/standalone-dashboard-migration https://github.com/tosumitdhaka/ccusage-dashboards.git
 cd ccusage-dashboards
-npm install
+npm ci
 npm run dashboard
 ```
 
-Open **http://127.0.0.1:4177**. Press `Ctrl+C` to stop. The command launches the dashboard and invokes ccusage automatically; **do not separately install or run ccusage**.
+Or: `bun install` followed by `bun run dashboard`. No separate ccusage installation is necessary.
 
-Bun is supported as a package manager and launcher:
-
-```powershell
-bun install
-bun run dashboard
-```
-
-You can test ccusage directly with `bunx ccusage -j`, or request the full unified report used by this app:
+The dashboard calls the official ccusage CLI using its stable command-line JSON output, not an undocumented JS API. You can independently inspect that JSON with:
 
 ```powershell
 bunx ccusage daily --sections daily,weekly,monthly,session --by-agent -j
 ```
-
-The installed `ccusage` version is pinned in `package.json` and managed as a normal application dependency. We invoke its public CLI as a subprocess; **ccusage does not currently expose a stable JavaScript report API**.
 
 ## Dashboard features
 
@@ -75,6 +92,16 @@ The source UI is dependency-light vanilla JS/SVG to preserve the existing dashbo
 
 ## Project status
 
-**v0.1.0 release candidate**, pending PR review, CI and merge. Earlier dashboard development remains on [the original fork PR](https://github.com/tosumitdhaka/ccusage-web/pull/1) as historical source; releases will come from this standalone repository.
+**v0.1.0 npm packaging release candidate**, pending PR review, CI, npm registry publication and merge. Earlier dashboard development remains on [the original fork PR](https://github.com/tosumitdhaka/ccusage-web/pull/1) as historical source; releases will come from this standalone repository.
 
 The official ccusage project is separately maintained and MIT licensed. This repository depends on its published package rather than vendoring its native code.
+
+## Publishing
+
+The npm distribution is assembled using the `bin` field in `package.json`.
+The actual CLI executable is `bin/ccusage-dashboards.mjs`, and the npm
+package contains all browser assets under `public/`. CI checks the tarball
+file list on Windows and Ubuntu before publication.
+
+Maintainers: see [npm publishing checklist](docs/PUBLISHING.md).
+The app is **not available through npx/bunx until publication succeeds**.

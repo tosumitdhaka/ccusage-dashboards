@@ -1,7 +1,6 @@
 {
   "name": "ccusage-dashboards",
   "version": "0.1.0",
-  "private": true,
   "description": "Local-first customizable usage dashboards powered by the official ccusage CLI",
   "type": "module",
   "engines": {
@@ -11,9 +10,44 @@
     "dashboard": "node server.mjs",
     "start": "node server.mjs",
     "test": "node --test *.test.mjs",
-    "check": "node --check server.mjs && node --check ccusage-adapter.mjs && node --check public/dashboard.js"
+    "check": "node --check server.mjs && node --check ccusage-adapter.mjs && node --check public/dashboard.js && node --check bin/ccusage-dashboards.mjs",
+    "packcheck": "npm pack --dry-run --json"
   },
   "dependencies": {
     "ccusage": "20.0.26"
+  },
+  "bin": {
+    "ccusage-dashboards": "./bin/ccusage-dashboards.mjs"
+  },
+  "files": [
+    "bin/",
+    "public/",
+    "server.mjs",
+    "ccusage-adapter.mjs",
+    "snapshots.mjs",
+    "README.md",
+    "CHANGELOG.md",
+    "docs/"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tosumitdhaka/ccusage-dashboards.git"
+  },
+  "homepage": "https://github.com/tosumitdhaka/ccusage-dashboards#readme",
+  "bugs": {
+    "url": "https://github.com/tosumitdhaka/ccusage-dashboards/issues"
+  },
+  "keywords": [
+    "ccusage",
+    "codex",
+    "claude-code",
+    "antigravity",
+    "usage",
+    "dashboard",
+    "tokens",
+    "analytics"
+  ],
+  "publishConfig": {
+    "access": "public"
   }
 }

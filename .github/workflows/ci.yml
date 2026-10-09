@@ -26,6 +26,16 @@ jobs:
         run: npm run check
       - name: Dashboard unit and HTTP tests
         run: npm test
+      - name: Verify npm package contents
+        shell: bash
+        run: |
+          npm pack --dry-run --json > package-preview.json
+          node scripts/assert-package.mjs package-preview.json
+      - name: Verify published CLI help/version commands
+        shell: bash
+        run: |
+          node bin/ccusage-dashboards.mjs --version
+          node bin/ccusage-dashboards.mjs --help
       - name: Official CLI JSON smoke test (offline, no user logs)
         shell: bash
         run: |
