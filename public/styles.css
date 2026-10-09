@@ -160,3 +160,8 @@
 .save-button{border:1px solid #387868;background:#1b554c;color:#e6fff8;margin-left:auto}
 button:focus-visible,input:focus-visible,.import-button:focus-within{outline:2px solid #53d5bd;outline-offset:2px}
 @media(max-width:550px){.widget-options{grid-template-columns:1fr}.customize-dialog{padding:20px}.save-button{margin-left:0}}
+
+/* Keep remaining panels full-width and controls usable at mobile widths. */
+.panel-grid:has(> [data-widget][hidden]){grid-template-columns:minmax(0,1fr)}
+.breadcrumb strong{display:inline-block;max-width:min(30vw,300px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}
+@media(max-width:740px){.topbar{height:auto;min-height:73px;flex-wrap:wrap;padding-block:12px}.top-actions{width:100%;justify-content:flex-end}}
