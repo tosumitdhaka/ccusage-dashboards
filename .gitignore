@@ -1,0 +1,13 @@
+node_modules/
+.env
+.env.*
+!.env.example
+coverage/
+*.log
+.DS_Store
+.ccusage-dashboard/
+
+# Local npm-pack verification
+.package-smoke/
+package-preview.json
+ccusage-dashboards-*.tgz

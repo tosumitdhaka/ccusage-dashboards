@@ -1,0 +1,49 @@
+name: Dashboard CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install official ccusage dependency
+        run: npm ci --no-audit --no-fund
+      - name: Syntax checks
+        run: npm run check
+      - name: Dashboard unit and HTTP tests
+        run: npm test
+      - name: Verify npm package contents
+        shell: bash
+        run: |
+          npm pack --dry-run --json > package-preview.json
+          node scripts/assert-package.mjs package-preview.json
+      - name: Verify published CLI help/version commands
+        shell: bash
+        run: |
+          node bin/ccusage-dashboards.mjs --version
+          node bin/ccusage-dashboards.mjs --help
+      - name: Install published tarball into a clean temporary project
+        shell: bash
+        run: |
+          npm pack --silent
+          npm install --prefix .package-smoke --no-audit --no-fund ./ccusage-dashboards-0.1.0.tgz
+          node .package-smoke/node_modules/ccusage-dashboards/bin/ccusage-dashboards.mjs --version
+          node scripts/smoke-installed.mjs
+      - name: Official CLI JSON smoke test (offline, no user logs)
+        shell: bash
+        run: |
+          node --input-type=module -e 'import {collectUsage,reportArgs} from "./ccusage-adapter.mjs"; const d=await collectUsage({args:reportArgs({offline:true})}); if(!Array.isArray(d.daily))throw Error("Not a unified report"); console.log("Official ccusage JSON:",d.daily.length,"daily rows");'
