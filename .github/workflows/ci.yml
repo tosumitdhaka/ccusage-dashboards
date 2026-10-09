@@ -1,0 +1,32 @@
+name: Dashboard CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install official ccusage dependency
+        run: npm install --no-audit --no-fund
+      - name: Syntax checks
+        run: npm run check
+      - name: Dashboard unit and HTTP tests
+        run: npm test
+      - name: Official CLI JSON smoke test (offline, no user logs)
+        shell: bash
+        run: |
+          node --input-type=module -e 'import {collectUsage,reportArgs} from "./ccusage-adapter.mjs"; const d=await collectUsage({args:reportArgs({offline:true})}); if(!Array.isArray(d.daily))throw Error("Not a unified report"); console.log("Official ccusage JSON:",d.daily.length,"daily rows");'

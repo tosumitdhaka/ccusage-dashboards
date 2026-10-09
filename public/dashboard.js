@@ -1,4 +1,5 @@
 import { buildView } from "./normalize.mjs";
+import { METRIC_NAMES, DEFAULT_DASHBOARD, validateDashboardConfig } from "./widget-registry.mjs";
 import { buildChart, buildObservedHourly, buildSessions, chartCatalog } from "./analytics.mjs";
 
 const $ = (id) => document.getElementById(id);
@@ -7,10 +8,8 @@ const state = { report: null, hourly: [], section: "daily", agent: "all", model:
 const compact = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 2 });
 const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 });
 const COLORS = ["#53d6be", "#7ea7ff", "#f3bd72", "#bb94f3", "#ed879e", "#9bd0a0"];
-const METRIC_NAMES = {
-  totalTokens: "Reported tokens", inputTokens: "Input tokens", outputTokens: "Output tokens",
-  cacheReadTokens: "Cache reads", cacheCreationTokens: "Cache writes", totalCost: "Estimated API cost"
-};
+// Validate declarative dashboard metadata before rendering the first view.
+validateDashboardConfig(DEFAULT_DASHBOARD);
 const fmt = (n, metric = "totalTokens") => metric === "totalCost" ? money.format(n ?? 0) : compact.format(n ?? 0);
 function el(tag, cls = "", text) {
   const node = document.createElement(tag);
