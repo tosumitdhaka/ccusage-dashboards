@@ -21,10 +21,7 @@ jobs:
         with:
           node-version: '22'
       - name: Install official ccusage dependency
-        run: npm install --no-audit --no-fund
-      - name: Emit dependency lock for first standalone release
-        if: matrix.os == 'ubuntu-latest'
-        run: node -e 'console.log("DASHBOARD_LOCK_B64=" + require("node:fs").readFileSync("package-lock.json").toString("base64"))'
+        run: npm ci --no-audit --no-fund
       - name: Syntax checks
         run: npm run check
       - name: Dashboard unit and HTTP tests
