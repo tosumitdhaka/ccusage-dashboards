@@ -39,17 +39,20 @@ test("graph settings live in right-hand headers and stay keyboard accessible", a
     ["models", ["model-metric", "model-limit"]],
     ["sessions", ["session-metric"]]
   ];
+  const opening = '<details class="chart-adjust" name="graph-adjust">';
   for (const [name, ids] of checks) {
     const start = html.indexOf('id="' + name + '"');
     assert.ok(start >= 0, "Missing graph section " + name);
     const rest = html.slice(start);
-    const match = rest.match(/<details class="chart-adjust" name="graph-adjust">([\\s\\S]*?)<\\/details>/);
-    assert.ok(match, "Missing right-header adjuster in " + name);
-    assert.match(match[1], /<summary class="chart-adjust-trigger" aria-label="Adjust /);
-    for (const id of ids) assert.ok(match[1].includes('id="' + id + '"'), name + " missing " + id + " in settings");
+    const from = rest.indexOf(opening);
+    const until = rest.indexOf("</details>", from);
+    assert.ok(from >= 0 && until > from, "Missing graph-header adjuster in " + name);
+    const settings = rest.slice(from, until);
+    assert.ok(settings.includes('<summary class="chart-adjust-trigger" aria-label="Adjust '), "Missing accessible adjust control in " + name);
+    for (const id of ids) assert.ok(settings.includes('id="' + id + '"'), name + " missing " + id + " in settings");
   }
-  assert.equal((html.match(/<details class="chart-adjust" name="graph-adjust">/g) ?? []).length, 4);
+  assert.equal(html.split(opening).length - 1, 4);
   const css = await readFile(new URL("./public/styles.css", import.meta.url), "utf8");
-  assert.match(css, /\\.chart-adjust-panel\\{position:absolute;right:0/);
-  assert.match(css, /\\.chart-adjust-trigger:focus-visible/);
+  assert.ok(css.includes(".chart-adjust-panel{position:absolute;right:0"));
+  assert.ok(css.includes(".chart-adjust-trigger:focus-visible"));
 });
