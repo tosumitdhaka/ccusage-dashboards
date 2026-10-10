@@ -30,3 +30,26 @@ test("independent graph controls, warnings and sidebar navigation are wired", as
   assert.match(js, /updateActiveNavigation/);
   assert.match(js, /updateGraphSettings/);
 });
+
+test("graph settings live in right-hand headers and stay keyboard accessible", async () => {
+  const html = await readFile(new URL("./public/index.html", import.meta.url), "utf8");
+  const checks = [
+    ["trend", ["metric", "breakdown", "trend-series-limit", "trend-show-labels"]],
+    ["providers", ["provider-metric", "provider-limit"]],
+    ["models", ["model-metric", "model-limit"]],
+    ["sessions", ["session-metric"]]
+  ];
+  for (const [name, ids] of checks) {
+    const start = html.indexOf('id="' + name + '"');
+    assert.ok(start >= 0, "Missing graph section " + name);
+    const rest = html.slice(start);
+    const match = rest.match(/<details class="chart-adjust" name="graph-adjust">([\\s\\S]*?)<\\/details>/);
+    assert.ok(match, "Missing right-header adjuster in " + name);
+    assert.match(match[1], /<summary class="chart-adjust-trigger" aria-label="Adjust /);
+    for (const id of ids) assert.ok(match[1].includes('id="' + id + '"'), name + " missing " + id + " in settings");
+  }
+  assert.equal((html.match(/<details class="chart-adjust" name="graph-adjust">/g) ?? []).length, 4);
+  const css = await readFile(new URL("./public/styles.css", import.meta.url), "utf8");
+  assert.match(css, /\\.chart-adjust-panel\\{position:absolute;right:0/);
+  assert.match(css, /\\.chart-adjust-trigger:focus-visible/);
+});

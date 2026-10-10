@@ -59,3 +59,12 @@ Model-level totalTokens can be a sum of available categories rather than the aut
 - Dimension colors are deterministic: a provider such as `codex` has the same color across provider bars, sessions and trend lines, regardless of token/cost metric.
 - Chart options are independent: trend metric and breakdown, trend series limit and visible values; provider bars metric and count; model bars metric and count; session graph metric.
 - Graph preferences are included in the validated dashboard JSON and local browser storage. Older v0.2 JSON (without widgetSettings) loads with defaults.
+
+## Graph header adjustments (v0.2)
+
+Each graph has an **⚙ Adjust** control in its header, aligned to the right.
+Use it to open the graph's own settings: trend graph metric, line split, series limit
+and visible point values; provider/model bar metrics and visible counts; session bar
+metric. Settings apply immediately and persist in the browser's active view.
+The controls use native expandable buttons for keyboard accessibility and remain
+available on narrow screens. They are independent of the global **Customize** dialog.
