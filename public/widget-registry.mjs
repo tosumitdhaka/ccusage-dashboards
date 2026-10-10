@@ -25,9 +25,44 @@ export const DEFAULT_DASHBOARD = Object.freeze({
   filters: {
     period: "daily", provider: "all", model: "all",
     metric: "totalTokens", breakdown: "total", sessionMetric: "totalTokens"
+  },
+  widgetSettings: {
+    trend: { showLabels: false, maxSeries: 6 },
+    providers: { metric: "totalTokens", limit: 12 },
+    models: { metric: "totalTokens", limit: 12 }
   }
 });
-const FIELDS = new Set(["schemaVersion", "id", "title", "widgets", "filters"]);
+const FIELDS = new Set(["schemaVersion", "id", "title", "widgets", "filters", "widgetSettings"]);
+const GRAPH_FIELDS = Object.freeze({
+  trend: new Set(["showLabels", "maxSeries"]),
+  providers: new Set(["metric", "limit"]),
+  models: new Set(["metric", "limit"])
+});
+function validateWidgetSettings(settings) {
+  if (settings !== undefined && !isRecord(settings)) throw new Error("Invalid widget settings.");
+  if (Object.keys(settings ?? {}).some((key) => !Object.hasOwn(GRAPH_FIELDS, key))) {
+    throw new Error("Unknown graph setting group.");
+  }
+  const defaults = DEFAULT_DASHBOARD.widgetSettings;
+  const resolved = {};
+  for (const name of Object.keys(GRAPH_FIELDS)) {
+    const value = settings?.[name];
+    if (value !== undefined && !isRecord(value)) throw new Error("Invalid graph setting.");
+    if (Object.keys(value ?? {}).some((key) => !GRAPH_FIELDS[name].has(key))) {
+      throw new Error("Unknown graph setting.");
+    }
+    const options = { ...defaults[name], ...(value ?? {}) };
+    if (name === "trend") {
+      if (typeof options.showLabels !== "boolean") throw new Error("Invalid value labels setting.");
+      if (![3, 6, 12].includes(options.maxSeries)) throw new Error("Invalid trend series limit.");
+    } else {
+      if (!Object.hasOwn(METRIC_NAMES, options.metric)) throw new Error("Invalid graph metric.");
+      if (![5, 10, 12].includes(options.limit)) throw new Error("Invalid graph bar limit.");
+    }
+    resolved[name] = options;
+  }
+  return resolved;
+}
 const FILTERS = new Set(["period", "provider", "model", "metric", "breakdown", "sessionMetric"]);
 const isRecord = (x) => x !== null && typeof x === "object" && !Array.isArray(x);
 function sourceName(name, value) {
@@ -62,6 +97,6 @@ export function validateDashboardConfig(config) {
   sourceName("model", filters.model);
   return {
     schemaVersion: SCHEMA_VERSION, id: config.id, title,
-    widgets: [...config.widgets], filters
+    widgets: [...config.widgets], filters, widgetSettings: validateWidgetSettings(config.widgetSettings)
   };
 }

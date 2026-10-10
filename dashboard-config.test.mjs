@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { DEFAULT_DASHBOARD } from "./public/widget-registry.mjs";
+import { DEFAULT_DASHBOARD, validateDashboardConfig } from "./public/widget-registry.mjs";
 import {
   DASHBOARD_STORAGE_KEY, parseDashboardJSON, readDashboardConfig,
   saveDashboardConfig, resetDashboardConfig, stringifyDashboardConfig
@@ -28,7 +28,7 @@ test("widget visibility and filters persist without agent usage data", () => {
   assert.equal(saved.filters.period, "hourly");
   assert.ok(!local.peek().includes("sessionId"));
   assert.deepEqual(resetDashboardConfig(local), readDashboardConfig(local));
-  assert.deepEqual(readDashboardConfig(local), { ...DEFAULT_DASHBOARD, widgets: [...DEFAULT_DASHBOARD.widgets], filters: { ...DEFAULT_DASHBOARD.filters } });
+  assert.deepEqual(readDashboardConfig(local), validateDashboardConfig(DEFAULT_DASHBOARD));
 });
 test("JSON import/export validates schema, controls and size", () => {
   const exported = stringifyDashboardConfig(DEFAULT_DASHBOARD);
