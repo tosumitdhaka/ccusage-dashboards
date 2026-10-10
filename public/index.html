@@ -73,6 +73,8 @@
                   <option value="provider">Provider</option>
                   <option value="model">Model</option>
                 </select></label>
+                <label for="trend-series-limit">Series <select id="trend-series-limit"><option value="3">Top 3</option><option value="6">Top 6</option><option value="12">Top 12</option></select></label>
+                <label class="chart-checkbox" for="trend-show-labels"><input id="trend-show-labels" type="checkbox"> Show values</label>
               </div>
               <span class="chart-chip" id="trend-period">DAILY</span>
             </div>
@@ -82,8 +84,10 @@
           <p class="footnote" id="trend-note"></p>
         </section>
         <div class="panel-grid" data-widget-group>
-          <section class="panel" data-widget="providers" id="providers"><div class="section-header"><div><div class="section-kicker">02 / SOURCE MIX</div><h2>Provider distribution</h2><p>Share of reported tokens</p></div></div><div id="provider-bars" class="bars"></div></section>
-          <section class="panel" data-widget="models" id="models"><div class="section-header"><div><div class="section-kicker">03 / MODEL MIX</div><h2>Most-used models</h2><p id="model-summary">Ranked by generated output tokens</p></div></div><div id="model-bars" class="bars"></div></section>
+          <section class="panel" data-widget="providers" id="providers"><div class="section-header"><div><div class="section-kicker">02 / SOURCE MIX</div><h2>Provider distribution</h2><p id="provider-summary">Ranked by reported tokens</p></div></div>
+            <div class="bar-controls"><label for="provider-metric">Metric <select id="provider-metric"><option value="totalTokens">Reported tokens</option><option value="inputTokens">Input tokens</option><option value="outputTokens">Output tokens</option><option value="cacheReadTokens">Cache reads</option><option value="cacheCreationTokens">Cache writes</option><option value="totalCost">Estimated API cost ($)</option></select></label><label for="provider-limit">Bars <select id="provider-limit"><option value="5">Top 5</option><option value="10">Top 10</option><option value="12">Top 12</option></select></label></div><div id="provider-bars" class="bars"></div></section>
+          <section class="panel" data-widget="models" id="models"><div class="section-header"><div><div class="section-kicker">03 / MODEL MIX</div><h2>Most-used models</h2><p id="model-summary">Ranked by reported tokens</p></div></div>
+            <div class="bar-controls"><label for="model-metric">Metric <select id="model-metric"><option value="totalTokens">Reported tokens</option><option value="inputTokens">Input tokens</option><option value="outputTokens">Output tokens</option><option value="cacheReadTokens">Cache reads</option><option value="cacheCreationTokens">Cache writes</option><option value="totalCost">Estimated API cost ($)</option></select></label><label for="model-limit">Bars <select id="model-limit"><option value="5">Top 5</option><option value="10">Top 10</option><option value="12">Top 12</option></select></label></div><div id="model-bars" class="bars"></div></section>
         </div>
         <div class="panel-grid secondary-grid" data-widget-group>
           <section class="panel" data-widget="cache"><div class="section-header"><div><div class="section-kicker">TOKEN BREAKDOWN</div><h2>Input and cache</h2><p>Raw categories from the report</p></div></div><div class="token-grid"><div><span>Input</span><strong id="break-input">—</strong></div><div><span>Output</span><strong id="break-output">—</strong></div><div><span>Cache reads</span><strong id="break-cache">—</strong></div><div><span>Cache writes</span><strong id="break-write">—</strong></div></div><p class="footnote">Provider token accounting can overlap categories. These figures are not forcibly added to the reported total.</p></section>

@@ -165,3 +165,19 @@ button:focus-visible,input:focus-visible,.import-button:focus-within{outline:2px
 .panel-grid:has(> [data-widget][hidden]){grid-template-columns:minmax(0,1fr)}
 .breadcrumb strong{display:inline-block;max-width:min(30vw,300px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}
 @media(max-width:740px){.topbar{height:auto;min-height:73px;flex-wrap:wrap;padding-block:12px}.top-actions{width:100%;justify-content:flex-end}}
+
+/* Sidebar stays navigable while the active section follows page scrolling. */
+.sidebar{overflow-y:auto;scrollbar-width:thin}
+.sidebar .nav-link[aria-current="location"]{background:#162832;color:#e6fff8}
+.notice.warning{display:flex;align-items:center;justify-content:space-between;gap:18px}
+.notice-dismiss{flex-shrink:0;padding:7px 11px;border:1px solid #8e764b;background:#392d1c;color:#f7d59f;border-radius:7px;font-size:12px;font-weight:750}
+.notice-dismiss:hover{background:#4a3821}
+.bar-controls{display:flex;align-items:center;flex-wrap:wrap;gap:8px 14px;margin-top:18px}
+.bar-controls label{display:flex;align-items:center;gap:8px;color:#91a5bb;font-size:11px}
+.bar-controls select{background:#182638;color:#dbe9f5;border:1px solid #35465d;border-radius:8px;padding:8px 26px 8px 10px;font-size:11px;max-width:190px}
+.chart-checkbox{display:flex;align-items:center!important;gap:8px!important;cursor:pointer}
+.chart-checkbox input{accent-color:#53d5bd;width:16px;height:16px}
+.legend-toggle{border:1px solid transparent;border-radius:7px;background:transparent;padding:5px 7px;font:inherit;cursor:pointer;text-align:left}
+.legend-toggle:hover,.legend-toggle:focus-visible{border-color:#3b596b;background:#18283a}
+.legend-toggle.muted{opacity:.43;text-decoration:line-through}
+@media(max-width:740px){.notice.warning{align-items:flex-start}.bar-controls{align-items:flex-start}.bar-controls label{flex:1 1 130px}.bar-controls select{max-width:100%}}
