@@ -50,3 +50,21 @@ Keep dashboard config separate from observed-hour snapshots and provider logs. N
 ## Accuracy policy
 
 Model-level totalTokens can be a sum of available categories rather than the authoritative upstream total, and must be labeled as such. Unknown model prices must remain visibly unpriced. Subscription-quota percentages cannot be inferred from token volume.
+
+## v0.2 refinement — Chart settings and warning dismissal
+
+- The **Dismiss** control closes the current unknown-pricing notice in the active tab. If missing-model IDs change, the notice reappears. The underlying unknown-price caveat is never treated as zero or persisted as a fictional cost.
+- The sidebar marks your current section as you scroll; hidden widgets are removed from sidebar navigation.
+- **Show values** places sampled numeric labels on the trend's points. Turn it off for a cleaner chart. The legend buttons can temporarily hide/show individual series; tooltip titles still provide every point value.
+- Dimension colors are deterministic: a provider such as `codex` has the same color across provider bars, sessions and trend lines, regardless of token/cost metric.
+- Chart options are independent: trend metric and breakdown, trend series limit and visible values; provider bars metric and count; model bars metric and count; session graph metric.
+- Graph preferences are included in the validated dashboard JSON and local browser storage. Older v0.2 JSON (without widgetSettings) loads with defaults.
+
+## Graph header adjustments (v0.2)
+
+Each graph has an **⚙ Adjust** control in its header, aligned to the right.
+Use it to open the graph's own settings: trend graph metric, line split, series limit
+and visible point values; provider/model bar metrics and visible counts; session bar
+metric. Settings apply immediately and persist in the browser's active view.
+The controls use native expandable buttons for keyboard accessibility and remain
+available on narrow screens. They are independent of the global **Customize** dialog.

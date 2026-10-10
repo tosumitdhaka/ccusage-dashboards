@@ -18,3 +18,41 @@ test("customize controls and every registered widget have a matching dashboard s
   assert.match(src, /parseDashboardJSON/);
   assert.match(src, /querySelectorAll\("\[data-widget\]"\)/);
 });
+
+test("independent graph controls, warnings and sidebar navigation are wired", async () => {
+  const html = await readFile(new URL("./public/index.html", import.meta.url), "utf8");
+  for (const control of ["trend-show-labels", "trend-series-limit", "provider-metric", "provider-limit", "model-metric", "model-limit"]) {
+    assert.ok(html.includes('id="' + control + '"'), "Missing graph control " + control);
+  }
+  const js = await readFile(new URL("./public/dashboard.js", import.meta.url), "utf8");
+  assert.match(js, /colorForDimension/);
+  assert.match(js, /aria-label", "Dismiss pricing warning"/);
+  assert.match(js, /updateActiveNavigation/);
+  assert.match(js, /updateGraphSettings/);
+});
+
+test("graph settings live in right-hand headers and stay keyboard accessible", async () => {
+  const html = await readFile(new URL("./public/index.html", import.meta.url), "utf8");
+  const checks = [
+    ["trend", ["metric", "breakdown", "trend-series-limit", "trend-show-labels"]],
+    ["providers", ["provider-metric", "provider-limit"]],
+    ["models", ["model-metric", "model-limit"]],
+    ["sessions", ["session-metric"]]
+  ];
+  const opening = '<details class="chart-adjust" name="graph-adjust">';
+  for (const [name, ids] of checks) {
+    const start = html.indexOf('id="' + name + '"');
+    assert.ok(start >= 0, "Missing graph section " + name);
+    const rest = html.slice(start);
+    const from = rest.indexOf(opening);
+    const until = rest.indexOf("</details>", from);
+    assert.ok(from >= 0 && until > from, "Missing graph-header adjuster in " + name);
+    const settings = rest.slice(from, until);
+    assert.ok(settings.includes('<summary class="chart-adjust-trigger" aria-label="Adjust '), "Missing accessible adjust control in " + name);
+    for (const id of ids) assert.ok(settings.includes('id="' + id + '"'), name + " missing " + id + " in settings");
+  }
+  assert.equal(html.split(opening).length - 1, 4);
+  const css = await readFile(new URL("./public/styles.css", import.meta.url), "utf8");
+  assert.ok(css.includes(".chart-adjust-panel{position:absolute;right:0"));
+  assert.ok(css.includes(".chart-adjust-trigger:focus-visible"));
+});

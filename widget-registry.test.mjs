@@ -28,3 +28,31 @@ test("schema v1 rejects unknown or malformed preferences before importing", () =
   assert.throws(() => validateDashboardConfig({ ...base, title: "x".repeat(81) }), /title/);
   assert.throws(() => validateDashboardConfig({ ...base, exportSessionId: "sensitive" }), /field/);
 });
+
+test("per-graph settings validate and older saved configurations migrate to defaults", () => {
+  const old = structuredClone(DEFAULT_DASHBOARD);
+  delete old.widgetSettings;
+  const migrated = validateDashboardConfig(old);
+  assert.equal(migrated.widgetSettings.providers.metric, "totalTokens");
+  assert.equal(migrated.widgetSettings.trend.maxSeries, 6);
+  const custom = validateDashboardConfig({
+    ...old,
+    widgetSettings: {
+      trend: { showLabels: true, maxSeries: 12 },
+      providers: { metric: "totalCost", limit: 5 },
+      models: { metric: "outputTokens", limit: 10 }
+    }
+  });
+  assert.equal(custom.widgetSettings.trend.showLabels, true);
+  assert.equal(custom.widgetSettings.providers.metric, "totalCost");
+  assert.equal(custom.widgetSettings.models.limit, 10);
+  assert.throws(() => validateDashboardConfig({ ...old, widgetSettings: { untrusted: {} } }), /group/);
+  assert.throws(() => validateDashboardConfig({ ...old, widgetSettings: { trend: { customJS: "evil" } } }), /setting/);
+  assert.throws(() => validateDashboardConfig({ ...old, widgetSettings: { models: { metric: "invalid" } } }), /metric/);
+  assert.throws(() => validateDashboardConfig({ ...old, widgetSettings: { trend: { showLabels: "true" } } }), /labels/);
+  assert.throws(() => validateDashboardConfig({ ...old, widgetSettings: { providers: { limit: 200 } } }), /limit/);
+});
+
+test("new views default to visible sampled point labels", () => {
+  assert.equal(validateDashboardConfig(DEFAULT_DASHBOARD).widgetSettings.trend.showLabels, true);
+});

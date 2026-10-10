@@ -165,3 +165,65 @@ button:focus-visible,input:focus-visible,.import-button:focus-within{outline:2px
 .panel-grid:has(> [data-widget][hidden]){grid-template-columns:minmax(0,1fr)}
 .breadcrumb strong{display:inline-block;max-width:min(30vw,300px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}
 @media(max-width:740px){.topbar{height:auto;min-height:73px;flex-wrap:wrap;padding-block:12px}.top-actions{width:100%;justify-content:flex-end}}
+
+/* Sidebar stays navigable while the active section follows page scrolling. */
+.sidebar{overflow-y:auto;scrollbar-width:thin}
+.sidebar .nav-link[aria-current="location"]{background:#162832;color:#e6fff8}
+.notice.warning{display:flex;align-items:center;justify-content:space-between;gap:18px}
+.notice-dismiss{flex-shrink:0;padding:7px 11px;border:1px solid #8e764b;background:#392d1c;color:#f7d59f;border-radius:7px;font-size:12px;font-weight:750}
+.notice-dismiss:hover{background:#4a3821}
+.bar-controls{display:flex;align-items:center;flex-wrap:wrap;gap:8px 14px;margin-top:18px}
+.bar-controls label{display:flex;align-items:center;gap:8px;color:#91a5bb;font-size:11px}
+.bar-controls select{background:#182638;color:#dbe9f5;border:1px solid #35465d;border-radius:8px;padding:8px 26px 8px 10px;font-size:11px;max-width:190px}
+.chart-checkbox{display:flex;align-items:center!important;gap:8px!important;cursor:pointer}
+.chart-checkbox input{accent-color:#53d5bd;width:16px;height:16px}
+.legend-toggle{border:1px solid transparent;border-radius:7px;background:transparent;padding:5px 7px;font:inherit;cursor:pointer;text-align:left}
+.legend-toggle:hover,.legend-toggle:focus-visible{border-color:#3b596b;background:#18283a}
+.legend-toggle.muted{opacity:.43;text-decoration:line-through}
+@media(max-width:740px){.notice.warning{align-items:flex-start}.bar-controls{align-items:flex-start}.bar-controls label{flex:1 1 130px}.bar-controls select{max-width:100%}}
+
+/* v0.2 graph-specific controls: compact right-aligned header adjusters.
+   Native details/summary preserve keyboard operation without JavaScript. */
+.trend-card .trend-header{align-items:flex-start;gap:14px;flex-wrap:nowrap}
+.trend-header-actions{display:flex;flex:0 0 auto;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:nowrap;min-width:0}
+.trend-header-actions .chart-chip{margin:0;min-height:35px}
+.chart-section-header{align-items:flex-start;gap:12px}
+.chart-section-header>div:first-child{min-width:0}
+.chart-adjust{position:relative;flex:0 0 auto;z-index:1}
+.chart-adjust[open]{z-index:60}
+.chart-adjust-trigger{display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  min-height:36px;padding:8px 11px;white-space:nowrap;cursor:pointer;
+  color:#d5ecf3;background:#172c3b;border:1px solid #355768;border-radius:8px;
+  font-size:12px;font-weight:750;list-style:none}
+.chart-adjust-trigger::-webkit-details-marker{display:none}
+.chart-adjust-trigger::marker{content:""}
+.chart-adjust-trigger:hover,.chart-adjust[open]>.chart-adjust-trigger{color:#ddfff7;background:#21463e;border-color:#53d6be}
+.chart-adjust-trigger:focus-visible{outline:2px solid #53d6be;outline-offset:3px}
+.chart-adjust-panel{position:absolute;right:0;top:calc(100% + 9px);
+  width:min(330px,calc(100vw - 38px));padding:16px;border:1px solid #425c73;
+  border-radius:12px;background:#121f2e;box-shadow:0 16px 50px #050b15c9;z-index:80}
+.chart-adjust-title{font-size:12px;color:#e1f2f5;font-weight:800;
+  padding-bottom:11px;margin-bottom:12px;border-bottom:1px solid #304254}
+.chart-adjust-panel .trend-controls,.chart-adjust-panel .bar-controls,
+.trend-header-actions .chart-adjust-panel .trend-controls{display:grid;grid-template-columns:minmax(0,1fr);
+  gap:12px;margin:0;align-items:stretch}
+.chart-adjust-panel .trend-controls label,.chart-adjust-panel .bar-controls label,
+.trend-header-actions .chart-adjust-panel .trend-controls label{display:flex;flex-direction:column;
+  align-items:stretch;gap:6px;margin:0;color:#a6c0d2;font-size:11px;min-width:0}
+.chart-adjust-panel .trend-controls select,.chart-adjust-panel .bar-controls select,
+.trend-header-actions .chart-adjust-panel .trend-controls select,
+.trend-header-actions .chart-adjust-panel .trend-controls label[for="breakdown"] select{width:100%;height:auto;min-height:38px;
+  padding:8px 28px 8px 10px;max-width:none;font-size:12px}
+.chart-adjust-panel .trend-controls .chart-checkbox,.trend-header-actions .chart-adjust-panel .trend-controls .chart-checkbox{
+  display:flex;flex-direction:row;align-items:center;justify-content:flex-start;gap:9px;font-size:12px}
+@media(max-width:1250px){
+  .trend-card .trend-header{flex-wrap:nowrap}
+  .trend-header-actions{width:auto;justify-content:flex-end}
+}
+@media(max-width:740px){
+  .trend-card .trend-header{flex-wrap:wrap}
+  .trend-header-actions{width:100%;justify-content:flex-end}
+  .chart-section-header{gap:10px}
+  .chart-adjust-trigger{padding:8px 10px}
+  .trend-header-actions .chart-adjust-panel .trend-controls label{flex:unset;min-width:0}
+}
