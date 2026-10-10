@@ -154,7 +154,7 @@ function drawLineChart(data, metric) {
   const H = Math.max(300, Math.round(svg.getBoundingClientRect().height || 360));
   svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
   const L = 78, T = 40, R = 18, B = 48, PW = W - L - R, PH = H - T - B;
-  const groupKind = data.breakdown === "model" ? "model" : "provider";
+  const groupKind = state.breakdown === "model" ? "model" : "provider";
   const settings = dashboardConfig.widgetSettings.trend;
   const shown = data.series.slice(0, settings.maxSeries);
   shown.forEach((s) => {

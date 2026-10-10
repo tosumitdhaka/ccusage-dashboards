@@ -27,7 +27,7 @@ export const DEFAULT_DASHBOARD = Object.freeze({
     metric: "totalTokens", breakdown: "total", sessionMetric: "totalTokens"
   },
   widgetSettings: {
-    trend: { showLabels: false, maxSeries: 6 },
+    trend: { showLabels: true, maxSeries: 6 },
     providers: { metric: "totalTokens", limit: 12 },
     models: { metric: "totalTokens", limit: 12 }
   }

@@ -52,3 +52,7 @@ test("per-graph settings validate and older saved configurations migrate to defa
   assert.throws(() => validateDashboardConfig({ ...old, widgetSettings: { trend: { showLabels: "true" } } }), /labels/);
   assert.throws(() => validateDashboardConfig({ ...old, widgetSettings: { providers: { limit: 200 } } }), /limit/);
 });
+
+test("new views default to visible sampled point labels", () => {
+  assert.equal(validateDashboardConfig(DEFAULT_DASHBOARD).widgetSettings.trend.showLabels, true);
+});
