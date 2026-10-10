@@ -75,3 +75,28 @@ The package runs a loopback-only HTTP server and reads local agent usage. It
 does not require API keys or a cloud account. By default the official
 `ccusage` dependency may refresh public pricing metadata. Unpriced internal
 model IDs remain visibly unpriced rather than assigned fabricated prices.
+
+## Automated npm/GitHub releases (Trusted Publishing)
+
+The dedicated `.github/workflows/npm-release.yml` is triggered with **Run workflow**
+on the `main` branch (not on every push or pull request). Enter the exact
+`package.json` version and the tested 40-character `main` commit SHA.
+
+Configure a one-time npm Trusted Publisher from your npm package's **Settings →
+Trusted publishing → GitHub Actions**. Use GitHub owner **`tosumitdhaka`**,
+repository **`ccusage-dashboards`**, workflow filename **`npm-release.yml`**,
+and **no environment**. Explicitly enable permission for **`npm publish`**
+(not just `npm stage publish`). Save the trusted publisher. The workflow must
+already exist on `main` before you configure npm's setting.
+
+The workflow uses GitHub-hosted Node.js 24, npm 11.5.1+, `id-token: write`,
+no npm token and no release dependency cache. It checks the exact main commit,
+package and lockfile versions, builds and tests, validates the CLI tarball,
+publishes only if the npm version is absent, and fails closed if an existing
+version has a different tarball hash. After registry verification, it creates
+an exact-SHA GitHub Release `dashboard-vX.Y.Z`. Interrupted runs can resume
+only when the published tarball hash matches the tested source.
+
+`npm whoami` in a local shell does not verify OIDC permissions. This workflow
+never needs `NPM_TOKEN` or your npm password. Configure publisher identity on
+npmjs.com itself (the GitHub connection cannot edit npm package settings).
