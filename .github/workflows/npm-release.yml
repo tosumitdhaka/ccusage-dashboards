@@ -1,0 +1,122 @@
+# npm OIDC Trusted Publisher must match owner/repo/workflow filename.
+name: Publish npm and GitHub release
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Exact npm version from package.json (e.g. 0.2.0)
+        required: true
+        type: string
+      source_sha:
+        description: Exact 40-character main commit SHA
+        required: true
+        type: string
+permissions:
+  contents: write
+  id-token: write
+concurrency:
+  group: npm-release
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: github.repository == 'tosumitdhaka/ccusage-dashboards' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+          package-manager-cache: false
+      - name: Exact-source and version gate
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$(git rev-parse HEAD)" == "$SOURCE_SHA" && "$GITHUB_SHA" == "$SOURCE_SHA" ]]
+          node --input-type=module <<'NODE'
+          import {readFileSync} from "node:fs";
+          const pkg=JSON.parse(readFileSync("package.json","utf8"));
+          const lock=JSON.parse(readFileSync("package-lock.json","utf8"));
+          if(pkg.name!=="ccusage-dashboards"||pkg.version!==process.env.VERSION||
+             lock.version!==pkg.version||lock.packages?.[""]?.version!==pkg.version||
+             pkg.bin?.["ccusage-dashboards"]!=="bin/ccusage-dashboards.mjs"||
+             pkg.repository?.url!=="git+https://github.com/tosumitdhaka/ccusage-dashboards.git")
+            throw new Error("Package identity, version, source, or executable mismatch");
+          NODE
+          node -e 'const v=process.argv[1].split(".").map(Number);if(v[0]<11||v[0]===11&&(v[1]<5||v[1]===5&&v[2]<1))process.exit(1)' "$(npm --version)"
+      - name: Install, check and test
+        run: |
+          npm ci --no-audit --no-fund
+          npm run check
+          npm test
+      - name: Verify npm tarball
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm pack --dry-run --json > package-preview.json
+          node scripts/assert-package.mjs package-preview.json
+          npm pack --json > release-archive.json
+      - name: Detect existing version or incompatible published archive
+        id: registry
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          echo "state=$(node scripts/verify-npm-release.mjs pre "$VERSION" release-archive.json)" >> "$GITHUB_OUTPUT"
+      - name: Verify publish dry run
+        if: steps.registry.outputs.state == 'absent'
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm publish --dry-run --access public > publish-preview.log 2>&1 || { cat publish-preview.log; exit 1; }
+          if grep -Fi 'invalid and removed' publish-preview.log; then
+            cat publish-preview.log
+            exit 1
+          fi
+      - name: Publish to npm using OIDC
+        if: steps.registry.outputs.state == 'absent'
+        run: npm publish --access public
+      - name: Confirm published tarball matches tested archive
+        env:
+          VERSION: ${{ inputs.version }}
+        run: node scripts/verify-npm-release.mjs post "$VERSION" release-archive.json
+      - name: Create GitHub Release at exact published source
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          tag="dashboard-v$VERSION"
+          if gh api "repos/$REPOSITORY/git/ref/tags/$tag" > tag.json 2>/dev/null; then
+            [[ "$(jq -r '.object.type' tag.json)" == commit &&
+               "$(jq -r '.object.sha' tag.json)" == "$SOURCE_SHA" ]] || {
+              echo "Tag already exists with a different target. Not moving it."
+              exit 1
+            }
+          fi
+          if gh release view "$tag" -R "$REPOSITORY" --json targetCommitish > release.json 2>/dev/null; then
+            [[ "$(jq -r '.targetCommitish' release.json)" == "$SOURCE_SHA" ]] || exit 1
+            echo "Release already exists at expected source."
+            exit 0
+          fi
+          {
+            echo "Published ccusage-dashboards@$VERSION to npm from exact source $SOURCE_SHA."
+            echo
+            echo "Run: \`npx --yes ccusage-dashboards@$VERSION\` or \`bunx ccusage-dashboards@$VERSION\`."
+            echo
+            echo "Cost values are estimated API equivalents, not subscription billing; unknown pricing remains unpriced."
+          } > release-notes.md
+          gh release create "$tag" -R "$REPOSITORY" --target "$SOURCE_SHA" \
+            --title "ccusage-dashboards v$VERSION" --notes-file release-notes.md --latest
