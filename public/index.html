@@ -28,8 +28,8 @@
     </aside>
     <main id="overview" class="main">
       <header class="topbar">
-        <div class="breadcrumb">Workspace <span>/</span> <strong>Overview</strong></div>
-        <div class="top-actions"><span class="local-tag"><span class="signal-dot"></span> Localhost</span><button id="refresh" class="refresh" type="button">↻ &nbsp; Refresh data</button></div>
+        <div class="breadcrumb">Workspace <span>/</span> <strong id="view-name">Overview</strong></div>
+        <div class="top-actions"><span class="local-tag"><span class="signal-dot"></span> Localhost</span><button id="customize" class="refresh" type="button" aria-haspopup="dialog">⚙ Customize</button><button id="refresh" class="refresh" type="button">↻ &nbsp; Refresh data</button></div>
       </header>
       <div class="content">
         <div class="page-title">
@@ -49,13 +49,13 @@
             <label class="agent-filter" for="model">Model <select id="model"><option value="all">All models</option></select></label>
           </div>
         </section>
-        <section class="kpis" aria-label="Usage summary">
+        <section class="kpis" data-widget="kpis" aria-label="Usage summary">
           <article class="kpi"><div class="kpi-label">Reported tokens <span class="kpi-icon">⌁</span></div><strong id="stat-tokens">—</strong><p>Total reported across selected periods</p></article>
           <article class="kpi"><div class="kpi-label">Fresh input <span class="kpi-icon">↗</span></div><strong id="stat-input">—</strong><p>Uncached input tokens</p></article>
           <article class="kpi"><div class="kpi-label">Generated output <span class="kpi-icon">↘</span></div><strong id="stat-output">—</strong><p>Output tokens</p></article>
           <article class="kpi"><div class="kpi-label">API-equivalent cost <span class="kpi-icon">$</span></div><strong id="stat-cost">—</strong><p>Estimated, not your subscription bill</p></article>
         </section>
-        <section class="wide-card trend-card" id="trend">
+        <section class="wide-card trend-card" data-widget="trend" id="trend">
           <div class="section-header trend-header">
             <div class="trend-heading"><div class="section-kicker">01 / TREND</div><h2 id="chart-heading">Usage over time</h2><p id="chart-explainer">Reported totals per period</p></div>
             <div class="trend-header-actions">
@@ -81,15 +81,15 @@
           <div class="trend-legend-footer"><span class="legend-title">SERIES</span><div id="trend-legend" class="legend" aria-label="Chart lines"></div></div>
           <p class="footnote" id="trend-note"></p>
         </section>
-        <div class="panel-grid">
-          <section class="panel" id="providers"><div class="section-header"><div><div class="section-kicker">02 / SOURCE MIX</div><h2>Provider distribution</h2><p>Share of reported tokens</p></div></div><div id="provider-bars" class="bars"></div></section>
-          <section class="panel" id="models"><div class="section-header"><div><div class="section-kicker">03 / MODEL MIX</div><h2>Most-used models</h2><p id="model-summary">Ranked by generated output tokens</p></div></div><div id="model-bars" class="bars"></div></section>
+        <div class="panel-grid" data-widget-group>
+          <section class="panel" data-widget="providers" id="providers"><div class="section-header"><div><div class="section-kicker">02 / SOURCE MIX</div><h2>Provider distribution</h2><p>Share of reported tokens</p></div></div><div id="provider-bars" class="bars"></div></section>
+          <section class="panel" data-widget="models" id="models"><div class="section-header"><div><div class="section-kicker">03 / MODEL MIX</div><h2>Most-used models</h2><p id="model-summary">Ranked by generated output tokens</p></div></div><div id="model-bars" class="bars"></div></section>
         </div>
-        <div class="panel-grid secondary-grid">
-          <section class="panel"><div class="section-header"><div><div class="section-kicker">TOKEN BREAKDOWN</div><h2>Input and cache</h2><p>Raw categories from the report</p></div></div><div class="token-grid"><div><span>Input</span><strong id="break-input">—</strong></div><div><span>Output</span><strong id="break-output">—</strong></div><div><span>Cache reads</span><strong id="break-cache">—</strong></div><div><span>Cache writes</span><strong id="break-write">—</strong></div></div><p class="footnote">Provider token accounting can overlap categories. These figures are not forcibly added to the reported total.</p></section>
-          <section class="panel"><div class="section-header"><div><div class="section-kicker">DATA NOTES</div><h2>How to read the charts</h2></div></div><div class="information"><div><span class="info-circle">i</span><p>API-equivalent pricing is an estimate, not an extra charge to your subscription.</p></div><div><span class="info-circle">i</span><p>Subscription quota percentages are not available in ccusage JSON.</p></div><div><span class="info-circle">i</span><p>Reports include only locally retained agent data and supported adapters.</p></div></div></section>
+        <div class="panel-grid secondary-grid" data-widget-group>
+          <section class="panel" data-widget="cache"><div class="section-header"><div><div class="section-kicker">TOKEN BREAKDOWN</div><h2>Input and cache</h2><p>Raw categories from the report</p></div></div><div class="token-grid"><div><span>Input</span><strong id="break-input">—</strong></div><div><span>Output</span><strong id="break-output">—</strong></div><div><span>Cache reads</span><strong id="break-cache">—</strong></div><div><span>Cache writes</span><strong id="break-write">—</strong></div></div><p class="footnote">Provider token accounting can overlap categories. These figures are not forcibly added to the reported total.</p></section>
+          <section class="panel" data-widget="guidance"><div class="section-header"><div><div class="section-kicker">DATA NOTES</div><h2>How to read the charts</h2></div></div><div class="information"><div><span class="info-circle">i</span><p>API-equivalent pricing is an estimate, not an extra charge to your subscription.</p></div><div><span class="info-circle">i</span><p>Subscription quota percentages are not available in ccusage JSON.</p></div><div><span class="info-circle">i</span><p>Reports include only locally retained agent data and supported adapters.</p></div></div></section>
         </div>
-        <section class="wide-card sessions-card" id="sessions">
+        <section class="wide-card sessions-card" data-widget="sessions" id="sessions">
           <div class="section-header"><div><div class="section-kicker">RECENT ACTIVITY</div><h2>Top sessions</h2><p>Ranked by reported tokens; use the selector to compare session costs</p></div></div>
           <div class="trend-controls"><label for="session-metric">Session graph <select id="session-metric"><option value="totalTokens">Tokens per session</option><option value="totalCost">Estimated cost per session ($)</option><option value="outputTokens">Output tokens per session</option></select></label></div>
           <div id="session-bars" class="session-bars"></div>
@@ -100,5 +100,19 @@
       </div>
     </main>
   </div>
+    <dialog id="customize-dialog" class="customize-dialog" aria-labelledby="customize-heading">
+      <form id="customize-form">
+        <div class="customize-heading"><div><div class="eyebrow">YOUR WORKSPACE</div><h2 id="customize-heading">Customize dashboard</h2><p>Choose visible panels and save filters on this browser only.</p></div><button id="customize-cancel" type="button" class="customize-dismiss" aria-label="Close customization">×</button></div>
+        <label class="customize-title" for="dashboard-title">View name <input id="dashboard-title" maxlength="80" required></label>
+        <fieldset id="widget-options" class="widget-options"><legend>Visible widgets</legend></fieldset>
+        <p id="config-status" class="config-status" role="status" aria-live="polite"></p>
+        <div class="customize-actions">
+          <button id="config-export" type="button" class="refresh">Export JSON</button>
+          <button id="config-import-trigger" type="button" class="refresh">Import JSON</button><input id="config-import" type="file" accept=".json,application/json" hidden aria-label="Choose dashboard JSON">
+          <button id="config-reset" type="button" class="refresh">Reset</button>
+          <button type="submit" class="save-button">Save layout</button>
+        </div>
+      </form>
+    </dialog>
 </body>
 </html>

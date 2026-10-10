@@ -6,7 +6,7 @@ Monitor Claude Code, Codex, Antigravity and other supported sources using intera
 
 ## Install without cloning GitHub
 
-Once this package is **published to npm**, simply run:
+The latest published stable release (currently v0.1.1) can be launched with:
 
 ```powershell
 npx ccusage-dashboards@latest
@@ -20,9 +20,9 @@ bunx ccusage-dashboards@latest
 
 Both commands automatically install the dashboard and its official `ccusage` CLI dependency from npm into the package-manager cache, then launch the local web app. Open **http://127.0.0.1:4177**. Use `Ctrl+C` to stop.
 
-**Important:** The npm package is a release candidate, **not yet published**. These `npx`/`bunx` commands will work only after the maintainer publishes `ccusage-dashboards` to npm. The public GitHub repository and PR alone do not create a registry package. Node.js 20+ must currently be installed even when starting through Bun, because the executable uses a Node shebang.
+**Important:** v0.1.1 is published; v0.2 customization features are only on the development branch until the next release. Node.js 20+ must currently be installed even when starting through Bun, because the executable uses a Node shebang.
 
-For a persistent command after publication:
+For a persistent command:
 
 ```powershell
 npm install --global ccusage-dashboards
@@ -30,12 +30,12 @@ ccusage-dashboards
 ccusage-dashboards --port 4178
 ```
 
-## Developer checkout (works before npm publication)
+## Developer checkout
 
 Requires Node.js 20+ with npm (Bun may manage dependencies as an alternative).
 
 ```powershell
-git clone -b feat/standalone-dashboard-migration https://github.com/tosumitdhaka/ccusage-dashboards.git
+git clone -b feat/customizable-dashboards-v0.2.0 https://github.com/tosumitdhaka/ccusage-dashboards.git
 cd ccusage-dashboards
 npm ci
 npm run dashboard
@@ -56,7 +56,7 @@ bunx ccusage daily --sections daily,weekly,monthly,session --by-agent -j
 - Graph metric toggle between reported tokens, input, output, cache read/write and **estimated USD cost**.
 - **Session token and cost charts**, top-model bars and provider comparisons.
 - **Observed hourly deltas** stored locally and preserved across restarts. These are measured differences between reports, **not retroactive hourly event data**.
-- **Future customization foundation:** versioned dashboard configuration, widget registry and supported metric registry. A full drag/drop editor is planned, not yet shipped.
+- **v0.2 development:** Customize widget visibility, locally saved filters/view title, reset defaults, and validated JSON import/export. Drag/drop and resizing remain future work.
 - Native auto-refresh and conservative pricing warnings; no fabricated rates for `model_placeholder_*` IDs.
 
 ## Privacy and accuracy
@@ -92,7 +92,7 @@ The source UI is dependency-light vanilla JS/SVG to preserve the existing dashbo
 
 ## Project status
 
-**v0.1.0 npm packaging release candidate**, pending PR review, CI, npm registry publication and merge. Earlier dashboard development remains on [the original fork PR](https://github.com/tosumitdhaka/ccusage-web/pull/1) as historical source; releases will come from this standalone repository.
+**v0.1.1 released on npm and GitHub.** v0.2.0 is under development; its customization UI is not yet included in the stable npm package. Earlier dashboard development remains on [the original fork PR](https://github.com/tosumitdhaka/ccusage-web/pull/1) as historical source; releases will come from this standalone repository.
 
 The official ccusage project is separately maintained and MIT licensed. This repository depends on its published package rather than vendoring its native code.
 
@@ -104,4 +104,13 @@ package contains all browser assets under `public/`. CI checks the tarball
 file list on Windows and Ubuntu before publication.
 
 Maintainers: see [npm publishing checklist](docs/PUBLISHING.md).
-The app is **not available through npx/bunx until publication succeeds**.
+The v0.1.1 app is available through `npx` and `bunx`; the new v0.2 features require the development checkout until published.
+
+## v0.2 customization branch (not yet published)
+
+The `feat/customizable-dashboards-v0.2.0` branch adds browser-local customization.
+Open **Customize** to select panels, edit the view name, reset preferences or import/export a JSON preset.
+Selections and metric/provider/model/period filters are stored in your browser's localStorage for the dashboard origin.
+This data contains no agent sessions, private logs, pricing catalog, or API keys.
+A different port or browser has different preferences; import/export provides manual transfer.
+Until v0.2 ships, npm `@latest` continues to be v0.1.1.

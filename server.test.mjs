@@ -28,6 +28,10 @@ test("serves a cached unified report locally without remote CORS grants", async 
     assert.equal(html.status, 200);
     assert.match(await html.text(), /AI Usage Observatory/);
     assert.equal((await fetch(url + "/../../server.mjs")).status, 404);
+    const dashboardConfig = await fetch(url + "/dashboard-config.mjs");
+    assert.equal(dashboardConfig.status, 200);
+    assert.match(dashboardConfig.headers.get("content-type"), /javascript/);
+    assert.match(await dashboardConfig.text(), /parseDashboardJSON/);
   });
 });
 

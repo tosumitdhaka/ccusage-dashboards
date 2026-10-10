@@ -137,3 +137,31 @@
   .trend-header-actions .chart-chip{margin-top:2px}
   .trend-card .chart-container svg{height:300px}
 }
+
+/* v0.2: browser-local customization dialog; dashboard grid responds to hidden widgets. */
+.customize-dialog{width:min(560px,calc(100vw - 28px));max-height:min(88vh,820px);overflow:auto;margin:auto;padding:26px;
+  border:1px solid #415971;border-radius:16px;background:#121d2b;color:#e7f0fa;box-shadow:0 24px 80px #000b}
+.customize-dialog::backdrop{background:rgba(4,10,20,.78)}
+.customize-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}
+.customize-heading h2{font-size:23px;letter-spacing:-.04em;margin:9px 0}
+.customize-heading p{font-size:12px;line-height:1.55;color:#a1b5ca;margin:0 0 20px}
+.customize-dismiss{color:#d5e2ec;font-size:24px;border:0;background:transparent;padding:0 6px}
+.customize-title{display:grid;gap:8px;color:#adc1d5;font-size:12px;font-weight:700}
+.customize-title input{width:100%;padding:11px 12px;color:#f1fbff;border-radius:8px;border:1px solid #3c5067;background:#182638;font:inherit}
+.widget-options{border:1px solid #2f4357;border-radius:11px;margin:22px 0 10px;padding:14px;display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.widget-options legend{padding:0 7px;font-size:12px;color:#abc1d7;font-weight:750}
+.widget-option{display:flex;align-items:center;gap:9px;font-size:12px;color:#d6e3ee;padding:10px;background:#1b2a3c;border-radius:7px;cursor:pointer}
+.widget-option input{accent-color:#53d5bd;width:16px;height:16px}
+.config-status{min-height:16px;font-size:12px;color:#f3c47f;line-height:1.5}
+.customize-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:14px}
+.import-button,.save-button{display:inline-flex;align-items:center;justify-content:center;border-radius:8px;padding:10px 14px;cursor:pointer;font-size:12px;font-weight:700}
+.import-button{background:#1b2a3b;color:#d9e5f5;border:1px solid #334359}
+.import-button input{display:none}
+.save-button{border:1px solid #387868;background:#1b554c;color:#e6fff8;margin-left:auto}
+button:focus-visible,input:focus-visible,.import-button:focus-within{outline:2px solid #53d5bd;outline-offset:2px}
+@media(max-width:550px){.widget-options{grid-template-columns:1fr}.customize-dialog{padding:20px}.save-button{margin-left:0}}
+
+/* Keep remaining panels full-width and controls usable at mobile widths. */
+.panel-grid:has(> [data-widget][hidden]){grid-template-columns:minmax(0,1fr)}
+.breadcrumb strong{display:inline-block;max-width:min(30vw,300px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}
+@media(max-width:740px){.topbar{height:auto;min-height:73px;flex-wrap:wrap;padding-block:12px}.top-actions{width:100%;justify-content:flex-end}}

@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.2.0 — Customizable dashboard (development; not published)
+
+- Browser-local dashboard view with show/hide controls for all seven existing widgets and editable view title.
+- Persist report period, provider/model, cost/token metric, line grouping and session graph metric.
+- Validated, size-bounded JSON import/export; reset to defaults; never persist agent usage logs or secrets.
+- New schema/storage regressions; no drag/drop or resize yet.
+
 ## v0.1.1 — Restore published npm executable (proposed)
 
 - Fix the npm `bin` path so publish-time manifest normalization retains `ccusage-dashboards`.
