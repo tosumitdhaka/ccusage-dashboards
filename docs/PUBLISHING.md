@@ -30,7 +30,7 @@ action**: a GitHub commit/release alone does not make `npx` or `bunx` work.
    No agent logs, test fixtures, credentials or `node_modules` belong in
    the tarball.
 
-## First release (manual)
+## Manual release publication (v0.2.0)
 
 Sign into npm with an account authorized to publish the package (npm now
 requires appropriate authentication/two-factor policies). From the tested
@@ -46,23 +46,23 @@ or run `npm publish` automatically on every push. For future automated
 releases prefer npm Trusted Publishing with GitHub Actions OIDC, configured
 explicitly in npm, with a manual approval/dispatch release workflow.
 
-After the registry confirms publication, test from a fresh shell outside the
-checkout (this is the user-facing experience):
+After the registry confirms publication, first verify `npm view ccusage-dashboards@0.2.0 bin --json`, then test from outside the checkout (the user-facing experience):
 
 ```powershell
-npx --yes ccusage-dashboards@0.1.0 --version
-npx --yes ccusage-dashboards@0.1.0 --help
-npx --yes ccusage-dashboards@0.1.0
+Push-Location $env:TEMP
+npx --yes ccusage-dashboards@0.2.0 --version
+npx --yes ccusage-dashboards@0.2.0 --help
+Pop-Location
 ```
 
-Then test `bunx ccusage-dashboards@0.1.0` (Node.js 20+ currently required
+Then test `bunx ccusage-dashboards@0.2.0` (Node.js 20+ currently required
 because the binary's shebang points to `node`). Verify the browser opens
 `http://127.0.0.1:4177` manually and the CLI reads local usage correctly.
 
-Create the independent GitHub Release tag `dashboard-v0.1.0` targeting the
+Create the independent GitHub Release tag `dashboard-v0.2.0` targeting the
 verified merged commit only after publication and post-publish checks succeed.
 
-## Subsequent releases
+## Future releases
 
 Bump `package.json` and `package-lock.json` together. Publish each npm
 version only once. Pinning the upstream `ccusage` dependency avoids silently
