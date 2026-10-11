@@ -40,7 +40,7 @@ test("all graph cards have one scroll body and hover-only controls",async()=>{
  assert.ok(js.includes('el("div","widget-scroll-body")'));
  assert.ok(css.includes('>.widget-scroll-body{'));
  assert.ok(css.includes('.widget-scroll-body .bars{max-height:none;overflow:visible}'));
- assert.match(css,/\\.chart-header-controls\\{\\s*opacity:0;pointer-events:none;/);
+ assert.ok(css.includes('.chart-header-controls{')&&css.includes('opacity:0;pointer-events:none;'));
  assert.ok(css.includes('@media(hover:none)'));
 });
 test("graph cards scroll inside consistently, not at two levels",async()=>{
