@@ -31,10 +31,10 @@ test("live resize updates preview only and saves on pointerup",async()=>{
  assert.ok(js.includes('ghost.id="grid-resize-preview"'));
 });
 
-test("models list has only the inner vertical scrollbar",async()=>{
+test("provider and model cards each have exactly one inner vertical scrolling area",async()=>{
  const css=await readFile(new URL("./public/styles.css",import.meta.url),"utf8");
- assert.ok(css.includes('.dashboard-grid>[data-widget="models"]{display:flex;flex-direction:column;overflow:hidden}'));
- assert.ok(css.includes('.dashboard-grid>[data-widget="models"]>#model-bars{flex:1 1 auto;min-height:0;'));
+ assert.ok(css.includes('.dashboard-grid>[data-widget="models"],.dashboard-grid>[data-widget="providers"]{display:flex;flex-direction:column;overflow:hidden}'));
+ assert.ok(css.includes('.dashboard-grid>[data-widget="models"]>#model-bars,.dashboard-grid>[data-widget="providers"]>#provider-bars{'));
  assert.ok(css.includes('max-height:none;overflow-y:auto;overflow-x:hidden'));
- assert.ok(css.includes('@media(max-width:1050px)'));
+ assert.ok(css.includes('@media(max-width:1100px)'));
 });
