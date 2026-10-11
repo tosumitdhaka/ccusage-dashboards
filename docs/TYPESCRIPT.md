@@ -1,44 +1,68 @@
-# TypeScript migration
+# TypeScript application migration
 
-The dashboard's browser-side code is being migrated incrementally. Public
-`.mjs` module paths remain stable, and the localhost server and published
-`ccusage-dashboards` executable keep running compiled JavaScript. TypeScript
-is only a development dependency; installing the published package does not
-require the TypeScript compiler, Vite or React.
+All maintained application and release-tooling modules are authored in
+TypeScript and compiled to the existing JavaScript runtime paths. Users
+install and run ordinary JavaScript; neither the published CLI nor the
+localhost UI requires TypeScript to be present at runtime.
 
-## Migrated modules (first two stages)
-- `src/client/dashboard-layout.mts` compiles to `public/dashboard-layout.mjs`.
-- `src/client/chart-presentation.mts` compiles to `public/chart-presentation.mjs`.
-- `src/client/widget-registry.mts` compiles to `public/widget-registry.mjs`.
-- `src/client/dashboard-config.mts` compiles to `public/dashboard-config.mjs`.
+## Authoritative source
 
-All four modules are checked under TypeScript strict mode. The other existing
-`public` JavaScript modules retain their interfaces until migrated in
-subsequent reviewed commits. Generated browser modules are kept in Git so
-running the repository does not require an initial build. `npm pack`
-and `npm publish` regenerate the modules via `prepack` to keep the
-shipped package current with its TypeScript sources.
+| TypeScript source | Emitted JavaScript |
+| --- | --- |
+| `src/client/dashboard.ts` | `public/dashboard.js` |
+| `src/client/dashboard-layout.mts` | `public/dashboard-layout.mjs` |
+| `src/client/chart-presentation.mts` | `public/chart-presentation.mjs` |
+| `src/client/widget-registry.mts` | `public/widget-registry.mjs` |
+| `src/client/dashboard-config.mts` | `public/dashboard-config.mjs` |
+| `src/client/normalize.mts` | `public/normalize.mjs` |
+| `src/client/analytics.mts` | `public/analytics.mjs` |
+| `src/node/server.mts` | `server.mjs` |
+| `src/node/ccusage-adapter.mts` | `ccusage-adapter.mjs` |
+| `src/node/snapshots.mts` | `snapshots.mjs` |
+| `src/node/bin/ccusage-dashboards.mts` | `bin/ccusage-dashboards.mjs` |
+| `src/node/scripts/*.mts` | `scripts/*.mjs` |
 
-## Development
+Edit the TypeScript files, **not** the generated JavaScript. The existing
+`.test.mjs` files remain Node's dependency-free native test runner tests.
+TypeScript and `@types/node` are pinned **devDependencies only**.
+
+## Development commands
+
 ```sh
 npm ci
 npm run typecheck
-npm run build:client
+npm run build
 npm run check
 npm test
 npm run dashboard
 ```
 
-TypeScript source of a migrated module is authoritative; edit `src/client`,
-not the corresponding output in `public`. CI compiles before exercising the
-Node/browser-compatible ESM unit tests, server tests, packaging smoke checks,
-and official ccusage CLI integration.
+`npm run build:client` compiles the browser modules. `npm run build:node`
+compiles server, CLI and packaging helpers. `npm run check` typechecks,
+compiles, and validates syntax. `prepack` invokes `npm run build`
+automatically so publishing never packages stale browser or Node code.
+CI rejects commits when any of the fourteen generated JavaScript files
+disagree with a fresh compiler build. Release smoke tests validate the
+installed npm binary and official ccusage adapter.
 
-## Compatibility gates
-- No change to dashboard localStorage key or JSON schema.
-- No change to the served URLs, CSP, or browser JavaScript import paths.
-- No change to npm package binary entry point or runtime dependencies.
-- Preserve offline, localhost-only, read-only processing.
-- Next: migrate normalization, analytics, dashboard controller,
-  and optionally Node backend in separately reviewed steps.
-- Browser-based interaction acceptance is still required before a release.
+## Type-safety posture
+
+The shared client data/layout modules and Node backend/CLI/tooling are
+checked with `strict: true` and `noEmitOnError`. The large interactive
+DOM controller is converted to TypeScript and compiled under a **separate
+transitional, non-strict** `tsconfig.dashboard.json`. This is a real
+source-language migration, but **not** a claim that every controller
+expression has yet attained strict TypeScript coverage. The controller
+still has selected permissive dynamic DOM/report boundaries. Tightening
+those is a separate quality gate and must not be misrepresented as done.
+
+## Compatibility contract
+
+- Preserve the localhost-only server, Host validation and restrictive CSP.
+- Preserve `/dashboard.js`, all browser `.mjs` URLs and published CLI name.
+- Preserve the dashboard storage key and versioned JSON schema.
+- Keep report data and snapshots on the local machine; no telemetry.
+- Preserve installed package behavior, offline mode and tests.
+- Draft PR #11 remains dependent on stabilizing/merging UI PR #10.
+- Manual browser acceptance remains required: CSS layout, drag/resize,
+  scrollbars, Save/Cancel and actual local ccusage reports.
