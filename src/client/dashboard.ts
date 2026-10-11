@@ -151,7 +151,7 @@ function choices(select: HTMLSelectElement, names: string[], allLabel: string, d
 }
 function availableModels(report: any, agent: string) {
   if (agent === "all") return chartCatalog(report).models;
-  const models = new Set();
+  const models = new Set<string>();
   for (const period of ["daily", "weekly", "monthly"]) {
     for (const row of report[period] ?? []) {
       const source = (row.agents ?? []).find((s: any) => s.agent === agent);
@@ -563,7 +563,7 @@ function refreshArrangeTools(){
   $("add-graph").disabled=arranging;
   $("customize").disabled=arranging;
   for(const panel of grid.querySelectorAll("[data-widget]")){
-    const header=panel.querySelector(":scope > .section-header");
+    const header=panel.querySelector<HTMLElement>(":scope > .section-header");
     if(header)header.draggable=false;
     for(const edge of panel.querySelectorAll(".layout-resize-edge")){
       edge.hidden=!arranging||!gridMode||panel.hidden;
@@ -607,6 +607,7 @@ function installLayoutPanel(panel: HTMLElement){
   if(panel.dataset.layoutInstalled==="true")return;
   panel.dataset.layoutInstalled="true";
   const id=panel.dataset.widget;
+  if(!id)return;
   const label=()=>WIDGET_REGISTRY[id]?.title??dashboardConfig.charts.find((c: any)=>c.id===id)?.title??id;
   const header=panel.querySelector(":scope > .section-header");
   // One internal scrolling body per graph. Header and popover remain outside it.
@@ -632,7 +633,7 @@ function installLayoutPanel(panel: HTMLElement){
       const dx=event.key==="ArrowRight"?1:event.key==="ArrowLeft"?-1:0;
       const dy=event.key==="ArrowDown"?1:event.key==="ArrowUp"?-1:0;
       const next=resizeGridRectangle(before,id,direction,dx,dy);
-      if(["x","y","w","h"].some(k=>before[k]!==next[k]))saveGridPosition(id,next);
+      if(["x","y","w","h"].some(k=>before[k as keyof GridRect]!==next[k as keyof GridRect]))saveGridPosition(id,next);
     });
   }
 }
@@ -670,7 +671,7 @@ function beginEdgeResize(event: any,edge: HTMLElement,panel: HTMLElement,id: str
   const move=(e: PointerEvent)=>{
     const candidate=resizeGridRectangle(before,id,direction,
       Math.round((e.clientX-x0)/step),Math.round((e.clientY-y0)/32));
-    if(["x","y","w","h"].every(k=>candidate[k]===next[k]))return;
+    if(["x","y","w","h"].every(k=>candidate[k as keyof GridRect]===next[k as keyof GridRect]))return;
     try{
       const positions=reflowGridAfterResize(original,id,candidate,dashboardConfig.widgets);
       next=candidate;scheduleLayoutPreview(positions);
@@ -949,9 +950,9 @@ function openVisualizationEditor(id: string){
     dashboardConfig.charts.find((c: any)=>c.id===id)?.title??id);
   const fields=$("visual-editor-fields");
   fields.replaceChildren();
-  const metricOptions=Object.entries(METRIC_NAMES),breakdownOptions=[
+  const metricOptions=Object.entries(METRIC_NAMES),breakdownOptions: Array<[string, string]> = [
     ["total","Total"],["provider","Provider"],["model","Model"]
-  ],periodOptions=[["daily","Daily"],["weekly","Weekly"],["monthly","Monthly"]];
+  ],periodOptions: Array<[string, string]> = [["daily","Daily"],["weekly","Weekly"],["monthly","Monthly"]];
   if(custom){
     fields.append(editorField("Graph title","title","text"),
       editorField("Chart type","visual","select",[["line","Line"],["bars","Bars"]]),
@@ -1010,6 +1011,7 @@ function deleteCustomChart(id: string){
 function installVisualizationMenu(panel: HTMLElement){
   if(panel.querySelector(".viz-menu-trigger"))return;
   const id=panel.dataset.widget;
+  if(!id)return;
   const header=panel.querySelector(":scope > .section-header")??(id==="kpis"?panel:null);
   if(!header)return;
   const trigger=el("button","viz-menu-trigger","⋮");
