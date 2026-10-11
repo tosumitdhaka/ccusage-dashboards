@@ -24,10 +24,9 @@ jobs:
         run: npm ci --no-audit --no-fund
       - name: TypeScript type checking, ESM build and syntax checks
         run: npm run check
-      - name: Export generated TypeScript assets for source sync
+      - name: Ensure checked-in JavaScript matches TypeScript sources
         shell: bash
-        run: |
-          node --input-type=module -e 'import fs from "node:fs"; for (const file of ["public/dashboard-layout.mjs","public/chart-presentation.mjs","public/widget-registry.mjs","public/dashboard-config.mjs"]) console.log("TS_SYNC_ASSET:"+file+":"+JSON.stringify(fs.readFileSync(file,"utf8")));'
+        run: git diff --exit-code -- public/dashboard-layout.mjs public/chart-presentation.mjs public/widget-registry.mjs public/dashboard-config.mjs
       - name: Dashboard unit and HTTP tests
         run: npm test
       - name: Verify npm package contents
