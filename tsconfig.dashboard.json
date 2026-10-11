@@ -10,11 +10,13 @@
       "DOM",
       "DOM.Iterable"
     ],
-    "strict": false,
+    "strict": true,
     "noEmitOnError": true,
     "skipLibCheck": true,
     "sourceMap": false,
-    "declaration": false
+    "declaration": false,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true
   },
   "include": [
     "src/client/dashboard.ts"
