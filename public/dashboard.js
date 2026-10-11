@@ -538,11 +538,12 @@ function changeWidth(id){
 function installLayoutPanel(panel){
     if(panel.querySelector(".layout-tools"))return;
     const id=panel.dataset.widget;
+    const label=WIDGET_REGISTRY[id]?.title ?? dashboardConfig.charts.find(chart=>chart.id===id)?.title ?? id;
     const tools=el("div","layout-tools");
     tools.hidden=true;
     const drag=el("span","layout-handle","⠿ Drag");
     drag.draggable=true;
-    drag.setAttribute("aria-label","Drag "+WIDGET_REGISTRY[id].title);
+    drag.setAttribute("aria-label","Drag "+label);
     drag.addEventListener("dragstart",(event)=>{
       if(!arranging){event.preventDefault();return;}
       event.dataTransfer.effectAllowed="move";
@@ -552,7 +553,7 @@ function installLayoutPanel(panel){
     for(const [label,direction] of [["↑ Earlier",-1],["↓ Later",1]]){
       const button=el("button","",label);
       button.type="button";
-      button.setAttribute("aria-label",(direction<0?"Move earlier: ":"Move later: ")+WIDGET_REGISTRY[id].title);
+      button.setAttribute("aria-label",(direction<0?"Move earlier: ":"Move later: ")+label);
       button.addEventListener("click",()=>moveRelative(id,direction));
       tools.append(button);
     }
