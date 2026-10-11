@@ -3,8 +3,9 @@
 ## v0.3.0 — Layout and custom graphs (development, unreleased)
 
 - Inline graph header filters instead of extra Adjust-menu clicks.
-- Compact 2-column cache metrics even when the notes panel is hidden.
-- Responsive unified grid: drag-to-reorder, accessible Earlier/Later buttons, half/full widget widths, and browser-local persistence.
+- Responsive Input/cache metric cards: four across when wide, two or one across when narrow, with adaptive default height.
+- Snap-aligned 12-column widget grid with free-position header dragging, two-axis corner resizing, collision resolution, and ↑/↓ accessible move controls.
+- Lock/unlock layout, advanced visualization editing through ⋮, and individual provider/model/category visibility settings.
 - Create up to four validated line/bar graphs from existing local ccusage metrics; no imported-code execution or CSV parsing.
 - Older dashboard exports migrate to default layout and empty custom graphs.
 

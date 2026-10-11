@@ -71,10 +71,10 @@ available on narrow screens. They are independent of the global **Customize** di
 
 ## v0.3 development preview
 
-Click **Arrange** to drag existing widget handles, move them using Earlier/Later,
-or switch individual card width between half and full grid. Summary cards always
-remain full width for readability. The layout is responsive; on narrow screens
-all cards become full width, but their saved desktop sizes remain intact.
+Click **Unlock layout** to drag widget headers onto a 12-column snap grid, move
+with ↑/↓ buttons or resize height and width with the ↘ corner grip. The
+summary card initially spans the full width but can be resized in edit mode.
+On compact screens the layout stacks automatically; desktop positions are retained.
 
 Click **New graph** to build a line or ranked-bar graph from existing, locally
 read ccusage report metrics. Pick a period (daily/weekly/monthly), metric

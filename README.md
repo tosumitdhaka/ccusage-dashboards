@@ -56,7 +56,7 @@ bunx ccusage daily --sections daily,weekly,monthly,session --by-agent -j
 - Graph metric toggle between reported tokens, input, output, cache read/write and **estimated USD cost**.
 - **Session token and cost charts**, top-model bars and provider comparisons.
 - **Observed hourly deltas** stored locally and preserved across restarts. These are measured differences between reports, **not retroactive hourly event data**.
-- **v0.2.0 customization:** Configure widget visibility, saved filters/view title, validated JSON import/export, independent graph settings in right-hand header menus, visible value labels, stable provider/model colors, and dismissible pricing warnings. Drag/drop and resizing remain future work.
+- **v0.2.0 customization:** Configure widget visibility, saved filters/view title, validated JSON import/export, chart settings, visible value labels, stable colors, and dismissible pricing warnings. The new drag/drop and resizing preview is described below.
 - Native auto-refresh and conservative pricing warnings; no fabricated rates for `model_placeholder_*` IDs.
 
 ## Privacy and accuracy
