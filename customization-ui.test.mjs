@@ -79,7 +79,7 @@ test("unlocked view, free grid placement and options editor expose explicit cont
  assert.ok(html.includes("Unlock layout"));
  assert.ok(!html.includes(">↕ Arrange<"));
  assert.ok(js.includes('header.draggable=arranging'));
- assert.ok(js.includes('snapToGrid(event.clientX,event.clientY'));
+ assert.ok(js.includes('snapToGrid(event.clientX-dragPointerOffset.x,event.clientY-dragPointerOffset.y'));
  assert.ok(js.includes('resize.setPointerCapture(event.pointerId)'));
  assert.ok(js.includes('function installVisualizationMenu('));
  assert.ok(js.includes('function refreshDimensionChoices('));
