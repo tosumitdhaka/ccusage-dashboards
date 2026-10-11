@@ -125,3 +125,21 @@ The v0.3 branch offers a compact, direct-control dashboard editor:
 - Existing v0.2 saved preferences load with default sizes and no custom graphs.
 
 This work remains read-only toward source logs and stores only whitelisted graph definitions in browser-local configuration. It is **not yet published** as `@latest`.
+
+## TypeScript development
+
+The application, local Node backend, published CLI, and release helper modules
+are maintained in `src/client/` and `src/node/` as TypeScript. The package
+continues shipping compiled JavaScript at its original ESM URLs.
+
+```sh
+npm ci
+npm run typecheck
+npm run build
+npm run check
+npm test
+npm run dashboard
+```
+
+For the exact source/output table, reproducible build gate and controller
+strictness status, see [TypeScript migration](docs/TYPESCRIPT.md).
