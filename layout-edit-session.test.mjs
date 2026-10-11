@@ -27,8 +27,8 @@ test("sideways resize and repeated no-op preserves strict non-overlap",()=>{
 
 test("dashboard initializes edit-session state before initial widget placement",async()=>{
   const {readFile}=await import("node:fs/promises");
-  const js=await readFile(new URL("./public/dashboard.js",import.meta.url),"utf8");
-  const declared=js.indexOf("let layoutDraft=null;");
+  const js=await readFile(new URL("./src/client/dashboard.ts",import.meta.url),"utf8");
+  const declared=js.indexOf("let layoutDraft: any=null;");
   const startup=js.indexOf("applyFilterState(dashboardConfig.filters);");
   const firstPlacement=js.indexOf("showWidgetSelection();",startup);
   const accessor=js.indexOf("function activeLayout(){return layoutDraft??dashboardConfig.layout;}");
@@ -36,5 +36,5 @@ test("dashboard initializes edit-session state before initial widget placement",
     "layoutDraft must exist before startup render");
   assert.ok(accessor>startup,"hoisted accessor must only read initialized state");
   assert.ok(js.indexOf("load();",startup)>startup,"report load must run after widgets are positioned");
-  assert.equal(js.split("let layoutDraft=null;").length,2,"single edit session declaration");
+  assert.equal(js.split("let layoutDraft: any=null;").length,2,"single edit session declaration");
 });

@@ -29,7 +29,7 @@ test("hiding Data Notes repacks positions and expands cache into four columns",(
 });
 test("stacked breakpoint disables unsupported grips and supports arrow-only reordering",async()=>{
   const css=await readFile(new URL("./public/styles.css",import.meta.url),"utf8");
-  const js=await readFile(new URL("./public/dashboard.js",import.meta.url),"utf8");
+  const js=await readFile(new URL("./src/client/dashboard.ts",import.meta.url),"utf8");
   const html=await readFile(new URL("./public/index.html",import.meta.url),"utf8");
   assert.ok(css.includes("@media (min-width:741px) and (max-width:1100px)"));
   assert.ok(js.includes("header.draggable=false"));

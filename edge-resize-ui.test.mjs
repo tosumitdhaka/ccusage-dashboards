@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {readFile} from "node:fs/promises";
 
 test("unlocked grid offers eight edge resize zones without cluttering widget controls",async()=>{
- const js=await readFile(new URL("./public/dashboard.js",import.meta.url),"utf8");
+ const js=await readFile(new URL("./src/client/dashboard.ts",import.meta.url),"utf8");
  const css=await readFile(new URL("./public/styles.css",import.meta.url),"utf8");
  const html=await readFile(new URL("./public/index.html",import.meta.url),"utf8");
  assert.ok(html.includes(">🔒 Layout Locked</button>"));
@@ -22,7 +22,7 @@ test("unlocked grid offers eight edge resize zones without cluttering widget con
 });
 
 test("live resize previews peers and saves only to draft on pointerup",async()=>{
- const js=await readFile(new URL("./public/dashboard.js",import.meta.url),"utf8");
+ const js=await readFile(new URL("./src/client/dashboard.ts",import.meta.url),"utf8");
  const block=js.slice(js.indexOf("function beginEdgeResize("),js.indexOf("function beginPanelDrag("));
  assert.ok(block.includes("reflowGridAfterResize("));
  assert.ok(block.includes("scheduleLayoutPreview(positions)"));
@@ -36,7 +36,7 @@ test("live resize previews peers and saves only to draft on pointerup",async()=>
 });
 test("all graph cards have one scroll body and hover-only controls",async()=>{
  const css=await readFile(new URL("./public/styles.css",import.meta.url),"utf8");
- const js=await readFile(new URL("./public/dashboard.js",import.meta.url),"utf8");
+ const js=await readFile(new URL("./src/client/dashboard.ts",import.meta.url),"utf8");
  assert.ok(js.includes('el("div","widget-scroll-body")'));
  assert.ok(css.includes('>.widget-scroll-body{'));
  assert.ok(css.includes('.widget-scroll-body .bars{max-height:none;overflow:visible}'));
