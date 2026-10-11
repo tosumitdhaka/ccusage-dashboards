@@ -765,6 +765,7 @@ function beginEdgeResize(event: PointerEvent,edge: HTMLElement,panel: HTMLElemen
   edge.addEventListener("pointerup",finish);
   edge.addEventListener("pointercancel",cancel);
 }
+const DRAG_SENSITIVITY=0.45;
 function beginPanelDrag(event: PointerEvent,surface: HTMLElement,panel: HTMLElement,id: string){
   if(!arranging||event.button!==0||interactiveHeaderTarget(event.target)||
     getComputedStyle($("dashboard-grid")).display!=="grid")return;
@@ -775,8 +776,10 @@ function beginPanelDrag(event: PointerEvent,surface: HTMLElement,panel: HTMLElem
   let next={...start},moved=false;
   surface.setPointerCapture(event.pointerId);
   const update=(x:number,y:number)=>{
-    const dx=x-x0,dy=y-y0;
-    if(!moved&&Math.hypot(dx,dy)<5)return;
+    // Reduce drag gain so accidental trackpad/mouse motion cannot jump several
+    // rows or columns. The floating card and drop position share this gain.
+    const dx=(x-x0)*DRAG_SENSITIVITY,dy=(y-y0)*DRAG_SENSITIVITY;
+    if(!moved&&Math.hypot(x-x0,y-y0)<6)return;
     moved=true;
     // One cell of pointer travel changes one grid cell. This remains stable
     // even when the dragged item was previously moved by the user.
@@ -831,18 +834,37 @@ function installLayoutEditor(){
   $("layout-edit").addEventListener("click",beginLayoutEdit);
   $("layout-save").addEventListener("click",()=>closeLayoutEdit(true));
   $("layout-cancel").addEventListener("click",()=>closeLayoutEdit(false));
-  // Explicit wheel routing: graph content may remain an independent scroll
-  // container for keyboard/scrollbar access, but wheel/trackpad input always
-  // moves the document instead of appearing to freeze over a visualization.
+  // Route wheel input only when no nested widget can actually scroll in
+  // that direction. Capture avoids scroll-containment rules swallowing it.
+  // Do not override a list with remaining content, zoom, or horizontal input.
   grid.addEventListener("wheel",(event: WheelEvent)=>{
-    if(!event.cancelable||event.ctrlKey||event.metaKey||event.shiftKey||event.deltaY===0)return;
-    const target=event.target;
-    if(!(target instanceof Element)||!target.closest(".widget-scroll-body")||
-      target.closest("select,input,textarea,[role=dialog],.viz-popover-menu"))return;
+    if(!event.cancelable||event.ctrlKey||event.metaKey||event.shiftKey||
+      event.deltaY===0||Math.abs(event.deltaX)>Math.abs(event.deltaY))return;
+    const node=event.target;
+    if(!(node instanceof Element)||node.closest("select,input,textarea,[role=dialog],.viz-popover-menu"))return;
+    const body=node.closest<HTMLElement>(".widget-scroll-body");
+    if(!body||!grid.contains(body))return;
+    const towardEnd=event.deltaY>0;
+    let current: Element|null=node;
+    while(current){
+      if(current instanceof HTMLElement){
+        const style=getComputedStyle(current);
+        const hasWheelScroll=/^(auto|scroll|overlay)$/.test(style.overflowY);
+        const maxScroll=Math.max(0,current.scrollHeight-current.clientHeight);
+        const available=towardEnd?maxScroll-current.scrollTop:current.scrollTop;
+        if(hasWheelScroll&&maxScroll>1&&available>1)return;
+      }
+      if(current===body)break;
+      current=current.parentElement;
+    }
+    const page=document.scrollingElement;
+    if(!page)return;
     event.preventDefault();
     const scale=event.deltaMode===1?16:event.deltaMode===2?window.innerHeight:1;
-    window.scrollBy({top:event.deltaY*scale,behavior:"instant"});
-  },{passive:false});
+    // Assigning the scroll root directly avoids the site's smooth-scrolling
+    // rule and the cancelled-wheel + window.scrollBy dead zone in Chrome.
+    page.scrollTop+=event.deltaY*scale;
+  },{passive:false,capture:true});
   refreshArrangeTools();
 }
 installLayoutEditor();

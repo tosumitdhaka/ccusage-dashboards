@@ -29,7 +29,10 @@ test("native document wheel continues from graph and exhausted list scroll regio
   assert.ok(js.includes("panel.dataset.chartVisual=chart.visual"));
   assert.ok(js.includes('grid.addEventListener("wheel"'));
   assert.ok(js.includes("event.preventDefault()"));
-  assert.ok(js.includes("window.scrollBy({top:event.deltaY*scale"));
+  assert.ok(js.includes("page.scrollTop+=event.deltaY*scale"));
+  assert.ok(js.includes("{passive:false,capture:true}"));
+  assert.ok(js.includes("maxScroll>1&&available>1"));
+  assert.ok(js.includes("if(hasWheelScroll&&maxScroll>1&&available>1)return"));
   assert.doesNotMatch(css,/\.widget-scroll-body\{[^}]*overscroll-behavior:contain/);
 });
 
@@ -57,4 +60,19 @@ test("floating drag and resize leave peer layout unchanged until pointerup",asyn
   const css=await readFile(new URL("./public/styles.css",import.meta.url),"utf8");
   assert.match(css,/\.dashboard-grid \.layout-drop-preview\{\s*position:absolute/);
   assert.ok(css.includes("pointer-events:none;transition:none!important;"));
+});
+
+test("configuration controls remain visible without hover support",async()=>{
+  const css=await readFile(new URL("./public/styles.css",import.meta.url),"utf8");
+  assert.match(css,/\.dashboard-grid>\[data-widget\] \.chart-header-controls,\s*\.dashboard-grid>\[data-widget\] \.viz-menu-trigger\s*\{[^}]*opacity:1!important;visibility:visible!important;pointer-events:auto!important/);
+  assert.ok(css.includes(".top-actions #customize{visibility:visible"));
+});
+
+test("drag gain is shared by preview and snap coordinates",async()=>{
+  const js=await readFile(new URL("./src/client/dashboard.ts",import.meta.url),"utf8");
+  assert.ok(js.includes("const DRAG_SENSITIVITY=0.45;"));
+  assert.ok(js.includes("const dx=(x-x0)*DRAG_SENSITIVITY,dy=(y-y0)*DRAG_SENSITIVITY;"));
+  assert.ok(js.includes("start.x+Math.round(dx/stepX)"));
+  assert.ok(js.includes("start.y+Math.round(dy/32)"));
+  assert.ok(js.includes('panel.style.transform="translate3d("+dx+"px,"+dy+"px,0)"'));
 });

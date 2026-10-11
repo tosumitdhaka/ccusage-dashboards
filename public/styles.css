@@ -520,3 +520,17 @@ button:focus-visible,input:focus-visible,.import-button:focus-within{outline:2px
   pointer-events:none;transition:none!important;
   box-shadow:0 13px 35px #0008}
 .dashboard-grid .layout-resizing{will-change:auto}
+
+/* Controls must remain discoverable even if the device does not report hover
+ * consistently (hybrid mouse/touch, popovers, or animated scroll containers). */
+.dashboard-grid>[data-widget] .chart-header-controls,
+.dashboard-grid>[data-widget] .viz-menu-trigger{
+  opacity:1!important;visibility:visible!important;pointer-events:auto!important}
+.dashboard-grid .section-header>.viz-menu-trigger{
+  flex:0 0 auto;order:10}
+.top-actions #customize{visibility:visible;opacity:1;display:inline-flex}
+/* No inner scroll chaining barrier, including legacy graph/list selectors. */
+.dashboard-grid .widget-scroll-body,
+.dashboard-grid .widget-scroll-body .bars,
+.dashboard-grid .widget-scroll-body .table-wrap{
+  overscroll-behavior-y:auto}
