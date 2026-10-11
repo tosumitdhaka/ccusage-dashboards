@@ -22,3 +22,21 @@ test("v0.2 configs without layout migrate safely",()=>{
  const legacy={...DEFAULT_DASHBOARD};delete legacy.layout;
  assert.deepEqual(validateDashboardConfig(legacy).layout.widths,{...DEFAULT_WIDTHS});
 });
+
+test("strict snap grid validates coordinates and prevents overlapping imported layouts",()=>{
+ const half=validateLayout({positions:{providers:{x:0,y:0,w:6,h:12},models:{x:6,y:0,w:6,h:12}}});
+ assert.equal(half.positions.providers.x,0);
+ assert.equal(half.positions.models.x,6);
+ assert.throws(()=>validateLayout({positions:{providers:{x:7,y:0,w:6,h:12}}}),/rectangle/);
+ assert.throws(()=>validateLayout({positions:{providers:{x:0,y:0,w:6,h:10},models:{x:4,y:5,w:6,h:10}}}),/Overlapping/);
+ assert.throws(()=>validateLayout({positions:{providers:{x:0,y:0,w:6,h:1}}}),/rectangle/);
+});
+test("relocating one widget pushes collisions down without overlap",async()=>{
+ const {relocateGridWidget,overlaps,snapToGrid}=await import("./public/dashboard-layout.mjs");
+ const start={trend:{x:0,y:0,w:12,h:12},providers:{x:0,y:12,w:6,h:9},models:{x:6,y:12,w:6,h:9}};
+ const moved=relocateGridWidget(start,"models",{x:0,y:12,w:8,h:13});
+ assert.deepEqual(moved.models,{x:0,y:12,w:8,h:13});
+ assert.ok(!overlaps(moved.providers,moved.models));
+ assert.ok(!overlaps(moved.trend,moved.models));
+ assert.deepEqual(snapToGrid(100,64,{left:0,top:0,width:1200},6,12),{x:1,y:2,w:6,h:12});
+});

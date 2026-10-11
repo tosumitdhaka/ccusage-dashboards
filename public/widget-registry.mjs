@@ -124,6 +124,6 @@ export function validateDashboardConfig(config) {
   return {
     schemaVersion: SCHEMA_VERSION, id: config.id, title,
     widgets: [...config.widgets], filters, widgetSettings: validateWidgetSettings(config.widgetSettings),
-    layout: validateLayout(config.layout,known), charts
+    layout: validateLayout(config.layout,known,config.widgets), charts
   };
 }
