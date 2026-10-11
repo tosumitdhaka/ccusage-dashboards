@@ -164,7 +164,8 @@ button:focus-visible,input:focus-visible,.import-button:focus-within{outline:2px
 /* Keep remaining panels full-width and controls usable at mobile widths. */
 .panel-grid:has(> [data-widget][hidden]){grid-template-columns:minmax(0,1fr)}
 .breadcrumb strong{display:inline-block;max-width:min(30vw,300px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}
-@media(max-width:740px){.topbar{height:auto;min-height:73px;flex-wrap:wrap;padding-block:12px}.top-actions{width:100%;justify-content:flex-end}}
+@media(max-width:740px){.topbar{height:auto;min-height:73px;flex-wrap:wrap;padding-block:12px}.top-actions{width:100%;justify-content:flex-start;flex-wrap:wrap;gap:8px}.top-actions>.refresh{flex:1 1 auto;min-width:0}}
+@media(max-width:440px){.top-actions>.refresh{flex:1 1 calc(50% - 8px);max-width:calc(50% - 4px);padding-inline:7px}}
 
 /* Sidebar stays navigable while the active section follows page scrolling. */
 .sidebar{overflow-y:auto;scrollbar-width:thin}
@@ -227,3 +228,272 @@ button:focus-visible,input:focus-visible,.import-button:focus-within{outline:2px
   .chart-adjust-trigger{padding:8px 10px}
   .trend-header-actions .chart-adjust-panel .trend-controls label{flex:unset;min-width:0}
 }
+
+/* Inline per-graph controls: no menus or extra click before filtering. */
+.dashboard-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:17px;
+  align-items:start;margin-top:17px}
+.dashboard-grid>[data-widget]{min-width:0;margin:0;align-self:start}
+.dashboard-grid>[data-widget][hidden]{display:none!important}
+.dashboard-grid>[data-widget][data-width="full"]{grid-column:1/-1}
+.dashboard-grid>[data-widget][data-width="half"]{grid-column:span 1}
+.dashboard-grid>.kpis{grid-column:1/-1}
+.chart-section-header,.trend-card .trend-header{display:flex;gap:12px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap}
+.trend-header-actions{display:flex;align-items:flex-start;justify-content:flex-end;flex:1 1 500px;min-width:0;flex-wrap:wrap;gap:9px}
+.chart-header-controls{display:flex;align-items:center;justify-content:flex-end;gap:8px 12px;flex-wrap:wrap;min-width:0}
+.trend-header-actions>.chart-header-controls{flex:0 1 auto}
+.chart-header-controls .trend-controls,.chart-header-controls .bar-controls,
+.trend-header-actions .chart-header-controls .trend-controls{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px 12px;margin:0;width:auto}
+.chart-header-controls .trend-controls label,.chart-header-controls .bar-controls label,
+.trend-header-actions .chart-header-controls .trend-controls label{display:inline-flex;flex-direction:row;align-items:center;gap:6px;
+  min-width:0;margin:0;color:#94aabe;font-size:11px;flex:0 1 auto;white-space:nowrap}
+.chart-header-controls select,.chart-header-controls .trend-controls select,
+.chart-header-controls .bar-controls select,.trend-header-actions .chart-header-controls select,
+.trend-header-actions .chart-header-controls .trend-controls label[for="breakdown"] select{
+  width:auto;min-width:80px;max-width:150px;height:34px;padding:6px 24px 6px 9px;font-size:11px}
+.chart-header-controls .chart-checkbox,.trend-header-actions .chart-header-controls .chart-checkbox{
+  display:inline-flex;flex-direction:row;align-items:center;gap:6px;white-space:nowrap}
+.chart-header-controls .chart-checkbox input{flex:0 0 auto}
+.chart-chip{align-self:center}
+/* Keep cache cards compact even when the neighboring Notes panel is hidden. */
+.dashboard-grid .token-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+  width:100%;max-width:482px;align-items:start;justify-content:start;gap:12px}
+.dashboard-grid .token-grid>div{min-height:83px}
+.dashboard-grid>[data-widget="cache"]{align-self:start}
+@media(max-width:950px){
+  .chart-section-header .chart-header-controls{width:100%;justify-content:flex-start}
+  .trend-header-actions{justify-content:flex-start}
+}
+@media(max-width:740px){
+  .dashboard-grid{grid-template-columns:minmax(0,1fr)}
+  .dashboard-grid>[data-widget]{grid-column:1/-1!important}
+  .dashboard-grid .token-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .chart-section-header .chart-header-controls{justify-content:flex-start}
+  .chart-header-controls .trend-controls,.chart-header-controls .bar-controls,
+  .trend-header-actions .chart-header-controls .trend-controls{justify-content:flex-start}
+}
+@media(max-width:420px){
+  .dashboard-grid .token-grid{grid-template-columns:minmax(0,1fr)}
+  .chart-header-controls select{max-width:125px}
+}
+
+/* Editable widget arrangement. Only controls and drag handles are active in edit mode. */
+.dashboard-grid.is-arranging>[data-widget]{position:relative;outline:1px dashed #45677a;
+  outline-offset:3px;padding-bottom:max(55px,3.8rem)}
+.dashboard-grid.is-arranging>[data-widget].layout-drop-target{outline:2px solid #57d4bf}
+.layout-tools{position:absolute;bottom:12px;right:16px;display:flex;align-items:center;
+  flex-wrap:wrap;justify-content:flex-end;gap:6px}
+.layout-tools[hidden]{display:none!important}
+.layout-tools button,.layout-handle{padding:7px 9px;background:#20354a;border:1px solid #46647b;
+  color:#def8fb;border-radius:7px;font-size:11px;min-height:32px}
+.layout-tools button:hover,.layout-handle:hover{background:#294e57}
+.layout-tools button:focus-visible{outline:2px solid #53d6be;outline-offset:2px}
+.layout-handle{display:inline-flex;align-items:center;cursor:grab;user-select:none}
+.layout-handle:active{cursor:grabbing}
+@media(max-width:740px){.layout-handle{display:none}.layout-tools{left:12px;right:12px}}
+
+/* New graphs reuse the existing read-only ccusage analytics functions. */
+.custom-chart-card .chart-section-header{align-items:flex-start;flex-wrap:wrap}
+.custom-chart-card .chart-header-controls{flex:1 1 300px}
+.custom-chart-card .chart-container svg{display:block;width:100%;height:230px}
+.custom-chart-card .bars[hidden],.custom-chart-card .chart-container[hidden],
+.custom-chart-card .legend[hidden]{display:none}
+.custom-legend{margin-top:12px}
+.custom-graph-field{display:inline-flex;align-items:center;gap:5px;color:#96a9bd;font-size:11px}
+.custom-graph-field select{min-width:75px;max-width:155px;background:#162538;color:#e0eef9;
+  border:1px solid #3c5366;border-radius:7px;padding:7px;font-size:11px}
+.custom-remove{border:1px solid #704956;color:#ffc0ce;background:#3b2532;border-radius:7px;padding:8px 10px;font-size:11px}
+.graph-builder-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.graph-builder-fields label{display:grid;gap:6px;color:#adc1d5;font-size:12px;font-weight:650}
+.graph-builder-fields select,.graph-builder-fields input{min-width:0;width:100%;padding:10px;
+  border:1px solid #3b5367;background:#182638;color:#edfaff;border-radius:8px;font-size:12px}
+@media(max-width:540px){.graph-builder-fields{grid-template-columns:minmax(0,1fr)}}
+
+
+/* Twelve-column, integer-row, collision-managed layout. */
+.dashboard-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));grid-auto-rows:24px;
+  gap:8px;align-items:stretch;position:relative;margin-top:17px}
+.dashboard-grid>[data-widget]{min-width:0;min-height:0;margin:0;align-self:stretch;overflow:auto;
+  grid-column:auto;grid-row:auto}
+.dashboard-grid>[data-widget="kpis"]{display:grid;overflow:hidden}
+.dashboard-grid>[data-widget][hidden]{display:none!important}
+.dashboard-grid .layout-drop-preview{border:2px dashed #64e5cd;background:#53d6be18;
+  border-radius:11px;z-index:9;pointer-events:none}
+.dashboard-grid .layout-drop-preview[hidden]{display:none!important}
+.dashboard-grid .layout-drag-source{opacity:.6}
+.dashboard-grid .layout-tools{bottom:8px;right:12px}
+.dashboard-grid.is-arranging>.panel,.dashboard-grid.is-arranging>.wide-card{position:relative}
+.dashboard-grid.is-arranging .section-header{cursor:grab}
+.dashboard-grid.is-arranging .section-header:active{cursor:grabbing}
+.dashboard-grid.is-arranging .section-header select,.dashboard-grid.is-arranging .section-header button{cursor:pointer}
+.layout-step{font-weight:800;font-size:15px!important;min-width:33px}
+.layout-resize{font-weight:850;font-size:18px!important;min-width:35px;
+  cursor:nwse-resize!important;touch-action:none;user-select:none}
+.layout-size-help{color:#a2b7c9;font-size:10px}
+.dashboard-grid [data-widget="cache"]{container-type:inline-size}
+.dashboard-grid [data-widget="cache"] .token-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+  width:100%;max-width:none;gap:12px;align-items:start}
+@container(min-width:680px){.token-grid{grid-template-columns:repeat(4,minmax(0,1fr))!important}}
+@container(max-width:340px){.token-grid{grid-template-columns:1fr!important}}
+@media(max-width:740px){
+  .dashboard-grid{display:flex;flex-direction:column;gap:14px}
+  .dashboard-grid>[data-widget]{width:100%;height:auto;min-height:0;max-height:none;overflow:visible;
+    grid-column:auto!important;grid-row:auto!important}
+  .dashboard-grid [data-widget="cache"] .token-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .dashboard-grid.is-arranging>[data-widget]{padding-bottom:68px}
+  .dashboard-grid .layout-drop-preview{display:none!important}
+}
+
+
+/* A consistent per-visualization overflow menu; inline selectors remain visible. */
+.dashboard-grid .section-header{position:relative}
+.viz-menu{position:relative;align-self:flex-start;flex:0 0 auto;z-index:12}
+.viz-menu[open]{z-index:60}
+.viz-menu-trigger{list-style:none;width:35px;height:35px;display:grid;place-items:center;
+  cursor:pointer;border:1px solid #38526a;background:#18283a;border-radius:8px;
+  color:#d7e8f5;font-size:22px;line-height:1}
+.viz-menu-trigger::-webkit-details-marker{display:none}
+.viz-menu-trigger::marker{content:""}
+.viz-menu-trigger:hover,.viz-menu[open] .viz-menu-trigger{background:#27414e;border-color:#53d6be}
+.viz-menu-trigger:focus-visible{outline:2px solid #53d6be;outline-offset:3px}
+.viz-menu-body{position:absolute;right:0;top:calc(100% + 6px);min-width:190px;
+  padding:6px;display:grid;gap:2px;border:1px solid #3e566d;border-radius:10px;
+  background:#122235;box-shadow:0 12px 32px #000b}
+.viz-menu-item{width:100%;border:0;padding:10px;border-radius:7px;background:transparent;
+  text-align:left;color:#daecf9;font-size:12px}
+.viz-menu-item:hover{background:#263f53}
+.viz-menu-item.danger{color:#ffb9c4}
+.visual-editor-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:14px 0}
+.visual-editor-field{display:grid;gap:7px;color:#a8bed2;font-size:12px}
+.visual-editor-field input:not([type="checkbox"]),.visual-editor-field select{width:100%;min-width:0;
+  padding:9px;border:1px solid #425e73;background:#16263a;color:#e5f4ff;border-radius:8px}
+.visual-editor-dimensions{border:1px solid #34495b;border-radius:10px;padding:12px;margin:15px 0}
+.visual-editor-dimensions[hidden]{display:none!important}
+.visual-editor-dimensions legend{font-size:11px;color:#a9becf;font-weight:700}
+.visual-dimension-options{max-height:180px;overflow-y:auto;display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.visual-dimension{display:flex;align-items:center;gap:8px;word-break:break-word;
+  color:#c8d8e7;font-size:11px}
+.visual-dimension input{accent-color:#53d6be;flex:0 0 auto}
+@media(max-width:520px){.visual-editor-fields,.visual-dimension-options{grid-template-columns:minmax(0,1fr)}}
+
+.dashboard-grid [data-widget="kpis"]{position:relative}
+.dashboard-grid [data-widget="kpis"]>.viz-menu{position:absolute;top:5px;right:5px;z-index:14}
+.dashboard-grid [data-widget="kpis"]>.viz-menu .viz-menu-trigger{width:28px;height:28px}
+.dashboard-grid .kpi[hidden],.dashboard-grid .token-grid>div[hidden]{display:none!important}
+
+/* A two-row KPI layout cannot fit safely into the default desktop row span.
+   At compact laptop/tablet widths, switch to natural-height stacked widgets. */
+@media (min-width:741px) and (max-width:1100px){
+  .dashboard-grid{display:flex;flex-direction:column;gap:14px}
+  .dashboard-grid>[data-widget]{width:100%;height:auto;min-height:0;overflow:visible;
+    grid-column:auto!important;grid-row:auto!important}
+  .dashboard-grid .layout-drop-preview{display:none!important}
+}
+
+/* Top-layer menus escape the scrollable snapped-height chart panels. */
+.viz-popover-menu{position:fixed!important;inset:auto;width:210px;min-width:190px;
+  max-height:min(260px,75vh);overflow-y:auto;margin:0;box-sizing:border-box;
+  z-index:9999;border:1px solid #3e566d}
+.viz-popover-menu:not(:popover-open){display:none!important}
+.viz-menu-trigger{flex:0 0 auto;align-self:flex-start}
+.dashboard-grid [data-widget="kpis"]>.viz-menu-trigger{position:absolute;top:5px;right:5px;z-index:14;
+  width:28px;height:28px}
+
+.dashboard-grid .information>div[hidden]{display:none!important}
+
+/* Slim, discoverable border grips. Only active while Layout Unlocked.
+   Preview uses compositor translation and defers graph rerender to pointerup. */
+.dashboard-grid.is-arranging>[data-widget]{padding-bottom:42px}
+.dashboard-grid .layout-tools{bottom:7px;right:10px;gap:5px}
+.dashboard-grid .layout-tools .layout-step{font-size:22px!important;font-weight:400;
+  line-height:1;min-width:30px;min-height:30px;padding:2px 7px}
+.dashboard-grid .layout-resize-edge{display:none;position:absolute;z-index:15;
+  background:transparent;touch-action:none;user-select:none}
+.dashboard-grid.is-arranging>[data-widget]>.layout-resize-edge:not([hidden]){display:block}
+.dashboard-grid .layout-resize-edge[hidden]{display:none!important}
+.dashboard-grid .edge-n{top:0;left:14px;right:14px;height:9px;cursor:ns-resize}
+.dashboard-grid .edge-s{bottom:0;left:14px;right:14px;height:9px;cursor:ns-resize}
+.dashboard-grid .edge-e{top:14px;right:0;bottom:14px;width:9px;cursor:ew-resize}
+.dashboard-grid .edge-w{top:14px;left:0;bottom:14px;width:9px;cursor:ew-resize}
+.dashboard-grid .edge-ne,.dashboard-grid .edge-nw,
+.dashboard-grid .edge-se,.dashboard-grid .edge-sw{width:16px;height:16px}
+.dashboard-grid .edge-ne{top:0;right:0;cursor:nesw-resize}
+.dashboard-grid .edge-sw{bottom:0;left:0;cursor:nesw-resize}
+.dashboard-grid .edge-nw{top:0;left:0;cursor:nwse-resize}
+.dashboard-grid .edge-se{bottom:0;right:0;cursor:nwse-resize}
+.dashboard-grid .layout-resize-edge:hover,
+.dashboard-grid .layout-resize-edge:focus-visible{background:#53d6be55;outline:1px solid #53d6be}
+.dashboard-grid .layout-resizing{outline:2px solid #53d6be!important}
+.dashboard-grid>.grid-resize-preview{position:absolute;left:0;top:0;box-sizing:border-box;
+  pointer-events:none;border:2px solid #72efd6;background:#53d6be19;border-radius:12px;
+  box-shadow:inset 0 0 0 1px #fff2;z-index:30;will-change:transform,width,height;
+  transition:transform 75ms ease-out,width 75ms ease-out,height 75ms ease-out}
+.dashboard-grid>.grid-resize-preview[hidden]{display:none!important}
+/* One scroller: the model bar list, not a nested card + list pair. */
+.dashboard-grid>[data-widget="models"],.dashboard-grid>[data-widget="providers"]{display:flex;flex-direction:column;overflow:hidden}
+.dashboard-grid>[data-widget="models"]>.section-header,.dashboard-grid>[data-widget="providers"]>.section-header{flex:0 0 auto}
+.dashboard-grid>[data-widget="models"]>#model-bars,.dashboard-grid>[data-widget="providers"]>#provider-bars{
+  flex:1 1 auto;min-height:0;max-height:none;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain}
+@media(max-width:1100px){
+  .dashboard-grid>[data-widget="models"],.dashboard-grid>[data-widget="providers"]{overflow:visible;height:auto}
+  .dashboard-grid>[data-widget="models"]>#model-bars,.dashboard-grid>[data-widget="providers"]>#provider-bars{flex:none;max-height:380px}
+}
+.layout-compact-hint{max-width:280px;font-size:11px;line-height:1.4;color:#9eb4c6}
+.layout-compact-hint[hidden]{display:none!important}
+@media(pointer:coarse){
+  .dashboard-grid .edge-n,.dashboard-grid .edge-s{height:14px}
+  .dashboard-grid .edge-e,.dashboard-grid .edge-w{width:14px}
+  .dashboard-grid .edge-ne,.dashboard-grid .edge-nw,
+  .dashboard-grid .edge-se,.dashboard-grid .edge-sw{width:21px;height:21px}
+}
+
+/* Invisible edge hit zones: the pointer cursor is the only hover marker. */
+.dashboard-grid .layout-resize-edge:hover{background:transparent;outline:none}
+.dashboard-grid .layout-resize-edge:focus-visible{background:#53d6be22;outline:2px solid #53d6be}
+.dashboard-grid.is-arranging>[data-widget]{padding-bottom:24px}
+.dashboard-grid.is-arranging .section-header{touch-action:none;user-select:none}
+.dashboard-grid.is-arranging>[data-widget="kpis"]{cursor:grab;touch-action:none}
+.dashboard-grid.is-arranging .section-header select,
+.dashboard-grid.is-arranging .section-header button,
+.dashboard-grid.is-arranging .section-header label{touch-action:auto;user-select:auto}
+/* A single scroll body, fixed header, and no competing panel scrollbar. */
+.dashboard-grid>[data-widget]:not([data-widget="kpis"]){
+  display:flex;flex-direction:column;overflow:hidden;min-height:0}
+.dashboard-grid>[data-widget]:not([data-widget="kpis"])>.section-header{flex:0 0 auto}
+.dashboard-grid>[data-widget]>.widget-scroll-body{
+  flex:1 1 auto;min-height:0;min-width:0;overflow-y:auto;overflow-x:hidden;
+  overscroll-behavior:contain;scrollbar-gutter:stable}
+.dashboard-grid .widget-scroll-body .bars{max-height:none;overflow:visible}
+.dashboard-grid .widget-scroll-body .table-wrap{overflow-x:auto;overflow-y:hidden}
+@media(max-width:1100px){
+  .dashboard-grid>[data-widget]:not([data-widget="kpis"]){overflow:visible;min-height:0}
+  .dashboard-grid>[data-widget]>.widget-scroll-body{
+    flex:initial;min-height:0;max-height:none;overflow:visible;scrollbar-gutter:auto}
+}
+/* Reveal editing controls on panel hover or keyboard focus, always on touch. */
+.dashboard-grid>[data-widget] .viz-menu-trigger,
+.dashboard-grid>[data-widget] .chart-header-controls{
+  opacity:0;pointer-events:none;
+  transition:opacity 130ms ease
+.dashboard-grid>[data-widget]:hover .viz-menu-trigger,
+.dashboard-grid>[data-widget]:focus-within .viz-menu-trigger,
+.dashboard-grid>[data-widget] .viz-menu-trigger[aria-expanded="true"],
+.dashboard-grid>[data-widget]:hover .chart-header-controls,
+.dashboard-grid>[data-widget]:focus-within .chart-header-controls{
+  opacity:1;pointer-events:auto}
+@media(hover:none){
+  .dashboard-grid>[data-widget] .viz-menu-trigger,
+  .dashboard-grid>[data-widget] .chart-header-controls{
+    opacity:1;pointer-events:auto}
+}
+.top-actions{gap:9px;flex-wrap:wrap;justify-content:flex-end}
+.topbar{height:auto;min-height:73px;padding-top:9px;padding-bottom:9px}
+.top-actions .layout-save{padding:9px 13px;font-size:12px;border-radius:8px;min-height:35px}
+.top-actions .layout-cancel{border-color:#755766}
+@media(prefers-reduced-motion:reduce){
+  .dashboard-grid>[data-widget] .viz-menu-trigger,
+  .dashboard-grid>[data-widget] .chart-header-controls{transition:none}
+}
+
+/* Only enable the layout editor when the twelve-column snap grid is active. */
+@media(max-width:1100px){.top-actions #layout-edit:disabled{cursor:not-allowed;opacity:.56}}

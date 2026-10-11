@@ -32,6 +32,9 @@ test("serves a cached unified report locally without remote CORS grants", async 
     assert.equal(dashboardConfig.status, 200);
     assert.match(dashboardConfig.headers.get("content-type"), /javascript/);
     assert.match(await dashboardConfig.text(), /parseDashboardJSON/);
+    const layoutModule = await fetch(url + "/dashboard-layout.mjs");
+    assert.equal(layoutModule.status, 200);
+    assert.match(await layoutModule.text(), /validateLayout/);
   });
 });
 

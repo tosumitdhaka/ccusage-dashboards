@@ -68,3 +68,52 @@ and visible point values; provider/model bar metrics and visible counts; session
 metric. Settings apply immediately and persist in the browser's active view.
 The controls use native expandable buttons for keyboard accessibility and remain
 available on narrow screens. They are independent of the global **Customize** dialog.
+
+## v0.3 development preview
+
+Click **Unlock layout** to drag widget headers onto a 12-column snap grid, move
+with ↑/↓ buttons or resize height and width with the ↘ corner grip. The
+summary card initially spans the full width but can be resized in edit mode.
+On compact screens the layout stacks automatically; desktop positions are retained.
+
+Click **New graph** to build a line or ranked-bar graph from existing, locally
+read ccusage report metrics. Pick a period (daily/weekly/monthly), metric
+(tokens/cache/cost) and grouping (total/provider/model). Up to four custom
+graphs are stored by a strict, data-only schema. They inherit the global
+provider/model filters; no uploads, code, formulas or external network source
+are accepted. CSV/JSON column mapping and independent filters are future work.
+
+## Grid edit UX refinements
+
+- **Unlock layout** enables dragging by any non-interactive part of a widget
+  header, including its title, or using the drag handle. Drop on an empty
+  12-column grid cell to move a widget, including across columns.
+- Resize with the widget's bottom-right **↘** corner. Width and height snap
+  to grid units, and displaced widgets are moved out of the way. The keyboard
+  **↑/↓** controls have accessible labels but display icons only.
+- **Lock view** returns to non-editing mode. This lock affects arrangement,
+  not graph filter use.
+- Widget **⋮** menus offer editing, dimension visibility and hiding. Custom
+  graphs also support deletion. Built-in cost estimates are unchanged.
+- Full-width **Input and cache** uses four columns when the container is wide
+  enough; narrower widths use two or one. During a width resize, its default
+  two-row height can automatically shrink for a full-width one-row layout;
+  manually set heights are preserved.
+- Placement updates no longer reappend every widget on each graph redraw,
+  and both graph dialogs preserve the viewport position when closed.
+
+## Border resizing, viewport lock status and model list scrolling
+
+In **🔓 Layout Unlocked**, drag the top, bottom, left or right widget border
+to resize in that axis, or drag a corner to resize both. A light snap outline
+tracks the proposed bounds without rerendering charts on every pointer event.
+Changes are committed on release. The heading is still a drag handle for
+moving a widget. The only always-visible arrangement controls are slim
+**⌃ / ⌄** arrows, with accessible move labels.
+
+**🔒 Layout Locked** means arrangement is disabled; click it to unlock. The
+control displays the actual state, not the next action.
+
+The **Most-used models** panel has a single vertical bar-list scroll area,
+rather than nested card-and-list scrollbars. On stacked/narrow screens, the
+card returns to natural height with the single optional bar-list scroller.

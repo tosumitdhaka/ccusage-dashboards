@@ -31,28 +31,73 @@ test("independent graph controls, warnings and sidebar navigation are wired", as
   assert.match(js, /updateGraphSettings/);
 });
 
-test("graph settings live in right-hand headers and stay keyboard accessible", async () => {
-  const html = await readFile(new URL("./public/index.html", import.meta.url), "utf8");
-  const checks = [
-    ["trend", ["metric", "breakdown", "trend-series-limit", "trend-show-labels"]],
-    ["providers", ["provider-metric", "provider-limit"]],
-    ["models", ["model-metric", "model-limit"]],
-    ["sessions", ["session-metric"]]
-  ];
-  const opening = '<details class="chart-adjust" name="graph-adjust">';
-  for (const [name, ids] of checks) {
-    const start = html.indexOf('id="' + name + '"');
-    assert.ok(start >= 0, "Missing graph section " + name);
-    const rest = html.slice(start);
-    const from = rest.indexOf(opening);
-    const until = rest.indexOf("</details>", from);
-    assert.ok(from >= 0 && until > from, "Missing graph-header adjuster in " + name);
-    const settings = rest.slice(from, until);
-    assert.ok(settings.includes('<summary class="chart-adjust-trigger" aria-label="Adjust '), "Missing accessible adjust control in " + name);
-    for (const id of ids) assert.ok(settings.includes('id="' + id + '"'), name + " missing " + id + " in settings");
+test("graph selectors remain inline in headings, revealed on hover/focus", async () => {
+  const html = await readFile(new URL("./public/index.html",import.meta.url),"utf8");
+  const checks=[["trend",["metric","breakdown","trend-series-limit","trend-show-labels"]],
+    ["providers",["provider-metric","provider-limit"]],["models",["model-metric","model-limit"]],
+    ["sessions",["session-metric"]]];
+  for(const [name,ids] of checks){
+    const start=html.indexOf('id="'+name+'"');
+    assert.ok(start>=0,"Missing chart "+name);
+    const content=html.slice(start,html.indexOf("</section>",start));
+    assert.ok(content.includes('class="chart-header-controls"'),"Missing inline chart controls "+name);
+    for(const id of ids)assert.ok(content.includes('id="'+id+'"'),name+" missing "+id);
   }
-  assert.equal(html.split(opening).length - 1, 4);
-  const css = await readFile(new URL("./public/styles.css", import.meta.url), "utf8");
-  assert.ok(css.includes(".chart-adjust-panel{position:absolute;right:0"));
-  assert.ok(css.includes(".chart-adjust-trigger:focus-visible"));
+  assert.ok(!html.includes('class="chart-adjust"'));
+  assert.ok(!html.includes('⚙ Adjust'));
+});
+test("widget surface uses one responsive grid without legacy paired wrappers", async()=>{
+  const html=await readFile(new URL("./public/index.html",import.meta.url),"utf8");
+  const css=await readFile(new URL("./public/styles.css",import.meta.url),"utf8");
+  assert.ok(html.includes('id="dashboard-grid"'));
+  assert.ok(!html.includes('data-widget-group'));
+  assert.ok(html.includes('id="layout-edit"'));
+  assert.ok(css.includes('.dashboard-grid .token-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))'));
+  assert.ok(css.includes('max-width:482px'));
+});
+
+test("v0.3 editor and graph builder are wired to validated configuration",async()=>{
+ const html=await readFile(new URL("./public/index.html",import.meta.url),"utf8");
+ const js=await readFile(new URL("./public/dashboard.js",import.meta.url),"utf8");
+ for(const id of ["add-graph","graph-dialog","graph-form","graph-title","graph-visual","graph-metric",
+ "graph-group","graph-period","graph-status","layout-edit"]){
+  assert.ok(html.includes('id="'+id+'"'),"Missing control "+id);
+ }
+ assert.ok(js.includes("setupCustomGraphBuilder()"));
+ assert.ok(js.includes("installLayoutEditor()"));
+ assert.ok(js.includes("syncCustomChartNodes()"));
+ assert.ok(js.includes("renderCustomCharts()"));
+ assert.ok(js.includes('surface.setPointerCapture(event.pointerId)'));
+ assert.ok(js.includes('closeLayoutEdit(true)'));
+ assert.ok(js.includes('closeLayoutEdit(false)'));
+});
+
+test("unlocked view, free grid placement and options editor expose explicit controls",async()=>{
+ const html=await readFile(new URL("./public/index.html",import.meta.url),"utf8");
+ const js=await readFile(new URL("./public/dashboard.js",import.meta.url),"utf8");
+ const css=await readFile(new URL("./public/styles.css",import.meta.url),"utf8");
+ for(const id of ["visual-editor","visual-editor-form","visual-editor-dimensions","visual-dimension-options"]) 
+   assert.ok(html.includes('id="'+id+'"'));
+ assert.ok(html.includes("Layout Locked"));
+ assert.ok(!html.includes(">↕ Arrange<"));
+ assert.ok(js.includes('header.draggable=false'));
+ assert.ok(js.includes('const candidate=snapToGrid(e.clientX-offset.x,e.clientY-offset.y'));
+ assert.ok(js.includes('edge.setPointerCapture(event.pointerId)'));
+ assert.ok(js.includes('resizeGridRectangle('));
+ assert.ok(!js.includes('layout-handle\",\"⠿'));
+ assert.ok(!js.includes('layout-resize\",\"↘'));
+ assert.ok(js.includes('function installVisualizationMenu('));
+ assert.ok(js.includes('function refreshDimensionChoices('));
+ assert.ok(!js.includes('grid.append(panel)'));
+ assert.ok(css.includes("grid-template-columns:repeat(12,minmax(0,1fr))"));
+ assert.ok(css.includes("@container(min-width:680px)"));
+});
+
+test("visualization menu uses native top-layer popovers outside scroll-clipped grid items",async()=>{
+ const src=await readFile(new URL("./public/dashboard.js",import.meta.url),"utf8");
+ const css=await readFile(new URL("./public/styles.css",import.meta.url),"utf8");
+ assert.ok(src.includes('menu.popover="auto"'));
+ assert.ok(src.includes('menu.showPopover()'));
+ assert.ok(src.includes('menu.hidePopover()'));
+ assert.ok(css.includes('.viz-popover-menu{position:fixed!important'));
 });
