@@ -1,3 +1,4 @@
+import { validateLayout } from "./dashboard-layout.mjs";
 // Schema v1: data-only, validated dashboard presentation preferences.
 export const SCHEMA_VERSION = 1;
 export const METRIC_NAMES = Object.freeze({
@@ -30,9 +31,10 @@ export const DEFAULT_DASHBOARD = Object.freeze({
     trend: { showLabels: true, maxSeries: 6 },
     providers: { metric: "totalTokens", limit: 12 },
     models: { metric: "totalTokens", limit: 12 }
-  }
+  },
+  layout: { widths: { kpis:"full", trend:"full", providers:"half", models:"half", cache:"half", guidance:"half", sessions:"full" } }
 });
-const FIELDS = new Set(["schemaVersion", "id", "title", "widgets", "filters", "widgetSettings"]);
+const FIELDS = new Set(["schemaVersion", "id", "title", "widgets", "filters", "widgetSettings", "layout"]);
 const GRAPH_FIELDS = Object.freeze({
   trend: new Set(["showLabels", "maxSeries"]),
   providers: new Set(["metric", "limit"]),
@@ -97,6 +99,7 @@ export function validateDashboardConfig(config) {
   sourceName("model", filters.model);
   return {
     schemaVersion: SCHEMA_VERSION, id: config.id, title,
-    widgets: [...config.widgets], filters, widgetSettings: validateWidgetSettings(config.widgetSettings)
+    widgets: [...config.widgets], filters, widgetSettings: validateWidgetSettings(config.widgetSettings),
+    layout: validateLayout(config.layout,Object.keys(WIDGET_REGISTRY))
   };
 }
