@@ -64,7 +64,8 @@ try{
       try{if(await fn())return;}catch{/* Browser still navigating. */}
       await delay(100);
     }
-    throw Error("Timed out waiting for "+label);
+    const diagnostic=await evaluate('JSON.stringify({ready:document.readyState,notice:document.querySelector("#notice")?.textContent,stat:document.querySelector("#stat-tokens")?.textContent,menu:!!document.querySelector(\'.dashboard-grid [data-widget="trend"] .viz-menu-trigger\')})').catch(e=>String(e));
+    throw Error("Timed out waiting for "+label+" "+diagnostic);
   };
   await send("Page.enable");
   await send("Runtime.enable");
@@ -141,9 +142,18 @@ try{
     button:"left",buttons:0,clickCount:1});
   await evaluate('document.querySelector("#layout-cancel").click()');
   console.log("CHROME_INTERACTION_SMOKE_PASS",JSON.stringify({visibility,trendScroll,providerScroll,drag}));
+}catch(error){
+  console.error("CHROME_SMOKE_ROOT_CAUSE:",error?.stack??String(error));
+  throw error;
 }finally{
   try{socket?.close();}catch{}
-  try{browser?.kill("SIGTERM");}catch{}
+  if(browser){
+    try{browser.kill("SIGTERM");}catch{}
+    await Promise.race([new Promise(resolve=>browser.once("exit",resolve)),delay(2000)]);
+  }
   try{await new Promise(resolve=>server?.close(resolve)??resolve());}catch{}
-  await rm(temp,{recursive:true,force:true});
+  // Chrome writes profile files asynchronously on exit; cleanup must not
+  // mask the actual interaction failure.
+  await rm(temp,{recursive:true,force:true,maxRetries:8,retryDelay:150}).catch(err=>
+    console.warn("Temporary Chrome profile cleanup:",err.message));
 }
