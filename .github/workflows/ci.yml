@@ -24,14 +24,9 @@ jobs:
         run: npm ci --no-audit --no-fund
       - name: TypeScript type checking, ESM build and syntax checks
         run: npm run check
-      - name: Ensure checked-in JavaScript matches TypeScript sources
+      - name: Verify all committed runtime artifacts match TypeScript compilation
         shell: bash
-        run: git diff --exit-code -- public/dashboard-layout.mjs public/chart-presentation.mjs public/widget-registry.mjs public/dashboard-config.mjs
-      - name: Temporary exact build export
-        shell: bash
-        run: |
-          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
-          node --input-type=module -e 'import fs from "node:fs"; for (const file of ["public/dashboard-layout.mjs","public/chart-presentation.mjs","public/widget-registry.mjs","public/dashboard-config.mjs","public/normalize.mjs","public/analytics.mjs","public/dashboard.js","server.mjs","ccusage-adapter.mjs","snapshots.mjs","bin/ccusage-dashboards.mjs","scripts/assert-package.mjs","scripts/smoke-installed.mjs","scripts/verify-npm-release.mjs","package-lock.json"]) console.log("TS_FULL_ASSET:"+file+":"+JSON.stringify(fs.readFileSync(file,"utf8")));'
+        run: git diff --exit-code -- public/dashboard-layout.mjs public/chart-presentation.mjs public/widget-registry.mjs public/dashboard-config.mjs public/normalize.mjs public/analytics.mjs public/dashboard.js server.mjs ccusage-adapter.mjs snapshots.mjs bin/ccusage-dashboards.mjs scripts/assert-package.mjs scripts/smoke-installed.mjs scripts/verify-npm-release.mjs
       - name: Dashboard unit and HTTP tests
         run: npm test
       - name: Verify npm package contents
