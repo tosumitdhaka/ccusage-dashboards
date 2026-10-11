@@ -25,7 +25,7 @@ const modelMetrics = (m: Row): Metrics => {
 const breakdowns = (row: Row): Row[] => Array.isArray(row?.modelBreakdowns) ? row.modelBreakdowns.filter((m) => typeof m?.modelName === "string") : [];
 const providers = (row: Row): Row[] => Array.isArray(row?.agents) ? row.agents.filter((p) => typeof p?.agent === "string") : row?.agent && row.agent !== "all" ? [row] : [];
 const periodOf = (row: Row): string => row?.period ?? row?.date ?? row?.month ?? row?.week ?? "";
-const put = (map: Map<string,Metrics>, key: string, data: Row): Metrics => add(map.get(key) ?? (map.set(key, metrics()), map.get(key)), data);
+const put = (map: Map<string,Metrics>, key: string, data: Row): Metrics => {const current=map.get(key)??metrics();map.set(key,current);return add(current,data);};
 const modelRows = (row: Row, model: string): Row[] => {
   const matching = breakdowns(row).filter((x) => model === "all" || x.modelName === model);
   return matching.map((m) => ({ name: m.modelName, ...modelMetrics(m), missingPricing: m.missingPricing === true }));
@@ -93,7 +93,7 @@ export function buildChart(report: Row, {
     if (typeof key !== "string" || !key) continue;
     if (!buckets.has(key)) buckets.set(key, new Map());
     for (const [name, value] of groupValues(row, { agent, model, breakdown })) {
-      put(buckets.get(key), name, value);
+      put(buckets.get(key)!, name, value);
       put(sums, name, value);
     }
   }
@@ -102,18 +102,18 @@ export function buildChart(report: Row, {
     metric, period, model, agent, breakdown,
     isModelCategorySum: model !== "all" && metric === "totalTokens" ||
       breakdown === "model" && metric === "totalTokens",
-    series: keys.map((name) => ({ name, value: sums.get(name)[metric] })),
+    series: keys.map((name) => ({ name, value: sums.get(name)![metric] })),
     points: [...buckets].sort(([a], [b]) => a.localeCompare(b))
       .map(([label, groups]) => ({
         label, values: Object.fromEntries(keys.map((name) => [name, groups.get(name)?.[metric] ?? 0]))
       })),
-    total: keys.reduce((sum, name) => sum + sums.get(name)[metric], 0)
+    total: keys.reduce((sum, name) => sum + sums.get(name)![metric], 0)
   };
 }
 
 export function buildSessions(report: Row, { agent = "all", model = "all", metric = "totalTokens", limit = 12 }: {agent?:string;model?:string;metric?:string;limit?:number} = {}) {
   if (!METRICS.includes(metric)) throw new Error("Unsupported session metric");
-  const list = (report?.session ?? []).flatMap((row) => {
+  const list = (report?.session ?? [] as Row[]).flatMap((row: Row) => {
     if (agent !== "all" && row.agent !== agent) return [];
     const val = model === "all" ? row : scopeValue(row, { agent: row.agent, model });
     if (!val) return [];
@@ -127,7 +127,7 @@ export function buildSessions(report: Row, { agent = "all", model = "all", metri
       label: (row.agent ?? "agent") + " · " + (session.length > 18 ? session.slice(0, 9) + "…" + session.slice(-6) : session)
     }];
   });
-  return list.sort((a, b) => b.value - a.value).slice(0, Math.max(1, Math.min(30, limit)));
+  return list.sort((a: any, b: any) => b.value - a.value).slice(0, Math.max(1, Math.min(30, limit)));
 }
 
 // An hourly chart needs timestamped event records, which the unified report
@@ -152,7 +152,7 @@ export function buildObservedHourly(snapshots: Row[], filters: {agent?:string;mo
       if (!old) continue; // new model/provider: no earlier baseline
       const delta = Math.max(0, safe(value[metric]) - safe(old[metric]));
       if (delta === 0) continue;
-      buckets.get(hour).set(name, (buckets.get(hour).get(name) ?? 0) + delta);
+      buckets.get(hour)!.set(name, (buckets.get(hour)!.get(name) ?? 0) + delta);
       series.set(name, (series.get(name) ?? 0) + delta);
     }
     observations++;
@@ -163,6 +163,6 @@ export function buildObservedHourly(snapshots: Row[], filters: {agent?:string;mo
     series: keys.map((name) => ({ name, value: series.get(name) })),
     points: [...buckets].sort(([a], [b]) => a.localeCompare(b))
       .map(([label, data]) => ({ label, values: Object.fromEntries(keys.map((name) => [name, data.get(name) ?? 0])) })),
-    total: keys.reduce((s, name) => s + series.get(name), 0)
+    total: keys.reduce((s, name) => s + series.get(name)!, 0)
   };
 }
