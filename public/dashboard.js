@@ -550,8 +550,9 @@ function refreshArrangeTools(){
   $("layout-help").hidden=!arranging||gridMode;
   grid.classList.toggle("is-arranging",arranging);
   $("layout-edit").textContent=arranging?"🔓 Layout Unlocked":"🔒 Layout Locked";
-  $("layout-edit").disabled=arranging;
-  $("layout-edit").title=arranging?"Save or cancel to finish editing.":"Unlock to move and resize widgets.";
+  $("layout-edit").disabled=arranging||!gridMode;
+  $("layout-edit").title=arranging?"Save or cancel to finish editing.":
+    gridMode?"Unlock to move and resize widgets.":"Grid editing requires a screen wider than 1100px.";
   $("layout-edit").setAttribute("aria-pressed",String(arranging));
   $("layout-edit").setAttribute("aria-label",arranging?
     "Layout unlocked. Save or cancel changes.":"Layout locked. Click to edit positions.");

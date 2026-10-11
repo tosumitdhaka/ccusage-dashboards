@@ -33,6 +33,7 @@ test("stacked breakpoint disables unsupported grips and supports arrow-only reor
   const html=await readFile(new URL("./public/index.html",import.meta.url),"utf8");
   assert.ok(css.includes("@media (min-width:741px) and (max-width:1100px)"));
   assert.ok(js.includes("header.draggable=false"));
+  assert.ok(js.includes('$("layout-edit").disabled=arranging||!gridMode'));
   assert.ok(js.includes("edge.hidden=!arranging||!gridMode||panel.hidden"));
   assert.ok(!js.includes("function swapGridNeighbors("));
   assert.ok(js.includes("panel.style.order=String(ordered.indexOf(id))"));
