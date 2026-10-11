@@ -29,6 +29,9 @@ jobs:
         run: git diff --exit-code -- public/dashboard-layout.mjs public/chart-presentation.mjs public/widget-registry.mjs public/dashboard-config.mjs public/normalize.mjs public/analytics.mjs public/dashboard.js server.mjs ccusage-adapter.mjs snapshots.mjs bin/ccusage-dashboards.mjs scripts/assert-package.mjs scripts/smoke-installed.mjs scripts/verify-npm-release.mjs
       - name: Dashboard unit and HTTP tests
         run: npm test
+      - name: Native Chrome UI interaction smoke
+        if: matrix.os == 'ubuntu-latest'
+        run: node scripts/browser-interaction-smoke.mjs
       - name: Verify npm package contents
         shell: bash
         run: |
