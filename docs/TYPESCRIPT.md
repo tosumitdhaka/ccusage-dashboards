@@ -47,14 +47,14 @@ installed npm binary and official ccusage adapter.
 
 ## Type-safety posture
 
-The shared client data/layout modules and Node backend/CLI/tooling are
-checked with `strict: true` and `noEmitOnError`. The large interactive
-DOM controller is converted to TypeScript and compiled under a **separate
-transitional, non-strict** `tsconfig.dashboard.json`. This is a real
-source-language migration, but **not** a claim that every controller
-expression has yet attained strict TypeScript coverage. The controller
-still has selected permissive dynamic DOM/report boundaries. Tightening
-those is a separate quality gate and must not be misrepresented as done.
+**Every production TypeScript compiler configuration now has `strict: true`
+and `noEmitOnError: true`**, including `tsconfig.dashboard.json`.
+Implicit `any` parameters and nullable/invalid indexing now fail the build.
+The controller has typed pointer events, grid positions and edit parameters;
+some dynamic DOM/report boundaries still use explicit `any` values. Strict
+compiler enforcement is complete, but those permissive boundary types
+remain opportunities for further type refinement. No `@ts-nocheck` or
+blanket exception is used.
 
 ## Compatibility contract
 

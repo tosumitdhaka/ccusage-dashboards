@@ -20,3 +20,16 @@ test("TypeScript layout sources preserve public ESM API and type safety",async()
   assert.equal(colorForDimension("codex"),"#53d6be");
   assert.deepEqual(labelPointIndices(1),[0]);
 });
+
+test("all application TypeScript projects enforce strict checks without suppression",async()=>{
+  const paths=["tsconfig.client.json","tsconfig.dashboard.json","tsconfig.node.json"];
+  for(const path of paths){
+    const raw=await readFile(new URL("./"+path,import.meta.url),"utf8");
+    const config=JSON.parse(raw);
+    assert.equal(config.compilerOptions.strict,true,path+" must enforce full strict mode");
+    assert.equal(config.compilerOptions.noEmitOnError,true,path+" must refuse broken output");
+    assert.notEqual(config.compilerOptions.noImplicitAny,false,path+" must reject implicit any");
+  }
+  const controller=await readFile(new URL("./src/client/dashboard.ts",import.meta.url),"utf8");
+  assert.doesNotMatch(controller,/\/\/\s*@ts-nocheck|\/\/\s*@ts-ignore|\/\/\s*@ts-expect-error/);
+});

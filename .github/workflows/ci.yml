@@ -24,10 +24,6 @@ jobs:
         run: npm ci --no-audit --no-fund
       - name: TypeScript type checking, ESM build and syntax checks
         run: npm run check
-      - name: Temporary compiled controller snapshot
-        shell: bash
-        run: |
-          node --input-type=module -e 'import fs from "node:fs";console.log("TS_STRICT_DASHBOARD:"+JSON.stringify(fs.readFileSync("public/dashboard.js","utf8")));'
       - name: Verify all committed runtime artifacts match TypeScript compilation
         shell: bash
         run: git diff --exit-code -- public/dashboard-layout.mjs public/chart-presentation.mjs public/widget-registry.mjs public/dashboard-config.mjs public/normalize.mjs public/analytics.mjs public/dashboard.js server.mjs ccusage-adapter.mjs snapshots.mjs bin/ccusage-dashboards.mjs scripts/assert-package.mjs scripts/smoke-installed.mjs scripts/verify-npm-release.mjs
