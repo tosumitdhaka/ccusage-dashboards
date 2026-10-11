@@ -78,7 +78,7 @@ export function buildView(report: ReportRow, { section = "daily", agent = "all" 
     const breakdowns = Array.isArray(chosen.modelBreakdowns) ? chosen.modelBreakdowns : [];
     for (const item of breakdowns) {
       if (!item || typeof item.modelName !== "string" || !item.modelName) continue;
-      if (!modelMap.has(item.modelName)) modelMap.set(item.modelName, { modelName: item.modelName, ...emptyTotals(), missingPricing: false });
+      if (!modelMap.has(item.modelName)) modelMap.set(item.modelName, { modelName: item.modelName, ...emptyTotals(), missingPricing: false } as {modelName:string;missingPricing:boolean}&Totals);
       const entry = modelMap.get(item.modelName)!;
       for (const key of TOKEN_FIELDS) entry[key] += number(item[key]);
       entry.totalCost += number(item.cost);
