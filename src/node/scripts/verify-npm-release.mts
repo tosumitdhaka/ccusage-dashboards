@@ -11,13 +11,13 @@ export async function registryState({ name, version, shasum, fetcher = fetch, at
   for (let i=0; i<attempts; i++) {
     const result=await fetcher(`https://registry.npmjs.org/${name}/${version}`, {
       headers: {accept:"application/json"}, cache:"no-store", signal:AbortSignal.timeout(15000)
-    });
+    } as RequestInit);
     if (result.status===404) {
       if (i+1<attempts) { await pause(delayMs); continue; }
       return "absent";
     }
     if (!result.ok) throw new Error("npm registry HTTP "+result.status);
-    const metadata=await result.json();
+    const metadata=await result.json() as {name:string;version:string;dist?:{shasum:string}};
     if (metadata.name!==name || metadata.version!==version || metadata.dist?.shasum!==shasum)
       throw new Error("Published version conflicts with tested package archive");
     return "present";

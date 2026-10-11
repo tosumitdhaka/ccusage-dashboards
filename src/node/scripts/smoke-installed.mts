@@ -24,7 +24,7 @@ async function waitForUrl(): Promise<string> {
   return new Promise<string>((resolvePromise, reject) => {
     let stdout = "";
     const timer = setTimeout(() => reject(new Error("Installed npm package did not start within 30 seconds. " + stderr)), 30_000);
-    const onExit = (code) => { clearTimeout(timer); reject(new Error("CLI exited before listening (" + code + "): " + stderr)); };
+    const onExit = (code: number|null) => { clearTimeout(timer); reject(new Error("CLI exited before listening (" + code + "): " + stderr)); };
     child.once("exit", onExit);
     child.stdout!.setEncoding("utf8");
     child.stdout!.on("data", (chunk: string) => {
@@ -49,7 +49,7 @@ try {
   // This triggers the independently installed official ccusage npm dependency.
   const usage = await fetch(url + "/api/usage");
   if (!usage.ok) throw new Error("Packaged ccusage report failed: HTTP " + usage.status + "; " + await usage.text());
-  const data = await usage.json();
+  const data = await usage.json() as {daily: unknown[]};
   if (!Array.isArray(data.daily)) throw new Error("Packaged report was not ccusage unified JSON");
   console.log("Packaged npm installation smoke PASS:", url, "with", data.daily.length, "daily rows");
 } finally {

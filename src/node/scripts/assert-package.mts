@@ -4,7 +4,7 @@ const previewPath = process.argv[2] ?? "package-preview.json";
 const records = JSON.parse(await readFile(previewPath, "utf8"));
 if (!Array.isArray(records) || records.length !== 1) throw new Error("Expected one npm tarball preview");
 const item = records[0];
-const names = new Set((item.files ?? []).map((f: {path:string}) => f.path));
+const names = new Set<string>((item.files ?? []).map((f: {path:string}) => f.path));
 const required = [
   "package.json",
   "bin/ccusage-dashboards.mjs",
