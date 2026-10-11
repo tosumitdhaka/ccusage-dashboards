@@ -81,10 +81,12 @@ function configWithCurrentFilters(config = dashboardConfig) {
   } });
 }
 function showWidgetSelection() {
+  syncCustomChartNodes();
   const enabled = new Set(dashboardConfig.widgets);
   const grid = $("dashboard-grid");
   // Move existing panels; preserve chart DOM and their controls/listeners.
-  const ordered=[...dashboardConfig.widgets,...Object.keys(WIDGET_REGISTRY).filter(id=>!enabled.has(id))];
+  const ids=[...Object.keys(WIDGET_REGISTRY),...dashboardConfig.charts.map(c=>c.id)];
+  const ordered=[...dashboardConfig.widgets,...ids.filter(id=>!enabled.has(id))];
   for(const id of ordered){
     const panel=[...grid.children].find(child=>child.dataset.widget===id);
     if(!panel)continue;
@@ -149,9 +151,12 @@ function availableModels(report, agent) {
   }
   return [...models].sort();
 }
-function drawLineChart(data, metric) {
-  const svg = $("trend-chart");
-  const legend = $("trend-legend");
+function drawLineChart(data, metric, options={}) {
+  const svg = $(options.svgId ?? "trend-chart");
+  const legend = $(options.legendId ?? "trend-legend");
+  const activeSection=options.period ?? state.section;
+  const activeBreakdown=options.breakdown ?? state.breakdown;
+  const invisible=options.hiddenSeries ?? hiddenTrendSeries;
   svg.replaceChildren(); legend.replaceChildren();
   // Match the actual CSS viewport. A fixed 920×264 viewBox letterboxed the
   // graph at desktop widths, wasting horizontal space around the plot.
@@ -159,13 +164,13 @@ function drawLineChart(data, metric) {
   const H = Math.max(300, Math.round(svg.getBoundingClientRect().height || 360));
   svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
   const L = 78, T = 40, R = 18, B = 48, PW = W - L - R, PH = H - T - B;
-  const groupKind = state.breakdown === "model" ? "model" : "provider";
-  const settings = dashboardConfig.widgetSettings.trend;
+  const groupKind = activeBreakdown === "model" ? "model" : "provider";
+  const settings = options.settings ?? dashboardConfig.widgetSettings.trend;
   const shown = data.series.slice(0, settings.maxSeries);
   shown.forEach((s) => {
     const key = el("button", "legend-item legend-toggle");
     key.type = "button";
-    const enabled = !hiddenTrendSeries.has(s.name);
+    const enabled = !invisible.has(s.name);
     key.setAttribute("aria-pressed", String(enabled));
     key.setAttribute("aria-label", (enabled ? "Hide " : "Show ") + s.name + " series");
     if (!enabled) key.classList.add("muted");
@@ -173,16 +178,16 @@ function drawLineChart(data, metric) {
     marker.style.background = colorForDimension(s.name, groupKind);
     key.append(marker, document.createTextNode(s.name));
     key.addEventListener("click", () => {
-      if (hiddenTrendSeries.has(s.name)) hiddenTrendSeries.delete(s.name);
-      else hiddenTrendSeries.add(s.name);
-      render();
+      if (invisible.has(s.name)) invisible.delete(s.name);
+      else invisible.add(s.name);
+      if(options.redraw) options.redraw(); else render();
     });
     legend.append(key);
   });
-  const names = shown.filter((s) => !hiddenTrendSeries.has(s.name)).map((s) => s.name);
+  const names = shown.filter((s) => !invisible.has(s.name)).map((s) => s.name);
   if (!names.length || !data.points.length) {
     const label = svgEl("text", { x: W / 2, y: H / 2, fill: "#92a0b8", "text-anchor": "middle", "font-size": 15 });
-    label.textContent = state.section === "hourly"
+    label.textContent = activeSection === "hourly"
       ? "No observed hourly changes yet — two different snapshots are needed"
       : "No usage records for this selection";
     svg.append(label);
@@ -212,7 +217,7 @@ function drawLineChart(data, metric) {
       const circle = svgEl("circle", { cx: p.x, cy: p.y, r: 3.8,
         fill: color, stroke: "#111927", "stroke-width": 1.5 });
       const title = svgEl("title");
-      const label = state.section === "hourly" ? p.label.replace("T", " ") : p.label;
+      const label = activeSection === "hourly" ? p.label.replace("T", " ") : p.label;
       title.textContent = name + " • " + label + ": " + fmt(p.values[name], metric);
       circle.append(title); svg.append(circle);
       if (settings.showLabels && labelledPoints.has(pointIndex)) {
@@ -231,7 +236,7 @@ function drawLineChart(data, metric) {
   coords.forEach((p, i) => {
     if (i % step !== 0 && i !== coords.length - 1) return;
     const label = svgEl("text", { x: p.x, y: H - 15, "text-anchor": "middle", fill: "#8799ac", "font-size": 12 });
-    label.textContent = state.section === "hourly" ? p.label.slice(5, 13).replace("T", " ") : p.label;
+    label.textContent = activeSection === "hourly" ? p.label.slice(5, 13).replace("T", " ") : p.label;
     svg.append(label);
   });
 }
@@ -349,6 +354,7 @@ function render() {
   const sessions = buildSessions(state.report, { agent: state.agent, model: state.model, metric: state.sessionMetric });
   drawSessionGraph(sessions);
   drawSessionTable(buildSessions(state.report, { agent: state.agent, model: state.model, metric: "totalTokens", limit: 10 }));
+  renderCustomCharts();
   const warnings = state.model === "all" ? view.missingPricing : view.missingPricing.filter((m) => m === state.model);
   const notice = $("notice");
   if (warnings.length) {
@@ -528,9 +534,8 @@ function changeWidth(id){
   refreshArrangeTools();
   if(state.report)render();
 }
-function installLayoutEditor(){
-  const grid=$("dashboard-grid");
-  for(const panel of grid.querySelectorAll("[data-widget]")){
+function installLayoutPanel(panel){
+    if(panel.querySelector(".layout-tools"))return;
     const id=panel.dataset.widget;
     const tools=el("div","layout-tools");
     tools.hidden=true;
@@ -573,7 +578,10 @@ function installLayoutEditor(){
       }
     });
     panel.addEventListener("dragend",()=>panel.classList.remove("layout-drop-target"));
-  }
+}
+function installLayoutEditor(){
+  const grid=$("dashboard-grid");
+  for(const panel of grid.querySelectorAll("[data-widget]"))installLayoutPanel(panel);
   $("layout-edit").addEventListener("click",()=>{
     arranging=!arranging;
     refreshArrangeTools();
@@ -581,3 +589,131 @@ function installLayoutEditor(){
   refreshArrangeTools();
 }
 installLayoutEditor();
+
+
+const customHiddenSeries=new Map();
+function customChartUpdate(id,patch){
+  const charts=dashboardConfig.charts.map(c=>c.id===id?{...c,...patch}:c);
+  persistDashboardConfig({...dashboardConfig,charts});
+  if(state.report)render();
+}
+function customSelect(id,label,field,options){
+  const wrap=el("label","custom-graph-field");
+  wrap.append(document.createTextNode(label+" "));
+  const select=el("select");
+  select.dataset.customField=field;
+  for(const [value,text] of options){
+    const opt=el("option","",text);opt.value=value;select.append(opt);
+  }
+  select.addEventListener("change",()=>customChartUpdate(id,{[field]:select.value}));
+  wrap.append(select);return wrap;
+}
+function createCustomPanel(chart){
+  const card=el("section","panel custom-chart-card");
+  card.id=chart.id;card.dataset.widget=chart.id;
+  const header=el("div","section-header chart-section-header");
+  const intro=el("div");
+  intro.append(el("div","section-kicker","CUSTOM / GRAPH"),el("h2","custom-title",chart.title),
+    el("p","custom-subtitle","From locally reported ccusage data"));
+  const controls=el("div","chart-header-controls");
+  controls.append(
+    customSelect(chart.id,"View","visual",[["line","Line"],["bars","Bars"]]),
+    customSelect(chart.id,"Metric","metric",Object.entries(METRIC_NAMES)),
+    customSelect(chart.id,"Group","breakdown",[["total","Total"],["provider","Provider"],["model","Model"]]),
+    customSelect(chart.id,"Period","period",[["daily","Daily"],["weekly","Weekly"],["monthly","Monthly"]])
+  );
+  const remove=el("button","custom-remove","Remove");
+  remove.type="button";
+  remove.setAttribute("aria-label","Remove graph "+chart.title);
+  remove.addEventListener("click",()=>{
+    const charts=dashboardConfig.charts.filter(c=>c.id!==chart.id);
+    const widgets=dashboardConfig.widgets.filter(w=>w!==chart.id);
+    const widths={...dashboardConfig.layout.widths};delete widths[chart.id];
+    persistDashboardConfig({...dashboardConfig,charts,widgets,layout:{widths}});
+    customHiddenSeries.delete(chart.id);
+    if(state.report)render();
+    refreshArrangeTools();
+  });
+  controls.append(remove);header.append(intro,controls);
+  const bars=el("div","bars custom-bars");bars.id="custom-bars-"+chart.id;
+  const plot=el("div","chart-container custom-line");
+  const svg=svgEl("svg",{role:"img","aria-label":chart.title+" over time"});
+  svg.id="custom-svg-"+chart.id;
+  plot.append(svg);
+  const legend=el("div","legend custom-legend");legend.id="custom-legend-"+chart.id;
+  const note=el("p","footnote custom-note");note.id="custom-note-"+chart.id;
+  card.append(header,bars,plot,legend,note);
+  return card;
+}
+function syncCustomChartNodes(){
+  const grid=$("dashboard-grid");
+  const configs=new Map(dashboardConfig.charts.map(c=>[c.id,c]));
+  for(const card of grid.querySelectorAll(".custom-chart-card"))
+    if(!configs.has(card.dataset.widget))card.remove();
+  for(const chart of dashboardConfig.charts){
+    let card=$(chart.id);
+    if(!card){
+      card=createCustomPanel(chart);
+      grid.append(card);
+      if(typeof installLayoutPanel==="function")installLayoutPanel(card);
+    }
+    card.querySelector(".custom-title").textContent=chart.title;
+    for(const select of card.querySelectorAll("[data-custom-field]"))
+      select.value=chart[select.dataset.customField];
+  }
+}
+function renderCustomCharts(){
+  for(const chart of dashboardConfig.charts){
+    const data=buildChart(state.report,{period:chart.period,agent:state.agent,model:state.model,
+      metric:chart.metric,breakdown:chart.breakdown});
+    const bars=$("custom-bars-"+chart.id),plot=$("custom-svg-"+chart.id).parentElement,
+      legend=$("custom-legend-"+chart.id);
+    const isLine=chart.visual==="line";
+    bars.hidden=isLine;plot.hidden=!isLine;legend.hidden=!isLine;
+    if(isLine){
+      if(!customHiddenSeries.has(chart.id))customHiddenSeries.set(chart.id,new Set());
+      drawLineChart(data,chart.metric,{svgId:"custom-svg-"+chart.id,
+        legendId:"custom-legend-"+chart.id,period:chart.period,breakdown:chart.breakdown,
+        hiddenSeries:customHiddenSeries.get(chart.id),
+        settings:{showLabels:false,maxSeries:6},redraw:renderCustomCharts});
+    }else{
+      drawBars(bars.id,data.series,chart.metric,"No chart data for these filters.",10,
+        chart.breakdown==="model"?"model":"provider");
+    }
+    const issues=[];
+    if(data.isModelCategorySum)issues.push("Model totals sum reported categories; they may differ from upstream totals.");
+    if(chart.metric==="totalCost")issues.push("API-equivalent estimated cost, not subscription billing; unknown prices may understate totals.");
+    if(chart.breakdown==="total"&&!isLine)issues.push("Total uses one aggregated bar.");
+    $("custom-note-"+chart.id).textContent=issues.join(" ");
+  }
+}
+function setupCustomGraphBuilder(){
+  $("add-graph").addEventListener("click",()=>{
+    $("graph-status").textContent="";
+    $("graph-dialog").showModal();
+  });
+  $("graph-cancel").addEventListener("click",()=>$("graph-dialog").close());
+  $("graph-form").addEventListener("submit",(event)=>{
+    event.preventDefault();
+    try{
+      if(dashboardConfig.charts.length>=4)throw Error("Maximum four user-defined graphs.");
+      let i=1;while(dashboardConfig.charts.some(c=>c.id==="custom-"+i))i++;
+      const chart={
+        id:"custom-"+i,title:$("graph-title").value.trim(),
+        visual:$("graph-visual").value,metric:$("graph-metric").value,
+        breakdown:$("graph-group").value,period:$("graph-period").value
+      };
+      persistDashboardConfig({...dashboardConfig,
+        charts:[...dashboardConfig.charts,chart],
+        widgets:[...dashboardConfig.widgets,chart.id],
+        layout:{widths:{...dashboardConfig.layout.widths,[chart.id]:"half"}}
+      });
+      if(state.report)render();
+      refreshArrangeTools();
+      $("graph-dialog").close();
+    }catch(error){
+      $("graph-status").textContent=error instanceof Error?error.message:"Invalid graph settings.";
+    }
+  });
+}
+setupCustomGraphBuilder();

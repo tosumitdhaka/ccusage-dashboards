@@ -29,7 +29,7 @@
     <main id="overview" class="main">
       <header class="topbar">
         <div class="breadcrumb">Workspace <span>/</span> <strong id="view-name">Overview</strong></div>
-        <div class="top-actions"><span class="local-tag"><span class="signal-dot"></span> Localhost</span><button id="layout-edit" class="refresh" type="button" aria-pressed="false">↕ Arrange</button><button id="customize" class="refresh" type="button" aria-haspopup="dialog">⚙ Customize</button><button id="refresh" class="refresh" type="button">↻ &nbsp; Refresh data</button></div>
+        <div class="top-actions"><span class="local-tag"><span class="signal-dot"></span> Localhost</span><button id="add-graph" class="refresh" type="button" aria-haspopup="dialog">+ New graph</button><button id="layout-edit" class="refresh" type="button" aria-pressed="false">↕ Arrange</button><button id="customize" class="refresh" type="button" aria-haspopup="dialog">⚙ Customize</button><button id="refresh" class="refresh" type="button">↻ &nbsp; Refresh data</button></div>
       </header>
       <div class="content">
         <div class="page-title">
@@ -134,6 +134,21 @@
           <button id="config-reset" type="button" class="refresh">Reset</button>
           <button type="submit" class="save-button">Save layout</button>
         </div>
+      </form>
+    </dialog>
+    <dialog id="graph-dialog" class="customize-dialog" aria-labelledby="graph-dialog-title">
+      <form id="graph-form">
+        <div class="customize-heading"><div><div class="eyebrow">CUSTOM / LOCAL DATA</div><h2 id="graph-dialog-title">Create a graph</h2><p>Visualize an existing ccusage metric. No scripts, expressions or file uploads.</p></div>
+          <button id="graph-cancel" type="button" class="customize-dismiss" aria-label="Close graph builder">×</button></div>
+        <div class="graph-builder-fields">
+          <label>Graph name <input id="graph-title" maxlength="80" required value="My usage graph"></label>
+          <label>Visualization <select id="graph-visual"><option value="line">Time-series line</option><option value="bars">Ranked bars</option></select></label>
+          <label>Metric <select id="graph-metric"><option value="totalTokens">Reported tokens</option><option value="inputTokens">Input tokens</option><option value="outputTokens">Output tokens</option><option value="cacheReadTokens">Cache reads</option><option value="cacheCreationTokens">Cache writes</option><option value="totalCost">Estimated API cost ($)</option></select></label>
+          <label>Group by <select id="graph-group"><option value="total">Total</option><option value="provider">Provider</option><option value="model">Model</option></select></label>
+          <label>Period <select id="graph-period"><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option></select></label>
+        </div>
+        <p class="config-status" id="graph-status" role="status" aria-live="polite"></p>
+        <div class="customize-actions"><button type="submit" class="save-button">Create graph</button></div>
       </form>
     </dialog>
 </body>

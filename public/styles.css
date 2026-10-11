@@ -289,3 +289,20 @@ button:focus-visible,input:focus-visible,.import-button:focus-within{outline:2px
 .layout-handle{display:inline-flex;align-items:center;cursor:grab;user-select:none}
 .layout-handle:active{cursor:grabbing}
 @media(max-width:740px){.layout-handle{display:none}.layout-tools{left:12px;right:12px}}
+
+/* New graphs reuse the existing read-only ccusage analytics functions. */
+.custom-chart-card .chart-section-header{align-items:flex-start;flex-wrap:wrap}
+.custom-chart-card .chart-header-controls{flex:1 1 300px}
+.custom-chart-card .chart-container svg{display:block;width:100%;height:230px}
+.custom-chart-card .bars[hidden],.custom-chart-card .chart-container[hidden],
+.custom-chart-card .legend[hidden]{display:none}
+.custom-legend{margin-top:12px}
+.custom-graph-field{display:inline-flex;align-items:center;gap:5px;color:#96a9bd;font-size:11px}
+.custom-graph-field select{min-width:75px;max-width:155px;background:#162538;color:#e0eef9;
+  border:1px solid #3c5366;border-radius:7px;padding:7px;font-size:11px}
+.custom-remove{border:1px solid #704956;color:#ffc0ce;background:#3b2532;border-radius:7px;padding:8px 10px;font-size:11px}
+.graph-builder-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.graph-builder-fields label{display:grid;gap:6px;color:#adc1d5;font-size:12px;font-weight:650}
+.graph-builder-fields select,.graph-builder-fields input{min-width:0;width:100%;padding:10px;
+  border:1px solid #3b5367;background:#182638;color:#edfaff;border-radius:8px;font-size:12px}
+@media(max-width:540px){.graph-builder-fields{grid-template-columns:minmax(0,1fr)}}
