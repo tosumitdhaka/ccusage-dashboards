@@ -328,6 +328,14 @@ function render() {
   $("break-output").textContent = fmt(vals.outputTokens);
   $("break-cache").textContent = fmt(vals.cacheReadTokens);
   $("break-write").textContent = fmt(vals.cacheCreationTokens);
+  const cacheHidden=new Set(dashboardConfig.widgetSettings.cache.hiddenDimensions);
+  [...document.querySelectorAll('[data-widget="cache"] .token-grid>div')].forEach((node,index)=>{
+    node.hidden=cacheHidden.has(["Input","Output","Cache reads","Cache writes"][index]);
+  });
+  const kpiHidden=new Set(dashboardConfig.widgetSettings.kpis.hiddenDimensions);
+  [...document.querySelectorAll('[data-widget="kpis"] .kpi')].forEach((node,index)=>{
+    node.hidden=kpiHidden.has(["Reported tokens","Fresh input","Generated output","API-equivalent cost"][index]);
+  });
   $("trend-period").textContent = state.section.toUpperCase();
   $("chart-heading").textContent = (state.metric === "totalCost" ? "Estimated cost" : "Token consumption") + " over time";
   document.querySelectorAll(".period").forEach((button) => {
@@ -781,6 +789,8 @@ let editingVisualization=null;
 function dimensionsForGraph(id,group){
   if(!state.report)return group==="total"?["Total"]:[];
   const catalog=chartCatalog(state.report);
+  if(id==="cache")return ["Input","Output","Cache reads","Cache writes"];
+  if(id==="kpis")return ["Reported tokens","Fresh input","Generated output","API-equivalent cost"];
   if(id==="sessions"||id==="providers")return catalog.agents;
   if(id==="models")return catalog.models;
   return group==="total"?["Total"]:group==="model"?catalog.models:catalog.agents;
@@ -793,6 +803,7 @@ function settingsForGraph(id){
   if(id==="providers"||id==="models")return {...dashboardConfig.widgetSettings[id]};
   if(id==="sessions")return {metric:state.sessionMetric,
     hiddenDimensions:[...dashboardConfig.widgetSettings.sessions.hiddenDimensions]};
+  if(id==="cache"||id==="kpis")return {hiddenDimensions:[...dashboardConfig.widgetSettings[id].hiddenDimensions]};
   return {...dashboardConfig.charts.find(c=>c.id===id)};
 }
 function editorField(label,key,type,values=[]) {
@@ -869,7 +880,7 @@ function openVisualizationEditor(id){
     fields.append(editorField("Session metric","metric","select",[
       ["totalTokens","Tokens"],["totalCost","Estimated API cost"],["outputTokens","Output tokens"]]));
   }
-  $("visual-editor-dimensions").hidden=!["trend","providers","models","sessions"].includes(id)&&!custom;
+  $("visual-editor-dimensions").hidden=!["trend","providers","models","sessions","cache","kpis"].includes(id)&&!custom;
   if(!$("visual-editor-dimensions").hidden)refreshDimensionChoices();
   else fields.append(el("p","empty","This panel has no series dimensions. Unlock layout to move or resize it."));
   $("visual-editor-status").textContent="";
@@ -902,10 +913,10 @@ function deleteCustomChart(id){
   refreshArrangeTools();
 }
 function installVisualizationMenu(panel){
-  if(panel.querySelector(":scope > .section-header .viz-menu"))return;
+  if(panel.querySelector(".viz-menu"))return;
   const id=panel.dataset.widget;
-  const header=panel.querySelector(":scope > .section-header");
-  if(!header)return; // KPI collection has no individual visualization header
+  const header=panel.querySelector(":scope > .section-header")??(id==="kpis"?panel:null);
+  if(!header)return; // Headerless collection uses an overlaid options control
   const menu=el("details","viz-menu");
   const trigger=el("summary","viz-menu-trigger","⋮");
   trigger.title="Visualization options";
@@ -948,6 +959,9 @@ $("visual-editor-form").addEventListener("submit",event=>{
     }else if(id==="providers"||id==="models"){
       persistDashboardConfig({...dashboardConfig,widgetSettings:{
         ...dashboardConfig.widgetSettings,[id]:draft}});
+    }else if(id==="cache"||id==="kpis"){
+      persistDashboardConfig({...dashboardConfig,widgetSettings:{
+        ...dashboardConfig.widgetSettings,[id]:{hiddenDimensions:draft.hiddenDimensions}}});
     }else if(id==="sessions"){
       state.sessionMetric=draft.metric;
       persistDashboardConfig(configWithCurrentFilters({...dashboardConfig,widgetSettings:{

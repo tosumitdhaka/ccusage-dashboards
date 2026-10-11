@@ -31,7 +31,9 @@ export const DEFAULT_DASHBOARD = Object.freeze({
     trend: { showLabels: true, maxSeries: 6, hiddenDimensions: [] },
     providers: { metric: "totalTokens", limit: 12, hiddenDimensions: [] },
     models: { metric: "totalTokens", limit: 12, hiddenDimensions: [] },
-    sessions: { hiddenDimensions: [] }
+    sessions: { hiddenDimensions: [] },
+    cache: { hiddenDimensions: [] },
+    kpis: { hiddenDimensions: [] }
   },
   layout: { widths: { kpis:"full", trend:"full", providers:"half", models:"half", cache:"half", guidance:"half", sessions:"full" } },
   charts: []
@@ -41,7 +43,9 @@ const GRAPH_FIELDS = Object.freeze({
   trend: new Set(["showLabels", "maxSeries", "hiddenDimensions"]),
   providers: new Set(["metric", "limit", "hiddenDimensions"]),
   models: new Set(["metric", "limit", "hiddenDimensions"]),
-  sessions: new Set(["hiddenDimensions"])
+  sessions: new Set(["hiddenDimensions"]),
+  cache: new Set(["hiddenDimensions"]),
+  kpis: new Set(["hiddenDimensions"])
 });
 function validateHiddenDimensions(values) {
   if (values === undefined) return [];
@@ -69,7 +73,7 @@ function validateWidgetSettings(settings) {
     if (name === "trend") {
       if (typeof options.showLabels !== "boolean") throw new Error("Invalid value labels setting.");
       if (![3, 6, 12].includes(options.maxSeries)) throw new Error("Invalid trend series limit.");
-    } else if (name !== "sessions") {
+    } else if (!["sessions","cache","kpis"].includes(name)) {
       if (!Object.hasOwn(METRIC_NAMES, options.metric)) throw new Error("Invalid graph metric.");
       if (![5, 10, 12].includes(options.limit)) throw new Error("Invalid graph bar limit.");
     }

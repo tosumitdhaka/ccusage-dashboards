@@ -30,3 +30,11 @@ test("per-graph dimensions accept bounded name filters but not executable entrie
  assert.deepEqual(v.widgetSettings.providers.hiddenDimensions,["codex"]);
  assert.deepEqual(v.widgetSettings.sessions.hiddenDimensions,["claude-code"]);
 });
+
+test("cache and summary dimensions are editable via safe saved filters",()=>{
+ const cfg=validateDashboardConfig({...DEFAULT_DASHBOARD,widgetSettings:{
+   cache:{hiddenDimensions:["Cache reads"]},kpis:{hiddenDimensions:["API-equivalent cost"]}}});
+ assert.deepEqual(cfg.widgetSettings.cache.hiddenDimensions,["Cache reads"]);
+ assert.deepEqual(cfg.widgetSettings.kpis.hiddenDimensions,["API-equivalent cost"]);
+ assert.deepEqual(parseDashboardJSON(stringifyDashboardConfig(cfg)),cfg);
+});
