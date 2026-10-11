@@ -619,9 +619,19 @@ function applyGridPreview(positions) {
         const rect = positions[panel.dataset.widget];
         if (!rect)
             continue;
-        panel.style.gridColumn = (rect.x + 1) + " / span " + rect.w;
-        panel.style.gridRow = (rect.y + 1) + " / span " + rect.h;
-        panel.style.order = String(visual.indexOf(panel.dataset.widget));
+        const column = (rect.x + 1) + " / span " + rect.w;
+        const row = (rect.y + 1) + " / span " + rect.h;
+        const order = String(visual.indexOf(panel.dataset.widget));
+        // Avoid rewriting unchanged grid properties during every animation frame.
+        if (panel.style.gridColumn !== column)
+            panel.style.gridColumn = column;
+        if (panel.style.gridRow !== row)
+            panel.style.gridRow = row;
+        if (panel.style.order !== order)
+            panel.style.order = order;
+        const width = rect.w === 12 ? "full" : "half";
+        if (panel.dataset.width !== width)
+            panel.dataset.width = width;
     }
 }
 function refreshArrangeTools() {
@@ -658,10 +668,29 @@ function saveGridPosition(id, rect, type = "resize") {
         relocateGridWidget(previous, id, rect, dashboardConfig.widgets);
     const widths = { ...layoutDraft.widths, [id]: rect.w === 12 ? "full" : "half" };
     layoutDraft = { ...layoutDraft, widths, positions };
-    showWidgetSelection();
-    if (state.report)
-        render();
-    requestAnimationFrame(() => window.scrollTo({ top: scroll, behavior: "instant" }));
+    applyGridPreview(positions);
+    // Moving a card changes no chart dimensions. Only redraw a resized plot,
+    // after the browser has committed the new geometry, instead of rebuilding
+    // every KPI, list, SVG and table on every pointer release.
+    if (type === "resize" && state.report && (id === "trend" || id.startsWith("custom-"))) {
+        requestAnimationFrame(() => {
+            if (!arranging || !state.report)
+                return;
+            if (id === "trend") {
+                const period = state.section === "hourly" ? "daily" : state.section;
+                const filters = { period, agent: state.agent, model: state.model,
+                    breakdown: state.breakdown, metric: state.metric };
+                const chart = state.section === "hourly" ?
+                    buildObservedHourly(state.hourly, filters) : buildChart(state.report, filters);
+                drawLineChart(chart, state.metric);
+            }
+            else
+                renderCustomCharts();
+        });
+    }
+    // Preserve the viewer's scroll position without animating the viewport.
+    if (Math.abs(window.scrollY - scroll) > 1)
+        window.scrollTo({ top: scroll, behavior: "instant" });
 }
 function beginLayoutEdit() {
     if (arranging)
@@ -733,7 +762,7 @@ function installLayoutPanel(panel) {
     }
 }
 function minimumWidgetRows(id) { return id === "kpis" ? 5 : id === "sessions" ? 10 : id === "trend" ? 9 : id === "cache" ? 6 : id === "guidance" ? 5 : 6; }
-function resizeGridRectangle(before, id, direction, dx, dy) {
+function resizeGridRectangle(before, id, direction, dx, dy, columnStep) {
     let { x, y, w, h } = before;
     const minW = 2, minH = minimumWidgetRows(id);
     if (direction.includes("e"))
@@ -759,15 +788,38 @@ function resizeGridRectangle(before, id, direction, dx, dy) {
         w = GRID_COLUMNS;
     }
     if (id === "cache" && dx !== 0 && dy === 0) {
-        const step = ($("dashboard-grid").getBoundingClientRect().width + 8) / GRID_COLUMNS;
+        const step = columnStep ?? ($("dashboard-grid").getBoundingClientRect().width + 8) / GRID_COLUMNS;
         h = cacheRowsForWidth(step * w - 8, step * before.w - 8, h);
     }
     return { x, y, w, h };
 }
-function scheduleLayoutPreview(positions) {
-    if (movementFrame)
-        cancelAnimationFrame(movementFrame);
-    movementFrame = requestAnimationFrame(() => { movementFrame = 0; applyGridPreview(positions); });
+/** Batch pointer coordinates and collision resolution to one animation frame.
+ * A final pointerup flush processes the last coordinates synchronously so a
+ * quick drag/resize never drops its final position. */
+function createPointerFrame(update) {
+    let frame = 0, latestX = 0, latestY = 0;
+    return {
+        move(e) {
+            latestX = e.clientX;
+            latestY = e.clientY;
+            if (!frame)
+                frame = requestAnimationFrame(() => {
+                    frame = 0;
+                    update(latestX, latestY);
+                });
+        },
+        finish(e) {
+            if (frame)
+                cancelAnimationFrame(frame);
+            frame = 0;
+            update(e.clientX, e.clientY);
+        },
+        cancel() {
+            if (frame)
+                cancelAnimationFrame(frame);
+            frame = 0;
+        }
+    };
 }
 function beginEdgeResize(event, edge, panel, id, direction) {
     if (!arranging || event.button !== 0 || getComputedStyle($("dashboard-grid")).display !== "grid")
@@ -778,42 +830,52 @@ function beginEdgeResize(event, edge, panel, id, direction) {
     if (!before)
         return;
     const original = activeLayout().positions;
-    const step = ($("dashboard-grid").getBoundingClientRect().width + 8) / GRID_COLUMNS;
+    const columnStep = ($("dashboard-grid").getBoundingClientRect().width + 8) / GRID_COLUMNS;
     const x0 = event.clientX, y0 = event.clientY;
     let next = { ...before };
     panel.classList.add("layout-resizing");
     edge.setPointerCapture(event.pointerId);
-    const move = (e) => {
-        const candidate = resizeGridRectangle(before, id, direction, Math.round((e.clientX - x0) / step), Math.round((e.clientY - y0) / 32));
+    const update = (x, y) => {
+        const candidate = resizeGridRectangle(before, id, direction, Math.round((x - x0) / columnStep), Math.round((y - y0) / 32), columnStep);
         if (["x", "y", "w", "h"].every(k => candidate[k] === next[k]))
             return;
         try {
             const positions = reflowGridAfterResize(original, id, candidate, dashboardConfig.widgets);
             next = candidate;
-            scheduleLayoutPreview(positions);
+            applyGridPreview(positions);
         }
-        catch { /* Keep last valid rectangle when no cells are free. */ }
+        catch { /* Preserve last valid position when the grid has no room. */ }
+    };
+    const pointer = createPointerFrame(update);
+    const move = (e) => {
+        if (e.pointerId === event.pointerId)
+            pointer.move(e);
     };
     const cleanup = (e) => {
+        pointer.cancel();
         edge.removeEventListener("pointermove", move);
         edge.removeEventListener("pointerup", finish);
         edge.removeEventListener("pointercancel", cancel);
         if (edge.hasPointerCapture(e.pointerId))
             edge.releasePointerCapture(e.pointerId);
-        if (movementFrame)
-            cancelAnimationFrame(movementFrame);
-        movementFrame = 0;
         panel.classList.remove("layout-resizing");
     };
     const finish = (e) => {
-        move(e);
+        if (e.pointerId !== event.pointerId)
+            return;
+        pointer.finish(e);
         cleanup(e);
         if (["x", "y", "w", "h"].some(k => before[k] !== next[k]))
             saveGridPosition(id, next);
         else
             applyGridPreview(original);
     };
-    const cancel = (e) => { cleanup(e); applyGridPreview(original); };
+    const cancel = (e) => {
+        if (e.pointerId !== event.pointerId)
+            return;
+        cleanup(e);
+        applyGridPreview(original);
+    };
     edge.addEventListener("pointermove", move);
     edge.addEventListener("pointerup", finish);
     edge.addEventListener("pointercancel", cancel);
@@ -827,16 +889,17 @@ function beginPanelDrag(event, surface, panel, id) {
         return;
     event.preventDefault();
     const grid = $("dashboard-grid"), bounds = panel.getBoundingClientRect();
+    const gridBounds = grid.getBoundingClientRect();
     const offset = { x: event.clientX - bounds.left, y: event.clientY - bounds.top };
     const original = activeLayout().positions, x0 = event.clientX, y0 = event.clientY;
     const ghost = $("grid-drop-preview");
     let next = { ...start }, moved = false;
     surface.setPointerCapture(event.pointerId);
-    const move = (e) => {
-        if (!moved && Math.hypot(e.clientX - x0, e.clientY - y0) < 5)
+    const update = (x, y) => {
+        if (!moved && Math.hypot(x - x0, y - y0) < 5)
             return;
         moved = true;
-        const candidate = snapToGrid(e.clientX - offset.x, e.clientY - offset.y, grid.getBoundingClientRect(), start.w, start.h);
+        const candidate = snapToGrid(x - offset.x, y - offset.y, gridBounds, start.w, start.h);
         if (["x", "y", "w", "h"].every(k => candidate[k] === next[k]))
             return;
         try {
@@ -846,31 +909,41 @@ function beginPanelDrag(event, surface, panel, id) {
             ghost.hidden = false;
             ghost.style.gridColumn = (next.x + 1) + " / span " + next.w;
             ghost.style.gridRow = (next.y + 1) + " / span " + next.h;
-            scheduleLayoutPreview(positions);
+            applyGridPreview(positions);
         }
-        catch { /* Keep last valid position. */ }
+        catch { /* Keep last valid placement on collisions or grid overflow. */ }
+    };
+    const pointer = createPointerFrame(update);
+    const move = (e) => {
+        if (e.pointerId === event.pointerId)
+            pointer.move(e);
     };
     const cleanup = (e) => {
+        pointer.cancel();
         surface.removeEventListener("pointermove", move);
         surface.removeEventListener("pointerup", finish);
         surface.removeEventListener("pointercancel", cancel);
         if (surface.hasPointerCapture(e.pointerId))
             surface.releasePointerCapture(e.pointerId);
-        if (movementFrame)
-            cancelAnimationFrame(movementFrame);
-        movementFrame = 0;
         ghost.hidden = true;
         panel.classList.remove("layout-drag-source");
     };
     const finish = (e) => {
-        move(e);
+        if (e.pointerId !== event.pointerId)
+            return;
+        pointer.finish(e);
         cleanup(e);
         if (["x", "y"].some(k => start[k] !== next[k]))
             saveGridPosition(id, next, "drag");
         else
             applyGridPreview(original);
     };
-    const cancel = (e) => { cleanup(e); applyGridPreview(original); };
+    const cancel = (e) => {
+        if (e.pointerId !== event.pointerId)
+            return;
+        cleanup(e);
+        applyGridPreview(original);
+    };
     surface.addEventListener("pointermove", move);
     surface.addEventListener("pointerup", finish);
     surface.addEventListener("pointercancel", cancel);
@@ -961,6 +1034,9 @@ function renderCustomCharts() {
             metric: chart.metric, breakdown: chart.breakdown });
         const bars = $("custom-bars-" + chart.id), plot = $("custom-svg-" + chart.id).parentElement, legend = $("custom-legend-" + chart.id);
         const isLine = chart.visual === "line";
+        const panel = $(chart.id);
+        if (panel)
+            panel.dataset.chartVisual = chart.visual;
         bars.hidden = isLine;
         plot.hidden = !isLine;
         legend.hidden = !isLine;
