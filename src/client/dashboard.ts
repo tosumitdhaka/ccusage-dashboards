@@ -563,7 +563,7 @@ function refreshArrangeTools(){
   $("add-graph").disabled=arranging;
   $("customize").disabled=arranging;
   for(const panel of grid.querySelectorAll("[data-widget]")){
-    const header=panel.querySelector<HTMLElement>(":scope > .section-header");
+    const header=panel.querySelector(":scope > .section-header") as HTMLElement | null;
     if(header)header.draggable=false;
     for(const edge of panel.querySelectorAll(".layout-resize-edge")){
       edge.hidden=!arranging||!gridMode||panel.hidden;
@@ -609,7 +609,7 @@ function installLayoutPanel(panel: HTMLElement){
   const id=panel.dataset.widget;
   if(!id)return;
   const label=()=>WIDGET_REGISTRY[id]?.title??dashboardConfig.charts.find((c: any)=>c.id===id)?.title??id;
-  const header=panel.querySelector(":scope > .section-header");
+  const header=panel.querySelector<HTMLElement>(":scope > .section-header");
   // One internal scrolling body per graph. Header and popover remain outside it.
   if(id!=="kpis"){
     const body=el("div","widget-scroll-body");
@@ -711,7 +711,7 @@ function beginPanelDrag(event: any,surface: HTMLElement,panel: HTMLElement,id: s
     moved=true;
     const candidate=snapToGrid(e.clientX-offset.x,e.clientY-offset.y,
       grid.getBoundingClientRect(),start.w,start.h);
-    if(["x","y","w","h"].every(k=>candidate[k]===next[k]))return;
+    if(["x","y","w","h"].every(k=>candidate[k as keyof GridRect]===next[k as keyof GridRect]))return;
     try{
       const positions=relocateGridWidget(original,id,candidate,dashboardConfig.widgets);
       next=candidate;
