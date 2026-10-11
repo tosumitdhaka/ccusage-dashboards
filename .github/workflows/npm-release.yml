@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Exact npm version from package.json (e.g. 0.2.0)
+        description: Exact npm version from package.json (e.g. 0.2.1)
         required: true
         type: string
       source_sha:
@@ -64,6 +64,16 @@ jobs:
           npm pack --dry-run --json > package-preview.json
           node scripts/assert-package.mjs package-preview.json
           npm pack --json > release-archive.json
+          node --input-type=module <<'NODE'
+          import { readFileSync, existsSync } from "node:fs";
+          import { createHash } from "node:crypto";
+          const archives = JSON.parse(readFileSync("release-archive.json", "utf8"));
+          if (archives.length !== 1 || archives[0].name !== "ccusage-dashboards" ||
+              !/^ccusage-dashboards-[0-9]+\\.[0-9]+\\.[0-9]+\\.tgz$/.test(archives[0].filename) ||
+              !existsSync(archives[0].filename)) throw new Error("Unexpected npm pack archive");
+          const actual = createHash("sha1").update(readFileSync(archives[0].filename)).digest("hex");
+          if (actual !== archives[0].shasum) throw new Error("Packed archive hash mismatch");
+          NODE
       - name: Detect existing version or incompatible published archive
         id: registry
         shell: bash
@@ -71,7 +81,9 @@ jobs:
           VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
-          echo "state=$(node scripts/verify-npm-release.mjs pre "$VERSION" release-archive.json)" >> "$GITHUB_OUTPUT"
+          state="$(node scripts/verify-npm-release.mjs pre "$VERSION" release-archive.json)" || exit 1
+          [[ "$state" == absent || "$state" == present ]] || { echo "Invalid registry state"; exit 1; }
+          echo "state=$state" >> "$GITHUB_OUTPUT"
       - name: Verify publish dry run
         if: steps.registry.outputs.state == 'absent'
         shell: bash
@@ -82,9 +94,19 @@ jobs:
             cat publish-preview.log
             exit 1
           fi
-      - name: Publish to npm using OIDC
+      - name: Publish the exact verified npm archive using OIDC
         if: steps.registry.outputs.state == 'absent'
-        run: npm publish --access public
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="$(node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const list = JSON.parse(readFileSync("release-archive.json", "utf8"));
+            if (list.length !== 1 || !/^ccusage-dashboards-[0-9]+\\.[0-9]+\\.[0-9]+\\.tgz$/.test(list[0].filename)) process.exit(1);
+            process.stdout.write(list[0].filename);
+          ')"
+          [[ -f "$archive" ]] || { echo "Packed archive is missing"; exit 1; }
+          npm publish "./$archive" --access public
       - name: Confirm published tarball matches tested archive
         env:
           VERSION: ${{ inputs.version }}
