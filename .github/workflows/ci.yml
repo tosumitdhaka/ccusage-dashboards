@@ -22,7 +22,7 @@ jobs:
           node-version: '22'
       - name: Install official ccusage dependency
         run: npm ci --no-audit --no-fund
-      - name: Syntax checks
+      - name: TypeScript type checking, ESM build and syntax checks
         run: npm run check
       - name: Dashboard unit and HTTP tests
         run: npm test
