@@ -397,3 +397,5 @@ button:focus-visible,input:focus-visible,.import-button:focus-within{outline:2px
 .viz-menu-trigger{flex:0 0 auto;align-self:flex-start}
 .dashboard-grid [data-widget="kpis"]>.viz-menu-trigger{position:absolute;top:5px;right:5px;z-index:14;
   width:28px;height:28px}
+
+.dashboard-grid .information>div[hidden]{display:none!important}
