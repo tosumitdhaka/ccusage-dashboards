@@ -15,6 +15,7 @@ const ASSETS = new Map([
   ["/widget-registry.mjs", ["widget-registry.mjs", "text/javascript; charset=utf-8"]],
   ["/dashboard-config.mjs", ["dashboard-config.mjs", "text/javascript; charset=utf-8"]],
   ["/chart-presentation.mjs", ["chart-presentation.mjs", "text/javascript; charset=utf-8"]],
+  ["/dashboard-layout.mjs", ["dashboard-layout.mjs", "text/javascript; charset=utf-8"]],
   ["/styles.css", ["styles.css", "text/css; charset=utf-8"]]
 ]);
 

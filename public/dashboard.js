@@ -6,6 +6,7 @@ import {
 } from "./dashboard-config.mjs";
 import { buildChart, buildObservedHourly, buildSessions, chartCatalog } from "./analytics.mjs";
 import { colorForDimension, labelPointIndices } from "./chart-presentation.mjs";
+import { moveWidgetOrder } from "./dashboard-layout.mjs";
 
 const $ = (id) => document.getElementById(id);
 const state = { report: null, hourly: [], section: "daily", agent: "all", model: "all",
@@ -81,12 +82,16 @@ function configWithCurrentFilters(config = dashboardConfig) {
 }
 function showWidgetSelection() {
   const enabled = new Set(dashboardConfig.widgets);
-  document.querySelectorAll("[data-widget]").forEach((node) => {
-    node.hidden = !enabled.has(node.dataset.widget);
-  });
-  document.querySelectorAll("[data-widget-group]").forEach((group) => {
-    group.hidden = [...group.querySelectorAll("[data-widget]")].every((node) => node.hidden);
-  });
+  const grid = $("dashboard-grid");
+  // Move existing panels; preserve chart DOM and their controls/listeners.
+  const ordered=[...dashboardConfig.widgets,...Object.keys(WIDGET_REGISTRY).filter(id=>!enabled.has(id))];
+  for(const id of ordered){
+    const panel=[...grid.children].find(child=>child.dataset.widget===id);
+    if(!panel)continue;
+    panel.dataset.width=dashboardConfig.layout.widths[id];
+    panel.hidden=!enabled.has(id);
+    grid.append(panel);
+  }
   $("view-name").textContent = dashboardConfig.title;
   updateActiveNavigation();
 }
@@ -481,3 +486,98 @@ window.addEventListener("resize", () => {
 });
 load();
 setInterval(load, 60_000);
+
+
+let arranging=false;
+function refreshArrangeTools(){
+  const grid=$("dashboard-grid");
+  grid.classList.toggle("is-arranging",arranging);
+  $("layout-edit").textContent=arranging?"✓ Done arranging":"↕ Arrange";
+  $("layout-edit").setAttribute("aria-pressed",String(arranging));
+  for(const panel of grid.querySelectorAll("[data-widget]")){
+    const tools=panel.querySelector(".layout-tools");
+    if(!tools)continue;
+    tools.hidden=!arranging||panel.hidden;
+    const width=tools.querySelector("[data-layout-width]");
+    if(width){
+      const isFull=dashboardConfig.layout.widths[panel.dataset.widget]==="full";
+      width.textContent=isFull?"½ width":"Full width";
+      width.disabled=panel.dataset.widget==="kpis";
+      width.title=isFull?"Use half-width panel":"Use full-width panel";
+    }
+  }
+}
+function saveNewOrder(order){
+  persistDashboardConfig({...dashboardConfig,widgets:order});
+  refreshArrangeTools();
+  if(state.report)render();
+}
+function moveRelative(id,direction){
+  const order=[...dashboardConfig.widgets],index=order.indexOf(id);
+  const target=index+direction;
+  if(index<0||target<0||target>=order.length)return;
+  [order[index],order[target]]=[order[target],order[index]];
+  saveNewOrder(order);
+}
+function changeWidth(id){
+  if(id==="kpis")return;
+  const current=dashboardConfig.layout.widths[id];
+  persistDashboardConfig({...dashboardConfig,layout:{widths:{
+    ...dashboardConfig.layout.widths,[id]:current==="full"?"half":"full"
+  }}});
+  refreshArrangeTools();
+  if(state.report)render();
+}
+function installLayoutEditor(){
+  const grid=$("dashboard-grid");
+  for(const panel of grid.querySelectorAll("[data-widget]")){
+    const id=panel.dataset.widget;
+    const tools=el("div","layout-tools");
+    tools.hidden=true;
+    const drag=el("span","layout-handle","⠿ Drag");
+    drag.draggable=true;
+    drag.setAttribute("aria-label","Drag "+WIDGET_REGISTRY[id].title);
+    drag.addEventListener("dragstart",(event)=>{
+      if(!arranging){event.preventDefault();return;}
+      event.dataTransfer.effectAllowed="move";
+      event.dataTransfer.setData("text/plain",id);
+    });
+    tools.append(drag);
+    for(const [label,direction] of [["↑ Earlier",-1],["↓ Later",1]]){
+      const button=el("button","",label);
+      button.type="button";
+      button.setAttribute("aria-label",(direction<0?"Move earlier: ":"Move later: ")+WIDGET_REGISTRY[id].title);
+      button.addEventListener("click",()=>moveRelative(id,direction));
+      tools.append(button);
+    }
+    const width=el("button");
+    width.type="button";
+    width.dataset.layoutWidth=id;
+    width.addEventListener("click",()=>changeWidth(id));
+    tools.append(width);
+    panel.append(tools);
+    panel.addEventListener("dragover",(event)=>{
+      if(!arranging||panel.hidden)return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect="move";
+      panel.classList.add("layout-drop-target");
+    });
+    panel.addEventListener("dragleave",()=>panel.classList.remove("layout-drop-target"));
+    panel.addEventListener("drop",(event)=>{
+      panel.classList.remove("layout-drop-target");
+      if(!arranging)return;
+      event.preventDefault();
+      const source=event.dataTransfer.getData("text/plain");
+      if(source&&source!==id&&dashboardConfig.widgets.includes(source)&&dashboardConfig.widgets.includes(id)){
+        saveNewOrder(moveWidgetOrder(dashboardConfig.widgets,source,id));
+      }
+    });
+    panel.addEventListener("dragend",()=>panel.classList.remove("layout-drop-target"));
+  }
+  $("layout-edit").addEventListener("click",()=>{
+    arranging=!arranging;
+    refreshArrangeTools();
+  });
+  refreshArrangeTools();
+}
+installLayoutEditor();

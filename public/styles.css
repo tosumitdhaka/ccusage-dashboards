@@ -274,3 +274,18 @@ button:focus-visible,input:focus-visible,.import-button:focus-within{outline:2px
   .dashboard-grid .token-grid{grid-template-columns:minmax(0,1fr)}
   .chart-header-controls select{max-width:125px}
 }
+
+/* Editable widget arrangement. Only controls and drag handles are active in edit mode. */
+.dashboard-grid.is-arranging>[data-widget]{position:relative;outline:1px dashed #45677a;
+  outline-offset:3px;padding-bottom:max(55px,3.8rem)}
+.dashboard-grid.is-arranging>[data-widget].layout-drop-target{outline:2px solid #57d4bf}
+.layout-tools{position:absolute;bottom:12px;right:16px;display:flex;align-items:center;
+  flex-wrap:wrap;justify-content:flex-end;gap:6px}
+.layout-tools[hidden]{display:none!important}
+.layout-tools button,.layout-handle{padding:7px 9px;background:#20354a;border:1px solid #46647b;
+  color:#def8fb;border-radius:7px;font-size:11px;min-height:32px}
+.layout-tools button:hover,.layout-handle:hover{background:#294e57}
+.layout-tools button:focus-visible{outline:2px solid #53d6be;outline-offset:2px}
+.layout-handle{display:inline-flex;align-items:center;cursor:grab;user-select:none}
+.layout-handle:active{cursor:grabbing}
+@media(max-width:740px){.layout-handle{display:none}.layout-tools{left:12px;right:12px}}
