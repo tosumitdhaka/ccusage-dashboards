@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.2.1 — Reproducible npm release publication
+
+- Publish the exact pre-validated `npm pack` archive instead of repacking the source during `npm publish`.
+- Fail immediately on an existing npm version whose immutable tarball differs from the candidate.
+- Fix GitHub Actions preflight error handling so registry verification failures cannot be ignored.
+- No dashboard UI or usage-calculation changes from v0.2.0.
+
 ## v0.2.0 — Customizable dashboard
 
 - Browser-local dashboard view with show/hide controls for all seven existing widgets and editable view title.

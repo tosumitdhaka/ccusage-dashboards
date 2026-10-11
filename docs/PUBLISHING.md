@@ -30,7 +30,7 @@ action**: a GitHub commit/release alone does not make `npx` or `bunx` work.
    No agent logs, test fixtures, credentials or `node_modules` belong in
    the tarball.
 
-## Manual release publication (v0.2.0)
+## Manual release publication (v0.2.1)
 
 Sign into npm with an account authorized to publish the package (npm now
 requires appropriate authentication/two-factor policies). From the tested
@@ -46,20 +46,20 @@ or run `npm publish` automatically on every push. For future automated
 releases prefer npm Trusted Publishing with GitHub Actions OIDC, configured
 explicitly in npm, with a manual approval/dispatch release workflow.
 
-After the registry confirms publication, first verify `npm view ccusage-dashboards@0.2.0 bin --json`, then test from outside the checkout (the user-facing experience):
+After the registry confirms publication, first verify `npm view ccusage-dashboards@0.2.1 bin --json`, then test from outside the checkout (the user-facing experience):
 
 ```powershell
 Push-Location $env:TEMP
-npx --yes ccusage-dashboards@0.2.0 --version
-npx --yes ccusage-dashboards@0.2.0 --help
+npx --yes ccusage-dashboards@0.2.1 --version
+npx --yes ccusage-dashboards@0.2.1 --help
 Pop-Location
 ```
 
-Then test `bunx ccusage-dashboards@0.2.0` (Node.js 20+ currently required
+Then test `bunx ccusage-dashboards@0.2.1` (Node.js 20+ currently required
 because the binary's shebang points to `node`). Verify the browser opens
 `http://127.0.0.1:4177` manually and the CLI reads local usage correctly.
 
-Create the independent GitHub Release tag `dashboard-v0.2.0` targeting the
+Create the independent GitHub Release tag `dashboard-v0.2.1` targeting the
 verified merged commit only after publication and post-publish checks succeed.
 
 ## Future releases
@@ -92,8 +92,8 @@ already exist on `main` before you configure npm's setting.
 The workflow uses GitHub-hosted Node.js 24, npm 11.5.1+, `id-token: write`,
 no npm token and no release dependency cache. It checks the exact main commit,
 package and lockfile versions, builds and tests, validates the CLI tarball,
-publishes only if the npm version is absent, and fails closed if an existing
-version has a different tarball hash. After registry verification, it creates
+publishes the **exact tested tarball file** only if the npm version is absent, and fails closed if an existing
+version has a different tarball hash. The registry preflight exits immediately on a mismatch (do not embed failing checks directly within `echo`). After registry verification, it creates
 an exact-SHA GitHub Release `dashboard-vX.Y.Z`. Interrupted runs can resume
 only when the published tarball hash matches the tested source.
 

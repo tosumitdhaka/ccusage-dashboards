@@ -6,21 +6,21 @@ Monitor Claude Code, Codex, Antigravity and other supported sources using intera
 
 ## Install without cloning GitHub
 
-For the **v0.2.0** release, once published to npm, run from outside the source checkout:
+For the **v0.2.1** release, once published to npm, run from outside the source checkout:
 
 ```powershell
-npx --yes ccusage-dashboards@0.2.0
+npx --yes ccusage-dashboards@0.2.1
 ```
 
 Or with Bun:
 
 ```powershell
-bunx ccusage-dashboards@0.2.0
+bunx ccusage-dashboards@0.2.1
 ```
 
 Both commands automatically install the dashboard and its official `ccusage` CLI dependency from npm into the package-manager cache, then launch the local web app. Open **http://127.0.0.1:4177**. Use `Ctrl+C` to stop.
 
-**Important:** This source checkout targets v0.2.0. Until the separate npm publication finishes, the registry's `@latest` tag may still resolve to v0.1.1. Node.js 20+ is required even when starting through Bun because the executable uses a Node shebang.
+**Important:** This source checkout targets v0.2.1 (same dashboard features as v0.2.0, with a release-workflow correction). Until the separate npm publication finishes, the registry's `@latest` tag may not resolve to v0.2.1. Node.js 20+ is required even when starting through Bun because the executable uses a Node shebang.
 
 For a persistent command:
 
@@ -92,7 +92,7 @@ The source UI is dependency-light vanilla JS/SVG to preserve the existing dashbo
 
 ## Project status
 
-**v0.2.0 source is merged and CI-verified.** npm publishing is a separate authenticated maintainer step; v0.1.1 was the preceding npm and GitHub release. Earlier dashboard development remains on [the original fork PR](https://github.com/tosumitdhaka/ccusage-web/pull/1) as historical source; releases will come from this standalone repository.
+**v0.2.1 release candidate:** retains the v0.2.0 customization features, with corrected automated npm publication. npm availability and GitHub release status must be verified after the workflow succeeds. Earlier dashboard development remains on [the original fork PR](https://github.com/tosumitdhaka/ccusage-web/pull/1) as historical source; releases will come from this standalone repository.
 
 The official ccusage project is separately maintained and MIT licensed. This repository depends on its published package rather than vendoring its native code.
 
@@ -104,7 +104,7 @@ package contains all browser assets under `public/`. CI checks the tarball
 file list on Windows and Ubuntu before publication.
 
 Maintainers: see [npm publishing checklist](docs/PUBLISHING.md).
-The v0.2.0 package provides the same `npx`/`bunx` executable after the npm version is published and visible in the registry.
+The v0.2.1 package provides the same `npx`/`bunx` executable once the npm version is published and visible in the registry.
 
 ## v0.2 customization
 
@@ -113,4 +113,4 @@ Open **Customize** to select panels, edit the view name, reset preferences or im
 Selections and metric/provider/model/period filters are stored in your browser's localStorage for the dashboard origin.
 This data contains no agent sessions, private logs, pricing catalog, or API keys.
 A different port or browser has different preferences; import/export provides manual transfer.
-After the v0.2.0 npm release, verify the exact version from a fresh terminal outside the checkout before relying on `@latest`.
+After the v0.2.1 npm release, verify the exact version from a fresh terminal outside the checkout before relying on `@latest`.
