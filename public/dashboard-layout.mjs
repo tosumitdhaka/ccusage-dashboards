@@ -94,3 +94,11 @@ export function snapToGrid(clientX,clientY,rect,width,height){
   const y=Math.max(0,Math.min(GRID_MAX_ROW,Math.round((clientY-rect.top)/32)));
   return {x,y,w:width,h:height};
 }
+
+export function cacheRowsForWidth(newWidthPx,oldWidthPx,rows){
+  if(!Number.isFinite(newWidthPx)||!Number.isFinite(oldWidthPx)||!Number.isInteger(rows))
+    throw Error("Invalid responsive cache dimensions.");
+  if(oldWidthPx<680&&newWidthPx>=680&&rows===9)return 6;
+  if(oldWidthPx>=680&&newWidthPx<680&&rows===6)return 9;
+  return rows; // preserve manually customized heights
+}

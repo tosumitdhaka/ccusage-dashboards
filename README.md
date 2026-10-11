@@ -119,9 +119,9 @@ After the v0.2.1 npm release, verify the exact version from a fresh terminal out
 
 The v0.3 branch offers a compact, direct-control dashboard editor:
 - Each chart's metric/period/group/series options appear directly in its header without an Adjust menu.
-- **Input and cache** stays compact even when **Data notes** is hidden, while the containing panel can span the page width.
-- Click **Arrange** to reorder widgets by a drag handle or the accessible Earlier/Later buttons; toggle half/full widths. These choices are saved in browser-local JSON.
-- Click **New graph** to create up to four local ccusage-derived line/bar graphs with chosen period, metric and grouping. It does not execute arbitrary expressions or import unvalidated CSV; additional data adapters are future work.
+- **Input and cache** adapts between 1, 2 and 4 metric columns as its widget widens or narrows.
+- **Unlock layout** to drag widgets by their header to snapped 12-column grid positions, use ↑/↓ accessible move buttons, and resize width/height from the bottom-right corner. Then **Lock view**.
+- Use each visualization’s **⋮** options to edit graph settings or add/remove/hide dimensions. **New graph** creates up to four local ccusage-derived line/bar graphs with chosen period, metric and grouping. It does not execute arbitrary expressions or import unvalidated CSV; additional data adapters are future work.
 - Existing v0.2 saved preferences load with default sizes and no custom graphs.
 
 This work remains read-only toward source logs and stores only whitelisted graph definitions in browser-local configuration. It is **not yet published** as `@latest`.

@@ -379,3 +379,12 @@ button:focus-visible,input:focus-visible,.import-button:focus-within{outline:2px
 .dashboard-grid [data-widget="kpis"]>.viz-menu{position:absolute;top:5px;right:5px;z-index:14}
 .dashboard-grid [data-widget="kpis"]>.viz-menu .viz-menu-trigger{width:28px;height:28px}
 .dashboard-grid .kpi[hidden],.dashboard-grid .token-grid>div[hidden]{display:none!important}
+
+/* A two-row KPI layout cannot fit safely into the default desktop row span.
+   At compact laptop/tablet widths, switch to natural-height stacked widgets. */
+@media (min-width:741px) and (max-width:1050px){
+  .dashboard-grid{display:flex;flex-direction:column;gap:14px}
+  .dashboard-grid>[data-widget]{width:100%;height:auto;min-height:0;overflow:visible;
+    grid-column:auto!important;grid-row:auto!important}
+  .dashboard-grid .layout-drop-preview{display:none!important}
+}

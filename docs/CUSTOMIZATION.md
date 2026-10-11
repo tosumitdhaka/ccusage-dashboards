@@ -82,3 +82,22 @@ read ccusage report metrics. Pick a period (daily/weekly/monthly), metric
 graphs are stored by a strict, data-only schema. They inherit the global
 provider/model filters; no uploads, code, formulas or external network source
 are accepted. CSV/JSON column mapping and independent filters are future work.
+
+## Grid edit UX refinements
+
+- **Unlock layout** enables dragging by any non-interactive part of a widget
+  header, including its title, or using the drag handle. Drop on an empty
+  12-column grid cell to move a widget, including across columns.
+- Resize with the widget's bottom-right **↘** corner. Width and height snap
+  to grid units, and displaced widgets are moved out of the way. The keyboard
+  **↑/↓** controls have accessible labels but display icons only.
+- **Lock view** returns to non-editing mode. This lock affects arrangement,
+  not graph filter use.
+- Widget **⋮** menus offer editing, dimension visibility and hiding. Custom
+  graphs also support deletion. Built-in cost estimates are unchanged.
+- Full-width **Input and cache** uses four columns when the container is wide
+  enough; narrower widths use two or one. During a width resize, its default
+  two-row height can automatically shrink for a full-width one-row layout;
+  manually set heights are preserved.
+- Placement updates no longer reappend every widget on each graph redraw,
+  and both graph dialogs preserve the viewport position when closed.

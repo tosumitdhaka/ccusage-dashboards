@@ -6,7 +6,7 @@ import {
 } from "./dashboard-config.mjs";
 import { buildChart, buildObservedHourly, buildSessions, chartCatalog } from "./analytics.mjs";
 import { colorForDimension, labelPointIndices } from "./chart-presentation.mjs";
-import { GRID_COLUMNS, relocateGridWidget, snapToGrid } from "./dashboard-layout.mjs";
+import { GRID_COLUMNS, relocateGridWidget, snapToGrid, cacheRowsForWidth } from "./dashboard-layout.mjs";
 
 const $ = (id) => document.getElementById(id);
 const state = { report: null, hourly: [], section: "daily", agent: "all", model: "all",
@@ -532,12 +532,15 @@ function refreshArrangeTools(){
   }
 }
 function saveGridPosition(id,rect){
+  const viewport=window.scrollY;
   const positions=relocateGridWidget(dashboardConfig.layout.positions,id,rect,dashboardConfig.widgets);
   persistDashboardConfig({...dashboardConfig,layout:{...dashboardConfig.layout,positions}});
   refreshArrangeTools();
   if(state.report)render();
+  requestAnimationFrame(()=>window.scrollTo({top:viewport,behavior:"instant"}));
 }
 function swapGridNeighbors(id,direction){
+  const viewport=window.scrollY;
   const order=dashboardConfig.widgets;
   const index=order.indexOf(id),other=order[index+direction];
   if(index<0||!other)return;
@@ -548,6 +551,7 @@ function swapGridNeighbors(id,direction){
   const reordered=[...order];[reordered[index],reordered[index+direction]]=[reordered[index+direction],reordered[index]];
   persistDashboardConfig({...dashboardConfig,widgets:reordered,layout:{...dashboardConfig.layout,positions}});
   if(state.report)render();
+  requestAnimationFrame(()=>window.scrollTo({top:viewport,behavior:"instant"}));
 }
 function toggleLock(){
   arranging=!arranging;
@@ -599,7 +603,10 @@ function installLayoutPanel(panel){
     resize.setPointerCapture(event.pointerId);
     const move=e=>{
       const w=Math.max(2,Math.min(GRID_COLUMNS-before.x,before.w+Math.round((e.clientX-initialX)/widthStep)));
-      const h=Math.max(minimumWidgetRows(id),Math.min(48,before.h+Math.round((e.clientY-initialY)/32)));
+      let h=Math.max(minimumWidgetRows(id),Math.min(48,before.h+Math.round((e.clientY-initialY)/32)));
+      if(id==="cache"&&Math.abs(e.clientY-initialY)<16){
+        h=cacheRowsForWidth(widthStep*w-8,widthStep*before.w-8,before.h);
+      }
       next={...before,w,h};
       panel.style.gridColumn=(next.x+1)+" / span "+next.w;
       panel.style.gridRow=(next.y+1)+" / span "+next.h;

@@ -40,3 +40,11 @@ test("relocating one widget pushes collisions down without overlap",async()=>{
  assert.ok(!overlaps(moved.trend,moved.models));
  assert.deepEqual(snapToGrid(100,64,{left:0,top:0,width:1200},6,12),{x:1,y:2,w:6,h:12});
 });
+
+test("cache token cards collapse from two rows to one only at sufficient width",async()=>{
+ const {cacheRowsForWidth}=await import("./public/dashboard-layout.mjs");
+ assert.equal(cacheRowsForWidth(1100,470,9),6);
+ assert.equal(cacheRowsForWidth(450,1100,6),9);
+ assert.equal(cacheRowsForWidth(1200,500,13),13);
+ assert.throws(()=>cacheRowsForWidth(NaN,500,9),/Invalid/);
+});
