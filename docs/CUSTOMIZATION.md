@@ -68,3 +68,17 @@ and visible point values; provider/model bar metrics and visible counts; session
 metric. Settings apply immediately and persist in the browser's active view.
 The controls use native expandable buttons for keyboard accessibility and remain
 available on narrow screens. They are independent of the global **Customize** dialog.
+
+## v0.3 development preview
+
+Click **Arrange** to drag existing widget handles, move them using Earlier/Later,
+or switch individual card width between half and full grid. Summary cards always
+remain full width for readability. The layout is responsive; on narrow screens
+all cards become full width, but their saved desktop sizes remain intact.
+
+Click **New graph** to build a line or ranked-bar graph from existing, locally
+read ccusage report metrics. Pick a period (daily/weekly/monthly), metric
+(tokens/cache/cost) and grouping (total/provider/model). Up to four custom
+graphs are stored by a strict, data-only schema. They inherit the global
+provider/model filters; no uploads, code, formulas or external network source
+are accepted. CSV/JSON column mapping and independent filters are future work.

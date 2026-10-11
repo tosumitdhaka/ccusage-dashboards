@@ -54,3 +54,17 @@ test("widget surface uses one responsive grid without legacy paired wrappers", a
   assert.ok(html.includes('id="layout-edit"'));
   assert.ok(css.includes('.dashboard-grid .token-grid{display:grid;grid-template-columns:repeat(2,minmax(0,235px))'));
 });
+
+test("v0.3 editor and graph builder are wired to validated configuration",async()=>{
+ const html=await readFile(new URL("./public/index.html",import.meta.url),"utf8");
+ const js=await readFile(new URL("./public/dashboard.js",import.meta.url),"utf8");
+ for(const id of ["add-graph","graph-dialog","graph-form","graph-title","graph-visual","graph-metric",
+ "graph-group","graph-period","graph-status","layout-edit"]){
+  assert.ok(html.includes('id="'+id+'"'),"Missing control "+id);
+ }
+ assert.ok(js.includes("setupCustomGraphBuilder()"));
+ assert.ok(js.includes("installLayoutEditor()"));
+ assert.ok(js.includes("syncCustomChartNodes()"));
+ assert.ok(js.includes("renderCustomCharts()"));
+ assert.ok(js.includes('event.dataTransfer.setData("text/plain",id)'));
+});

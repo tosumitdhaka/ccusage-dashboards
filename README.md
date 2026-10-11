@@ -6,7 +6,7 @@ Monitor Claude Code, Codex, Antigravity and other supported sources using intera
 
 ## Install without cloning GitHub
 
-For the **v0.2.1** release, once published to npm, run from outside the source checkout:
+For the latest **published stable package** (v0.2.1), run from outside the source checkout:
 
 ```powershell
 npx --yes ccusage-dashboards@0.2.1
@@ -20,7 +20,7 @@ bunx ccusage-dashboards@0.2.1
 
 Both commands automatically install the dashboard and its official `ccusage` CLI dependency from npm into the package-manager cache, then launch the local web app. Open **http://127.0.0.1:4177**. Use `Ctrl+C` to stop.
 
-**Important:** This source checkout targets v0.2.1 (same dashboard features as v0.2.0, with a release-workflow correction). Until the separate npm publication finishes, the registry's `@latest` tag may not resolve to v0.2.1. Node.js 20+ is required even when starting through Bun because the executable uses a Node shebang.
+**Important:** v0.3.0 is under development. The stable npm v0.2.1 package does not yet have drag-to-reorder, half/full widget sizes, or custom graph creation. Node.js 20+ is required even when starting through Bun because the executable uses a Node shebang.
 
 For a persistent command:
 
@@ -92,7 +92,7 @@ The source UI is dependency-light vanilla JS/SVG to preserve the existing dashbo
 
 ## Project status
 
-**v0.2.1 release candidate:** retains the v0.2.0 customization features, with corrected automated npm publication. npm availability and GitHub release status must be verified after the workflow succeeds. Earlier dashboard development remains on [the original fork PR](https://github.com/tosumitdhaka/ccusage-web/pull/1) as historical source; releases will come from this standalone repository.
+**v0.2.1 is the published stable release.** v0.3.0 grid editing and graph building remain in a development pull request until the browser acceptance gate passes. Earlier dashboard development remains on [the original fork PR](https://github.com/tosumitdhaka/ccusage-web/pull/1) as historical source; releases will come from this standalone repository.
 
 The official ccusage project is separately maintained and MIT licensed. This repository depends on its published package rather than vendoring its native code.
 
@@ -114,3 +114,14 @@ Selections and metric/provider/model/period filters are stored in your browser's
 This data contains no agent sessions, private logs, pricing catalog, or API keys.
 A different port or browser has different preferences; import/export provides manual transfer.
 After the v0.2.1 npm release, verify the exact version from a fresh terminal outside the checkout before relying on `@latest`.
+
+## v0.3 development preview (not yet on npm)
+
+The v0.3 branch offers a compact, direct-control dashboard editor:
+- Each chart's metric/period/group/series options appear directly in its header without an Adjust menu.
+- **Input and cache** stays compact even when **Data notes** is hidden, while the containing panel can span the page width.
+- Click **Arrange** to reorder widgets by a drag handle or the accessible Earlier/Later buttons; toggle half/full widths. These choices are saved in browser-local JSON.
+- Click **New graph** to create up to four local ccusage-derived line/bar graphs with chosen period, metric and grouping. It does not execute arbitrary expressions or import unvalidated CSV; additional data adapters are future work.
+- Existing v0.2 saved preferences load with default sizes and no custom graphs.
+
+This work remains read-only toward source logs and stores only whitelisted graph definitions in browser-local configuration. It is **not yet published** as `@latest`.

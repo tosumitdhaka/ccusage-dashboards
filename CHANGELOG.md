@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.3.0 — Layout and custom graphs (development, unreleased)
+
+- Inline graph header filters instead of extra Adjust-menu clicks.
+- Compact 2-column cache metrics even when the notes panel is hidden.
+- Responsive unified grid: drag-to-reorder, accessible Earlier/Later buttons, half/full widget widths, and browser-local persistence.
+- Create up to four validated line/bar graphs from existing local ccusage metrics; no imported-code execution or CSV parsing.
+- Older dashboard exports migrate to default layout and empty custom graphs.
+
 ## v0.2.1 — Reproducible npm release publication
 
 - Publish the exact pre-validated `npm pack` archive instead of repacking the source during `npm publish`.

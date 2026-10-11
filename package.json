@@ -1,6 +1,6 @@
 {
   "name": "ccusage-dashboards",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Local-first customizable usage dashboards powered by the official ccusage CLI",
   "license": "MIT",
   "type": "module",
@@ -11,7 +11,7 @@
     "dashboard": "node server.mjs",
     "start": "node server.mjs",
     "test": "node --test *.test.mjs",
-    "check": "node --check server.mjs && node --check ccusage-adapter.mjs && node --check public/dashboard.js && node --check bin/ccusage-dashboards.mjs",
+    "check": "node --check server.mjs && node --check ccusage-adapter.mjs && node --check public/dashboard.js && node --check public/dashboard-layout.mjs && node --check bin/ccusage-dashboards.mjs",
     "packcheck": "npm pack --dry-run --json"
   },
   "dependencies": {
