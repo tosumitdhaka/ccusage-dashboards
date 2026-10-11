@@ -507,3 +507,16 @@ button:focus-visible,input:focus-visible,.import-button:focus-within{outline:2px
 .dashboard-grid .widget-scroll-body,
 .dashboard-grid .widget-scroll-body .table-wrap{
   overscroll-behavior-y:auto}
+
+/* Floating edit previews are compositor-only and never change grid geometry. */
+.dashboard-grid .layout-drop-preview{
+  position:absolute;left:0;top:0;z-index:48;box-sizing:border-box;
+  grid-column:auto!important;grid-row:auto!important;
+  pointer-events:none;will-change:transform;
+  background:rgba(83,214,190,.12);border:2px dashed #64e5cd}
+.dashboard-grid .layout-drop-preview.layout-invalid-target{border-color:#e7a98f}
+.dashboard-grid.is-arranging>.layout-drag-source{
+  position:relative;z-index:45;opacity:.9;will-change:transform;
+  pointer-events:none;transition:none!important;
+  box-shadow:0 13px 35px #0008}
+.dashboard-grid .layout-resizing{will-change:auto}

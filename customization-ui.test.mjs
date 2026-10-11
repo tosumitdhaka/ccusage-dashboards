@@ -81,7 +81,7 @@ test("unlocked view, free grid placement and options editor expose explicit cont
  assert.ok(html.includes("Layout Locked"));
  assert.ok(!html.includes(">↕ Arrange<"));
  assert.ok(js.includes('header.draggable=false'));
- assert.ok(js.includes('const candidate=snapToGrid(x-offset.x,y-offset.y,gridBounds'));
+ assert.ok(js.includes("start.x+Math.round(dx/stepX)"));
  assert.ok(js.includes('edge.setPointerCapture(event.pointerId)'));
  assert.ok(js.includes('resizeGridRectangle('));
  assert.ok(!js.includes('layout-handle\",\"⠿'));

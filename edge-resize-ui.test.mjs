@@ -27,7 +27,8 @@ test("live resize previews peers and saves only to draft on pointerup",async()=>
  assert.ok(block.includes("reflowGridAfterResize("));
  assert.ok(block.includes("createPointerFrame(update)"));
  assert.ok(block.includes("pointer.finish(e);cleanup(e)"));
- assert.ok(block.includes("applyGridPreview(positions)"));
+ assert.ok(block.includes("showFloatingGridTarget(next,stepX)"));
+ assert.ok(!block.includes("applyGridPreview(positions)"));
  assert.ok(block.includes('edge.addEventListener("pointerup",finish)'));
  assert.ok(block.includes('saveGridPosition(id,next)'));
  assert.ok(!block.includes("render();"));
