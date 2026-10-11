@@ -48,3 +48,11 @@ test("cache token cards collapse from two rows to one only at sufficient width",
  assert.equal(cacheRowsForWidth(1200,500,13),13);
  assert.throws(()=>cacheRowsForWidth(NaN,500,9),/Invalid/);
 });
+
+test("existing compact KPI layouts still load even though editor enforces five rows",()=>{
+ const saved={positions:{kpis:{x:0,y:0,w:12,h:4},
+   trend:{x:0,y:4,w:12,h:15}}};
+ const accepted=validateLayout(saved);
+ assert.equal(accepted.positions.kpis.h,4);
+ assert.equal(accepted.positions.trend.y,4);
+});

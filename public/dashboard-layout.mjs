@@ -4,7 +4,7 @@ export const GRID_MAX_ROW=400;
 export const DEFAULT_WIDTHS=Object.freeze({kpis:"full",trend:"full",providers:"half",models:"half",cache:"half",guidance:"half",sessions:"full"});
 export const DEFAULT_ROWS=Object.freeze({kpis:5,trend:15,providers:13,models:13,cache:9,guidance:9,sessions:19});
 const record=v=>v!==null&&typeof v==="object"&&!Array.isArray(v);
-export const minimumRows=id=>id==="kpis"?5:id==="sessions"?10:id==="trend"?9:id==="cache"?6:id==="guidance"?5:6;
+export const minimumRows=id=>id==="kpis"?4:id==="sessions"?10:id==="trend"?9:id==="cache"?6:id==="guidance"?5:6;
 const defaultHeight=id=>DEFAULT_ROWS[id]??11;
 export function overlaps(a,b){
   return a.x < b.x+b.w && a.x+a.w>b.x && a.y < b.y+b.h && a.y+a.h>b.y;
