@@ -446,3 +446,51 @@ button:focus-visible,input:focus-visible,.import-button:focus-within{outline:2px
   .dashboard-grid .edge-ne,.dashboard-grid .edge-nw,
   .dashboard-grid .edge-se,.dashboard-grid .edge-sw{width:21px;height:21px}
 }
+
+/* Invisible edge hit zones: the pointer cursor is the only hover marker. */
+.dashboard-grid .layout-resize-edge:hover{background:transparent;outline:none}
+.dashboard-grid .layout-resize-edge:focus-visible{background:#53d6be22;outline:2px solid #53d6be}
+.dashboard-grid.is-arranging>[data-widget]{padding-bottom:24px}
+.dashboard-grid.is-arranging .section-header{touch-action:none;user-select:none}
+.dashboard-grid.is-arranging>[data-widget="kpis"]{cursor:grab;touch-action:none}
+.dashboard-grid.is-arranging .section-header select,
+.dashboard-grid.is-arranging .section-header button,
+.dashboard-grid.is-arranging .section-header label{touch-action:auto;user-select:auto}
+/* A single scroll body, fixed header, and no competing panel scrollbar. */
+.dashboard-grid>[data-widget]:not([data-widget="kpis"]){
+  display:flex;flex-direction:column;overflow:hidden;min-height:0}
+.dashboard-grid>[data-widget]:not([data-widget="kpis"])>.section-header{flex:0 0 auto}
+.dashboard-grid>[data-widget]>.widget-scroll-body{
+  flex:1 1 auto;min-height:0;min-width:0;overflow-y:auto;overflow-x:hidden;
+  overscroll-behavior:contain;scrollbar-gutter:stable}
+.dashboard-grid .widget-scroll-body .bars{max-height:none;overflow:visible}
+.dashboard-grid .widget-scroll-body .table-wrap{overflow-x:auto;overflow-y:hidden}
+@media(max-width:1100px){
+  .dashboard-grid>[data-widget]:not([data-widget="kpis"]){overflow:visible;min-height:0}
+  .dashboard-grid>[data-widget]>.widget-scroll-body{
+    flex:initial;min-height:0;max-height:none;overflow:visible;scrollbar-gutter:auto}
+}
+/* Reveal editing controls on panel hover or keyboard focus, always on touch. */
+.dashboard-grid>[data-widget] .viz-menu-trigger,
+.dashboard-grid>[data-widget] .chart-header-controls{
+  opacity:0;visibility:hidden;pointer-events:none;
+  transition:opacity 130ms ease,visibility 130ms ease}
+.dashboard-grid>[data-widget]:hover .viz-menu-trigger,
+.dashboard-grid>[data-widget]:focus-within .viz-menu-trigger,
+.dashboard-grid>[data-widget] .viz-menu-trigger[aria-expanded="true"],
+.dashboard-grid>[data-widget]:hover .chart-header-controls,
+.dashboard-grid>[data-widget]:focus-within .chart-header-controls{
+  opacity:1;visibility:visible;pointer-events:auto}
+@media(hover:none){
+  .dashboard-grid>[data-widget] .viz-menu-trigger,
+  .dashboard-grid>[data-widget] .chart-header-controls{
+    opacity:1;visibility:visible;pointer-events:auto}
+}
+.top-actions{gap:9px;flex-wrap:wrap;justify-content:flex-end}
+.topbar{height:auto;min-height:73px;padding-top:9px;padding-bottom:9px}
+.top-actions .layout-save{padding:9px 13px;font-size:12px;border-radius:8px;min-height:35px}
+.top-actions .layout-cancel{border-color:#755766}
+@media(prefers-reduced-motion:reduce){
+  .dashboard-grid>[data-widget] .viz-menu-trigger,
+  .dashboard-grid>[data-widget] .chart-header-controls{transition:none}
+}

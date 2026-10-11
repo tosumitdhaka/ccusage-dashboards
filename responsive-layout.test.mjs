@@ -32,16 +32,16 @@ test("stacked breakpoint disables unsupported grips and supports arrow-only reor
   const js=await readFile(new URL("./public/dashboard.js",import.meta.url),"utf8");
   const html=await readFile(new URL("./public/index.html",import.meta.url),"utf8");
   assert.ok(css.includes("@media (min-width:741px) and (max-width:1100px)"));
-  assert.ok(js.includes("header.draggable=arranging&&gridMode"));
+  assert.ok(js.includes("header.draggable=false"));
   assert.ok(js.includes("edge.hidden=!arranging||!gridMode||panel.hidden"));
-  assert.ok(js.includes("moveWidgetByVisualOrder("));
+  assert.ok(!js.includes("function swapGridNeighbors("));
   assert.ok(js.includes("panel.style.order=String(ordered.indexOf(id))"));
   assert.ok(html.includes('id="layout-help"'));
   assert.ok(css.includes(".top-actions{width:100%;justify-content:flex-start;flex-wrap:wrap"));
 });
 test("provider and model panel scrolling is single-region",async()=>{
   const css=await readFile(new URL("./public/styles.css",import.meta.url),"utf8");
-  assert.ok(css.includes('[data-widget="models"],.dashboard-grid>[data-widget="providers"]'));
-  assert.ok(css.includes('[data-widget="providers"]>#provider-bars{'));
+  assert.ok(css.includes('.dashboard-grid>[data-widget]:not([data-widget="kpis"]){'));
+  assert.ok(css.includes('.widget-scroll-body .bars{max-height:none;overflow:visible}'));
   assert.ok(css.includes("max-height:none;overflow-y:auto;overflow-x:hidden"));
 });

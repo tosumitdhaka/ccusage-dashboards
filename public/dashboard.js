@@ -6,7 +6,7 @@ import {
 } from "./dashboard-config.mjs";
 import { buildChart, buildObservedHourly, buildSessions, chartCatalog } from "./analytics.mjs";
 import { colorForDimension, labelPointIndices } from "./chart-presentation.mjs";
-import { GRID_COLUMNS, relocateGridWidget, snapToGrid, cacheRowsForWidth, visibleGridOrder, moveWidgetByVisualOrder, compactVisibleLayout } from "./dashboard-layout.mjs";
+import { GRID_COLUMNS, relocateGridWidget, snapToGrid, cacheRowsForWidth, visibleGridOrder, compactVisibleLayout, reflowGridAfterResize } from "./dashboard-layout.mjs";
 
 const $ = (id) => document.getElementById(id);
 const state = { report: null, hourly: [], section: "daily", agent: "all", model: "all",
@@ -84,12 +84,13 @@ function showWidgetSelection() {
   syncCustomChartNodes();
   const enabled=new Set(dashboardConfig.widgets);
   const grid=$("dashboard-grid");
-  const ordered=visibleGridOrder(dashboardConfig.layout.positions,Object.keys(dashboardConfig.layout.positions));
+  const positions=activeLayout().positions;
+  const ordered=visibleGridOrder(positions,Object.keys(positions));
   for(const panel of grid.querySelectorAll("[data-widget]")){
     const id=panel.dataset.widget;
     panel.hidden=!enabled.has(id);
     panel.style.order=String(ordered.indexOf(id));
-    const rect=dashboardConfig.layout.positions[id];
+    const rect=positions[id];
     if(!rect)continue;
     panel.style.gridColumn=(rect.x+1)+" / span "+rect.w;
     panel.style.gridRow=(rect.y+1)+" / span "+rect.h;
@@ -520,11 +521,13 @@ setInterval(load, 60_000);
 
 
 
+
 let arranging=false;
-let activeDragId=null;
-let dragPointerOffset={x:0,y:0};
+let layoutDraft=null;
+let movementFrame=0;
 const interactiveHeaderTarget=target=>target.closest("button,select,input,label,a,summary,.viz-menu-trigger,.viz-popover-menu");
-function currentPosition(id){return dashboardConfig.layout.positions[id];}
+function activeLayout(){return layoutDraft??dashboardConfig.layout;}
+function currentPosition(id){return activeLayout().positions[id];}
 function layoutAfterVisibilityChange(widgets){
   const positions=compactVisibleLayout(dashboardConfig.layout.positions,widgets,
     $("dashboard-grid").getBoundingClientRect().width);
@@ -532,78 +535,85 @@ function layoutAfterVisibilityChange(widgets){
   if(positions.cache?.w===12)widths.cache="full";
   return {...dashboardConfig.layout,widths,positions};
 }
+function applyGridPreview(positions){
+  const visual=visibleGridOrder(positions,dashboardConfig.widgets);
+  for(const panel of $("dashboard-grid").querySelectorAll("[data-widget]")){
+    const rect=positions[panel.dataset.widget];
+    if(!rect)continue;
+    panel.style.gridColumn=(rect.x+1)+" / span "+rect.w;
+    panel.style.gridRow=(rect.y+1)+" / span "+rect.h;
+    panel.style.order=String(visual.indexOf(panel.dataset.widget));
+  }
+}
 function refreshArrangeTools(){
-  const grid=$("dashboard-grid");
-  const gridMode=getComputedStyle(grid).display==="grid";
+  const grid=$("dashboard-grid"),gridMode=getComputedStyle(grid).display==="grid";
   $("layout-help").hidden=!arranging||gridMode;
-  $("layout-edit").title=gridMode?"Unlock to drag and resize widgets.":
-    "Stacked view supports arrow reordering; drag and resize are available on wider screens.";
   grid.classList.toggle("is-arranging",arranging);
   $("layout-edit").textContent=arranging?"🔓 Layout Unlocked":"🔒 Layout Locked";
+  $("layout-edit").disabled=arranging;
+  $("layout-edit").title=arranging?"Save or cancel to finish editing.":"Unlock to move and resize widgets.";
   $("layout-edit").setAttribute("aria-pressed",String(arranging));
-  $("layout-edit").setAttribute("aria-label",arranging?"Layout unlocked. Click to lock positions.":"Layout locked. Click to edit positions.");
+  $("layout-edit").setAttribute("aria-label",arranging?
+    "Layout unlocked. Save or cancel changes.":"Layout locked. Click to edit positions.");
+  $("layout-save").hidden=!arranging;
+  $("layout-cancel").hidden=!arranging;
+  $("add-graph").disabled=arranging;
+  $("customize").disabled=arranging;
   for(const panel of grid.querySelectorAll("[data-widget]")){
-    const tools=panel.querySelector(".layout-tools");
-    if(!tools)continue;
-    tools.hidden=!arranging||panel.hidden;
     const header=panel.querySelector(":scope > .section-header");
-    if(header)header.draggable=arranging&&gridMode;
+    if(header)header.draggable=false;
     for(const edge of panel.querySelectorAll(".layout-resize-edge")){
       edge.hidden=!arranging||!gridMode||panel.hidden;
       edge.tabIndex=arranging&&gridMode&&!panel.hidden?0:-1;
     }
   }
 }
-function saveGridPosition(id,rect){
-  const viewport=window.scrollY;
-  const positions=relocateGridWidget(dashboardConfig.layout.positions,id,rect,dashboardConfig.widgets);
-  const widgets=visibleGridOrder(positions,dashboardConfig.widgets);
-  persistDashboardConfig({...dashboardConfig,widgets,layout:{...dashboardConfig.layout,positions}});
+function saveGridPosition(id,rect,type="resize"){
+  if(!arranging||!layoutDraft)return;
+  const scroll=window.scrollY,previous=layoutDraft.positions;
+  const positions=type==="resize"?
+    reflowGridAfterResize(previous,id,rect,dashboardConfig.widgets):
+    relocateGridWidget(previous,id,rect,dashboardConfig.widgets);
+  const widths={...layoutDraft.widths,[id]:rect.w===12?"full":"half"};
+  layoutDraft={...layoutDraft,widths,positions};
+  showWidgetSelection();
+  if(state.report)render();
+  requestAnimationFrame(()=>window.scrollTo({top:scroll,behavior:"instant"}));
+}
+function beginLayoutEdit(){
+  if(arranging)return;
+  layoutDraft={widths:{...dashboardConfig.layout.widths},
+    positions:Object.fromEntries(Object.entries(dashboardConfig.layout.positions)
+      .map(([id,r])=>[id,{...r}]))};
+  arranging=true;
+  refreshArrangeTools();
+}
+function closeLayoutEdit(save){
+  if(!arranging)return;
+  if(movementFrame)cancelAnimationFrame(movementFrame);
+  movementFrame=0;
+  $("grid-drop-preview").hidden=true;
+  const result=layoutDraft;
+  layoutDraft=null;arranging=false;
+  if(save&&result)persistDashboardConfig({...dashboardConfig,layout:result});
+  else showWidgetSelection();
   refreshArrangeTools();
   if(state.report)render();
-  requestAnimationFrame(()=>window.scrollTo({top:viewport,behavior:"instant"}));
-}
-function swapGridNeighbors(id,direction){
-  const viewport=window.scrollY;
-  const positions=moveWidgetByVisualOrder(dashboardConfig.layout.positions,dashboardConfig.widgets,id,direction);
-  if(!positions)return;
-  const widgets=visibleGridOrder(positions,dashboardConfig.widgets);
-  persistDashboardConfig({...dashboardConfig,widgets,layout:{...dashboardConfig.layout,positions}});
-  if(state.report)render();
-  requestAnimationFrame(()=>window.scrollTo({top:viewport,behavior:"instant"}));
-}
-function toggleLock(){
-  arranging=!arranging;
-  if(!arranging){$("grid-drop-preview").hidden=true;$("grid-resize-preview").hidden=true;}
-  refreshArrangeTools();
 }
 function installLayoutPanel(panel){
-  if(panel.querySelector(".layout-tools"))return;
+  if(panel.dataset.layoutInstalled==="true")return;
+  panel.dataset.layoutInstalled="true";
   const id=panel.dataset.widget;
-  const label=()=>WIDGET_REGISTRY[id]?.title ?? dashboardConfig.charts.find(c=>c.id===id)?.title ?? id;
+  const label=()=>WIDGET_REGISTRY[id]?.title??dashboardConfig.charts.find(c=>c.id===id)?.title??id;
   const header=panel.querySelector(":scope > .section-header");
-  const startDrag=event=>{
-    if(!arranging || (event.currentTarget===header&&interactiveHeaderTarget(event.target))){
-      event.preventDefault();return;
-    }
-    activeDragId=id;
-    const bounds=panel.getBoundingClientRect();
-    dragPointerOffset={x:event.clientX-bounds.left,y:event.clientY-bounds.top};
-    event.dataTransfer.effectAllowed="move";
-    event.dataTransfer.setData("text/plain",id);
-    panel.classList.add("layout-drag-source");
-  };
-  if(header)header.addEventListener("dragstart",startDrag);
-  const tools=el("div","layout-tools");tools.hidden=true;
-  for(const [symbol,direction] of [["⌃",-1],["⌄",1]]){
-    const button=el("button","layout-step",symbol);button.type="button";
-    button.title=direction<0?"Move earlier":"Move later";
-    button.setAttribute("aria-label",(direction<0?"Move earlier: ":"Move later: ")+label());
-    button.addEventListener("click",()=>swapGridNeighbors(id,direction));
-    tools.append(button);
+  // One internal scrolling body per graph. Header and popover remain outside it.
+  if(id!=="kpis"){
+    const body=el("div","widget-scroll-body");
+    for(const child of [...panel.children])if(child!==header)body.append(child);
+    panel.append(body);
   }
-  panel.append(tools);
-  // Drag a border or corner to resize; no additional visible drag/resize buttons.
+  const dragSurface=header??(id==="kpis"?panel:null);
+  if(dragSurface)dragSurface.addEventListener("pointerdown",event=>beginPanelDrag(event,dragSurface,panel,id));
   for(const direction of ["n","s","e","w","ne","nw","se","sw"]){
     const edge=el("span","layout-resize-edge edge-"+direction);
     edge.hidden=true;edge.tabIndex=-1;
@@ -618,15 +628,10 @@ function installLayoutPanel(panel){
       const before=currentPosition(id);
       const dx=event.key==="ArrowRight"?1:event.key==="ArrowLeft"?-1:0;
       const dy=event.key==="ArrowDown"?1:event.key==="ArrowUp"?-1:0;
-      const after=resizeGridRectangle(before,id,direction,dx,dy);
-      if(["x","y","w","h"].some(key=>before[key]!==after[key]))saveGridPosition(id,after);
+      const next=resizeGridRectangle(before,id,direction,dx,dy);
+      if(["x","y","w","h"].some(k=>before[k]!==next[k]))saveGridPosition(id,next);
     });
   }
-  panel.addEventListener("dragend",()=>{
-    activeDragId=null;
-    panel.classList.remove("layout-drag-source");
-    $("grid-drop-preview").hidden=true;
-  });
 }
 function minimumWidgetRows(id){return id==="kpis"?4:id==="sessions"?10:id==="trend"?9:id==="cache"?6:id==="guidance"?5:6;}
 function resizeGridRectangle(before,id,direction,dx,dy){
@@ -644,41 +649,91 @@ function resizeGridRectangle(before,id,direction,dx,dy){
   }
   return {x,y,w,h};
 }
-let edgeResizeFrame=0;
-function positionResizePreview(ghost,rect,step){
-  ghost.style.transform="translate3d("+(rect.x*step)+"px,"+(rect.y*32)+"px,0)";
-  ghost.style.width=Math.max(8,rect.w*step-8)+"px";
-  ghost.style.height=Math.max(8,rect.h*32-8)+"px";
+function scheduleLayoutPreview(positions){
+  if(movementFrame)cancelAnimationFrame(movementFrame);
+  movementFrame=requestAnimationFrame(()=>{movementFrame=0;applyGridPreview(positions);});
 }
 function beginEdgeResize(event,edge,panel,id,direction){
   if(!arranging||event.button!==0||getComputedStyle($("dashboard-grid")).display!=="grid")return;
   event.preventDefault();event.stopPropagation();
   const before=currentPosition(id);if(!before)return;
-  const grid=$("dashboard-grid"),step=(grid.getBoundingClientRect().width+8)/GRID_COLUMNS;
-  const x0=event.clientX,y0=event.clientY,top=window.scrollY;
-  const ghost=$("grid-resize-preview");let next={...before};
-  ghost.hidden=false;positionResizePreview(ghost,next,step);
+  const original=activeLayout().positions;
+  const step=($("dashboard-grid").getBoundingClientRect().width+8)/GRID_COLUMNS;
+  const x0=event.clientX,y0=event.clientY;
+  let next={...before};
   panel.classList.add("layout-resizing");
   edge.setPointerCapture(event.pointerId);
   const move=e=>{
-    next=resizeGridRectangle(before,id,direction,Math.round((e.clientX-x0)/step),Math.round((e.clientY-y0)/32));
-    if(!edgeResizeFrame)edgeResizeFrame=requestAnimationFrame(()=>{edgeResizeFrame=0;positionResizePreview(ghost,next,step);});
+    const candidate=resizeGridRectangle(before,id,direction,
+      Math.round((e.clientX-x0)/step),Math.round((e.clientY-y0)/32));
+    if(["x","y","w","h"].every(k=>candidate[k]===next[k]))return;
+    try{
+      const positions=reflowGridAfterResize(original,id,candidate,dashboardConfig.widgets);
+      next=candidate;scheduleLayoutPreview(positions);
+    }catch{/* Keep last valid rectangle when no cells are free. */}
   };
   const cleanup=e=>{
-    edge.removeEventListener("pointermove",move);edge.removeEventListener("pointerup",finish);
+    edge.removeEventListener("pointermove",move);
+    edge.removeEventListener("pointerup",finish);
     edge.removeEventListener("pointercancel",cancel);
     if(edge.hasPointerCapture(e.pointerId))edge.releasePointerCapture(e.pointerId);
-    if(edgeResizeFrame)cancelAnimationFrame(edgeResizeFrame);edgeResizeFrame=0;
-    ghost.hidden=true;panel.classList.remove("layout-resizing");
+    if(movementFrame)cancelAnimationFrame(movementFrame);
+    movementFrame=0;panel.classList.remove("layout-resizing");
   };
   const finish=e=>{
-    cleanup(e);
-    if(["x","y","w","h"].some(key=>before[key]!==next[key]))saveGridPosition(id,next);
-    requestAnimationFrame(()=>window.scrollTo({top,behavior:"instant"}));
+    move(e);cleanup(e);
+    if(["x","y","w","h"].some(k=>before[k]!==next[k]))saveGridPosition(id,next);
+    else applyGridPreview(original);
   };
-  const cancel=e=>cleanup(e);
-  edge.addEventListener("pointermove",move);edge.addEventListener("pointerup",finish);
+  const cancel=e=>{cleanup(e);applyGridPreview(original);};
+  edge.addEventListener("pointermove",move);
+  edge.addEventListener("pointerup",finish);
   edge.addEventListener("pointercancel",cancel);
+}
+function beginPanelDrag(event,surface,panel,id){
+  if(!arranging||event.button!==0||interactiveHeaderTarget(event.target)||
+    getComputedStyle($("dashboard-grid")).display!=="grid")return;
+  const start=currentPosition(id);if(!start)return;
+  event.preventDefault();
+  const grid=$("dashboard-grid"),bounds=panel.getBoundingClientRect();
+  const offset={x:event.clientX-bounds.left,y:event.clientY-bounds.top};
+  const original=activeLayout().positions,x0=event.clientX,y0=event.clientY;
+  const ghost=$("grid-drop-preview");
+  let next={...start},moved=false;
+  surface.setPointerCapture(event.pointerId);
+  const move=e=>{
+    if(!moved&&Math.hypot(e.clientX-x0,e.clientY-y0)<5)return;
+    moved=true;
+    const candidate=snapToGrid(e.clientX-offset.x,e.clientY-offset.y,
+      grid.getBoundingClientRect(),start.w,start.h);
+    if(["x","y","w","h"].every(k=>candidate[k]===next[k]))return;
+    try{
+      const positions=relocateGridWidget(original,id,candidate,dashboardConfig.widgets);
+      next=candidate;
+      panel.classList.add("layout-drag-source");
+      ghost.hidden=false;
+      ghost.style.gridColumn=(next.x+1)+" / span "+next.w;
+      ghost.style.gridRow=(next.y+1)+" / span "+next.h;
+      scheduleLayoutPreview(positions);
+    }catch{/* Keep last valid position. */}
+  };
+  const cleanup=e=>{
+    surface.removeEventListener("pointermove",move);
+    surface.removeEventListener("pointerup",finish);
+    surface.removeEventListener("pointercancel",cancel);
+    if(surface.hasPointerCapture(e.pointerId))surface.releasePointerCapture(e.pointerId);
+    if(movementFrame)cancelAnimationFrame(movementFrame);
+    movementFrame=0;ghost.hidden=true;panel.classList.remove("layout-drag-source");
+  };
+  const finish=e=>{
+    move(e);cleanup(e);
+    if(["x","y"].some(k=>start[k]!==next[k]))saveGridPosition(id,next,"drag");
+    else applyGridPreview(original);
+  };
+  const cancel=e=>{cleanup(e);applyGridPreview(original);};
+  surface.addEventListener("pointermove",move);
+  surface.addEventListener("pointerup",finish);
+  surface.addEventListener("pointercancel",cancel);
 }
 function installLayoutEditor(){
   const grid=$("dashboard-grid");
@@ -686,36 +741,12 @@ function installLayoutEditor(){
     installLayoutPanel(panel);
     installVisualizationMenu(panel);
   }
-  // A single grid-level drop target supports empty cells, horizontal moves
-  // and arbitrary grid positions, not just 'before/after' another panel.
   const preview=el("div","layout-drop-preview");
   preview.id="grid-drop-preview";preview.hidden=true;
   preview.setAttribute("aria-hidden","true");grid.append(preview);
-  const ghost=el("div","grid-resize-preview");
-  ghost.id="grid-resize-preview";ghost.hidden=true;
-  ghost.setAttribute("aria-hidden","true");grid.append(ghost);
-  grid.addEventListener("dragover",event=>{
-    if(!arranging||!activeDragId)return;
-    event.preventDefault();
-    event.dataTransfer.dropEffect="move";
-    const r=currentPosition(activeDragId);
-    const target=snapToGrid(event.clientX-dragPointerOffset.x,event.clientY-dragPointerOffset.y,grid.getBoundingClientRect(),r.w,r.h);
-    preview.hidden=false;
-    preview.style.gridColumn=(target.x+1)+" / span "+target.w;
-    preview.style.gridRow=(target.y+1)+" / span "+target.h;
-  });
-  grid.addEventListener("drop",event=>{
-    if(!arranging||!activeDragId)return;
-    event.preventDefault();
-    const id=activeDragId;
-    activeDragId=null;preview.hidden=true;
-    const r=currentPosition(id);
-    saveGridPosition(id,snapToGrid(event.clientX-dragPointerOffset.x,event.clientY-dragPointerOffset.y,grid.getBoundingClientRect(),r.w,r.h));
-  });
-  grid.addEventListener("dragleave",event=>{
-    if(!grid.contains(event.relatedTarget))preview.hidden=true;
-  });
-  $("layout-edit").addEventListener("click",toggleLock);
+  $("layout-edit").addEventListener("click",beginLayoutEdit);
+  $("layout-save").addEventListener("click",()=>closeLayoutEdit(true));
+  $("layout-cancel").addEventListener("click",()=>closeLayoutEdit(false));
   refreshArrangeTools();
 }
 installLayoutEditor();
@@ -952,6 +983,7 @@ $("visual-editor").addEventListener("close",restoreViewport);
 function hideWidget(id){
   const previousScroll=window.scrollY;
   const next=dashboardConfig.widgets.filter(value=>value!==id);
+  if(arranging){$("visual-editor-status").textContent="Save or cancel your layout edit before hiding widgets.";return;}
   if(!next.length){$("visual-editor-status").textContent="Keep at least one visible widget.";return;}
   persistDashboardConfig({...dashboardConfig,widgets:next,layout:layoutAfterVisibilityChange(next)});
   if(state.report)render();
@@ -960,6 +992,7 @@ function hideWidget(id){
   requestAnimationFrame(()=>window.scrollTo({top:previousScroll,behavior:"instant"}));
 }
 function deleteCustomChart(id){
+  if(arranging)return;
   const charts=dashboardConfig.charts.filter(chart=>chart.id!==id);
   const widgets=dashboardConfig.widgets.filter(widget=>widget!==id);
   if(!widgets.length)widgets.push("kpis");

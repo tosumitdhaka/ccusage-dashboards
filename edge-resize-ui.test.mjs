@@ -8,7 +8,9 @@ test("unlocked grid offers eight edge resize zones without cluttering widget con
  const html=await readFile(new URL("./public/index.html",import.meta.url),"utf8");
  assert.ok(html.includes(">🔒 Layout Locked</button>"));
  assert.ok(js.includes('arranging?"🔓 Layout Unlocked":"🔒 Layout Locked"'));
- assert.ok(js.includes('["⌃",-1],["⌄",1]'));
+ assert.ok(!js.includes('["⌃",-1],["⌄",1]'));
+ assert.ok(html.includes('id="layout-save"'));
+ assert.ok(html.includes('id="layout-cancel"'));
  assert.ok(js.includes('["n","s","e","w","ne","nw","se","sw"]'));
  assert.ok(js.includes('edge.addEventListener("pointerdown"'));
  assert.ok(js.includes('edge.setPointerCapture(event.pointerId)'));
@@ -19,22 +21,31 @@ test("unlocked grid offers eight edge resize zones without cluttering widget con
  assert.ok(css.includes(".dashboard-grid .layout-resize-edge:hover"));
 });
 
-test("live resize updates preview only and saves on pointerup",async()=>{
+test("live resize previews peers and saves only to draft on pointerup",async()=>{
  const js=await readFile(new URL("./public/dashboard.js",import.meta.url),"utf8");
- const block=js.slice(js.indexOf("function beginEdgeResize("),js.indexOf("function installLayoutEditor()"));
- assert.ok(block.includes("positionResizePreview(ghost,next,step)"));
- assert.ok(block.includes('requestAnimationFrame('));
+ const block=js.slice(js.indexOf("function beginEdgeResize("),js.indexOf("function beginPanelDrag("));
+ assert.ok(block.includes("reflowGridAfterResize("));
+ assert.ok(block.includes("scheduleLayoutPreview(positions)"));
  assert.ok(block.includes('edge.addEventListener("pointerup",finish)'));
  assert.ok(block.includes('saveGridPosition(id,next)'));
  assert.ok(!block.includes("render();"));
- assert.ok(!block.includes("panel.style.gridRow="));
- assert.ok(js.includes('ghost.id="grid-resize-preview"'));
+ assert.ok(js.includes("surface.setPointerCapture(event.pointerId)"));
+ assert.ok(js.includes("layoutDraft={...layoutDraft,widths,positions}"));
+ assert.ok(js.includes('closeLayoutEdit(false)'));
+ assert.ok(js.includes('closeLayoutEdit(true)'));
 });
-
-test("provider and model cards each have exactly one inner vertical scrolling area",async()=>{
+test("all graph cards have one scroll body and hover-only controls",async()=>{
  const css=await readFile(new URL("./public/styles.css",import.meta.url),"utf8");
- assert.ok(css.includes('.dashboard-grid>[data-widget="models"],.dashboard-grid>[data-widget="providers"]{display:flex;flex-direction:column;overflow:hidden}'));
- assert.ok(css.includes('.dashboard-grid>[data-widget="models"]>#model-bars,.dashboard-grid>[data-widget="providers"]>#provider-bars{'));
- assert.ok(css.includes('max-height:none;overflow-y:auto;overflow-x:hidden'));
- assert.ok(css.includes('@media(max-width:1100px)'));
+ const js=await readFile(new URL("./public/dashboard.js",import.meta.url),"utf8");
+ assert.ok(js.includes('el("div","widget-scroll-body")'));
+ assert.ok(css.includes('>.widget-scroll-body{'));
+ assert.ok(css.includes('.widget-scroll-body .bars{max-height:none;overflow:visible}'));
+ assert.ok(css.includes('.chart-header-controls{\n  opacity:0;visibility:hidden;pointer-events:none;'));
+ assert.ok(css.includes('@media(hover:none)'));
+});
+test("graph cards scroll inside consistently, not at two levels",async()=>{
+ const css=await readFile(new URL("./public/styles.css",import.meta.url),"utf8");
+ assert.ok(css.includes('.dashboard-grid>[data-widget]:not([data-widget="kpis"]){'));
+ assert.ok(css.includes('min-width:0;overflow-y:auto;overflow-x:hidden;'));
+ assert.ok(css.includes('scrollbar-gutter:stable'));
 });

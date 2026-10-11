@@ -143,3 +143,30 @@ export function compactVisibleLayout(positions,visible,containerWidth=0){
   }
   return Object.fromEntries(all.map(id=>[id,placed[id]]));
 }
+
+/** Reposition peers after resize, reclaiming rows made free by contraction. */
+export function reflowGridAfterResize(positions,id,next,order=Object.keys(positions)){
+  if(!record(positions)||!Object.hasOwn(positions,id))throw Error("Unknown grid widget.");
+  const before=validRect(positions[id],id),target=validRect(next,id);
+  const release=Math.max(0,before.y+before.h-target.y-target.h);
+  const sideRelease=target.w<before.w||target.x>before.x;
+  const placed={[id]:target};
+  const others=Object.keys(positions).filter(k=>k!==id).sort((a,b)=>
+    positions[a].y-positions[b].y||positions[a].x-positions[b].x||
+    order.indexOf(a)-order.indexOf(b));
+  for(const id2 of others){
+    const old=validRect(positions[id2],id2);
+    let y=old.y;
+    if(release&&old.y>=before.y+before.h)y=Math.max(0,y-release);
+    if(sideRelease&&old.y>=before.y&&old.x<before.x+before.w&&
+      old.x+old.w>before.x&&(old.x>=target.x+target.w||old.x+old.w<=target.x))
+      y=Math.min(y,before.y);
+    const candidate={...old,y};
+    while(Object.values(placed).some(other=>overlaps(other,candidate))){
+      candidate.y++;
+      if(candidate.y>GRID_MAX_ROW)throw Error("Not enough grid space.");
+    }
+    placed[id2]=candidate;
+  }
+  return Object.fromEntries(Object.keys(positions).map(k=>[k,placed[k]]));
+}
