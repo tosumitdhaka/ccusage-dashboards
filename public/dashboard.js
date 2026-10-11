@@ -332,6 +332,10 @@ function render() {
   [...document.querySelectorAll('[data-widget="cache"] .token-grid>div')].forEach((node,index)=>{
     node.hidden=cacheHidden.has(["Input","Output","Cache reads","Cache writes"][index]);
   });
+  const noteHidden=new Set(dashboardConfig.widgetSettings.guidance.hiddenDimensions);
+  [...document.querySelectorAll('[data-widget="guidance"] .information>div')].forEach((node,index)=>{
+    node.hidden=noteHidden.has(["Pricing estimates","Subscription quotas","Local reports"][index]);
+  });
   const kpiHidden=new Set(dashboardConfig.widgetSettings.kpis.hiddenDimensions);
   [...document.querySelectorAll('[data-widget="kpis"] .kpi')].forEach((node,index)=>{
     node.hidden=kpiHidden.has(["Reported tokens","Fresh input","Generated output","API-equivalent cost"][index]);
@@ -796,6 +800,7 @@ let editingVisualization=null;
 function dimensionsForGraph(id,group){
   if(!state.report)return group==="total"?["Total"]:[];
   const catalog=chartCatalog(state.report);
+  if(id==="guidance")return ["Pricing estimates","Subscription quotas","Local reports"];
   if(id==="cache")return ["Input","Output","Cache reads","Cache writes"];
   if(id==="kpis")return ["Reported tokens","Fresh input","Generated output","API-equivalent cost"];
   if(id==="sessions"||id==="providers")return catalog.agents;
@@ -810,7 +815,7 @@ function settingsForGraph(id){
   if(id==="providers"||id==="models")return {...dashboardConfig.widgetSettings[id]};
   if(id==="sessions")return {metric:state.sessionMetric,
     hiddenDimensions:[...dashboardConfig.widgetSettings.sessions.hiddenDimensions]};
-  if(id==="cache"||id==="kpis")return {hiddenDimensions:[...dashboardConfig.widgetSettings[id].hiddenDimensions]};
+  if(id==="cache"||id==="kpis"||id==="guidance")return {hiddenDimensions:[...dashboardConfig.widgetSettings[id].hiddenDimensions]};
   return {...dashboardConfig.charts.find(c=>c.id===id)};
 }
 function editorField(label,key,type,values=[]) {
@@ -887,7 +892,7 @@ function openVisualizationEditor(id){
     fields.append(editorField("Session metric","metric","select",[
       ["totalTokens","Tokens"],["totalCost","Estimated API cost"],["outputTokens","Output tokens"]]));
   }
-  $("visual-editor-dimensions").hidden=!["trend","providers","models","sessions","cache","kpis"].includes(id)&&!custom;
+  $("visual-editor-dimensions").hidden=!["trend","providers","models","sessions","cache","kpis","guidance"].includes(id)&&!custom;
   if(!$("visual-editor-dimensions").hidden)refreshDimensionChoices();
   else fields.append(el("p","empty","This panel has no series dimensions. Unlock layout to move or resize it."));
   $("visual-editor-status").textContent="";
@@ -902,12 +907,14 @@ function restoreViewport(){
 $("graph-dialog").addEventListener("close",restoreViewport);
 $("visual-editor").addEventListener("close",restoreViewport);
 function hideWidget(id){
+  const previousScroll=window.scrollY;
   const next=dashboardConfig.widgets.filter(value=>value!==id);
   if(!next.length){$("visual-editor-status").textContent="Keep at least one visible widget.";return;}
   persistDashboardConfig({...dashboardConfig,widgets:next});
   if(state.report)render();
   if($("visual-editor").open)$("visual-editor").close();
   refreshArrangeTools();
+  requestAnimationFrame(()=>window.scrollTo({top:previousScroll,behavior:"instant"}));
 }
 function deleteCustomChart(id){
   const charts=dashboardConfig.charts.filter(chart=>chart.id!==id);
@@ -985,7 +992,7 @@ $("visual-editor-form").addEventListener("submit",event=>{
     }else if(id==="providers"||id==="models"){
       persistDashboardConfig({...dashboardConfig,widgetSettings:{
         ...dashboardConfig.widgetSettings,[id]:draft}});
-    }else if(id==="cache"||id==="kpis"){
+    }else if(id==="cache"||id==="kpis"||id==="guidance"){
       persistDashboardConfig({...dashboardConfig,widgetSettings:{
         ...dashboardConfig.widgetSettings,[id]:{hiddenDimensions:draft.hiddenDimensions}}});
     }else if(id==="sessions"){

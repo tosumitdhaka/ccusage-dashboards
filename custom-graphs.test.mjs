@@ -38,3 +38,10 @@ test("cache and summary dimensions are editable via safe saved filters",()=>{
  assert.deepEqual(cfg.widgetSettings.kpis.hiddenDimensions,["API-equivalent cost"]);
  assert.deepEqual(parseDashboardJSON(stringifyDashboardConfig(cfg)),cfg);
 });
+
+test("guidance notes are selectively visible with a validated preference",()=>{
+ const cfg=validateDashboardConfig({...DEFAULT_DASHBOARD,widgetSettings:{
+   guidance:{hiddenDimensions:["Subscription quotas"]}}});
+ assert.deepEqual(cfg.widgetSettings.guidance.hiddenDimensions,["Subscription quotas"]);
+ assert.deepEqual(parseDashboardJSON(stringifyDashboardConfig(cfg)),cfg);
+});
