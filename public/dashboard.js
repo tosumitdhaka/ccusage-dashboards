@@ -630,6 +630,8 @@ function createCustomPanel(chart){
   remove.addEventListener("click",()=>{
     const charts=dashboardConfig.charts.filter(c=>c.id!==chart.id);
     const widgets=dashboardConfig.widgets.filter(w=>w!==chart.id);
+    // Removing the last enabled graph should always leave a valid, visible dashboard.
+    if(!widgets.length)widgets.push("kpis");
     const widths={...dashboardConfig.layout.widths};delete widths[chart.id];
     persistDashboardConfig({...dashboardConfig,charts,widgets,layout:{widths}});
     customHiddenSeries.delete(chart.id);
