@@ -1,17 +1,22 @@
 // Strict TypeScript ESM dashboard controller. Public entry remains /dashboard.js.
 import { buildView } from "./normalize.mjs";
-import { METRIC_NAMES, DEFAULT_DASHBOARD, WIDGET_REGISTRY, validateDashboardConfig } from "./widget-registry.mjs";
+import { METRIC_NAMES, DEFAULT_DASHBOARD, WIDGET_REGISTRY, validateDashboardConfig, type DashboardConfig } from "./widget-registry.mjs";
 import {
   MAX_DASHBOARD_JSON_LENGTH, readDashboardConfig, saveDashboardConfig,
   resetDashboardConfig, parseDashboardJSON, stringifyDashboardConfig
 } from "./dashboard-config.mjs";
 import { buildChart, buildObservedHourly, buildSessions, chartCatalog } from "./analytics.mjs";
 import { colorForDimension, labelPointIndices } from "./chart-presentation.mjs";
-import type { GridRect, GridPositions } from "./dashboard-layout.mjs";
+import type { GridRect, GridPositions, GridLayout } from "./dashboard-layout.mjs";
 import { GRID_COLUMNS, relocateGridWidget, snapToGrid, cacheRowsForWidth, visibleGridOrder, compactVisibleLayout, reflowGridAfterResize } from "./dashboard-layout.mjs";
 
 const $ = (id: string): any => document.getElementById(id);
-const state: any = { report: null, hourly: [], section: "daily", agent: "all", model: "all",
+interface DashboardState {
+  report: any; hourly: any[]; reportHasCost?: boolean;
+  section: string; agent: string; model: string; breakdown: string;
+  metric: string; sessionMetric: string;
+}
+const state: DashboardState = { report: null, hourly: [], section: "daily", agent: "all", model: "all",
   breakdown: "total", metric: "totalTokens", sessionMetric: "totalTokens" };
 const compact = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 2 });
 const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 });
@@ -60,12 +65,12 @@ function scheduleNavigationUpdate() {
 }
 let navigationFrame = 0;
 // Customization holds only presentation settings in browser-local storage.
-let dashboardConfig: any = validateDashboardConfig(DEFAULT_DASHBOARD);
+let dashboardConfig: DashboardConfig = validateDashboardConfig(DEFAULT_DASHBOARD);
 let storageWarning = "";
 // The initial widget arrangement renders before the asynchronous report loads.
 // Initialize edit-session state first: activeLayout() reads layoutDraft.
 let arranging=false;
-let layoutDraft: any=null;
+let layoutDraft: GridLayout|null=null;
 let movementFrame=0;
 try { dashboardConfig = readDashboardConfig(window.localStorage); }
 catch { storageWarning = "Saved dashboard preferences are unavailable; defaults are in use."; }
