@@ -13,7 +13,7 @@ test("pointer move coalesces collisions at one RAF and flushes pointerup",async(
   assert.ok(section.includes("const pointer=createPointerFrame(update)"));
   assert.ok(!section.includes("scheduleLayoutPreview(positions)"));
   assert.ok(js.includes('if(type==="resize"&&state.report'));
-  assert.ok(js.includes('applyGridPreview(positions);\n  // Moving a card'));
+  assert.match(js,/applyGridPreview\(positions\);\s*\/\/ Moving a card/);
 });
 
 test("native document wheel continues from graph and exhausted list scroll regions",async()=>{
