@@ -120,7 +120,7 @@ After the v0.2.1 npm release, verify the exact version from a fresh terminal out
 The v0.3 branch offers a compact, direct-control dashboard editor:
 - Each chart's metric/period/group/series options appear directly in its header without an Adjust menu.
 - **Input and cache** adapts between 1, 2 and 4 metric columns as its widget widens or narrows.
-- **Unlock layout** to drag widgets by their header to snapped 12-column grid positions, use ↑/↓ accessible move buttons, and resize width/height from the bottom-right corner. Then **Lock view**.
+- **Layout Locked / Layout Unlocked** shows the actual arrangement state. When unlocked, drag by widget headers, resize from borders/corners with a smooth preview, or use slim ⌃/⌄ move controls. Most-used models uses one scrolling area.
 - Use each visualization’s **⋮** options to edit graph settings or add/remove/hide dimensions. **New graph** creates up to four local ccusage-derived line/bar graphs with chosen period, metric and grouping. It does not execute arbitrary expressions or import unvalidated CSV; additional data adapters are future work.
 - Existing v0.2 saved preferences load with default sizes and no custom graphs.
 

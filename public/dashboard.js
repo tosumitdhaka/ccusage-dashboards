@@ -632,7 +632,7 @@ function resizeGridRectangle(before,id,direction,dx,dy){
   }
   return {x,y,w,h};
 }
-let resizeFrame=0;
+let edgeResizeFrame=0;
 function positionResizePreview(ghost,rect,step){
   ghost.style.transform="translate3d("+(rect.x*step)+"px,"+(rect.y*32)+"px,0)";
   ghost.style.width=Math.max(8,rect.w*step-8)+"px";
@@ -650,13 +650,13 @@ function beginEdgeResize(event,edge,panel,id,direction){
   edge.setPointerCapture(event.pointerId);
   const move=e=>{
     next=resizeGridRectangle(before,id,direction,Math.round((e.clientX-x0)/step),Math.round((e.clientY-y0)/32));
-    if(!resizeFrame)resizeFrame=requestAnimationFrame(()=>{resizeFrame=0;positionResizePreview(ghost,next,step);});
+    if(!edgeResizeFrame)edgeResizeFrame=requestAnimationFrame(()=>{edgeResizeFrame=0;positionResizePreview(ghost,next,step);});
   };
   const cleanup=e=>{
     edge.removeEventListener("pointermove",move);edge.removeEventListener("pointerup",finish);
     edge.removeEventListener("pointercancel",cancel);
     if(edge.hasPointerCapture(e.pointerId))edge.releasePointerCapture(e.pointerId);
-    if(resizeFrame)cancelAnimationFrame(resizeFrame);resizeFrame=0;
+    if(edgeResizeFrame)cancelAnimationFrame(edgeResizeFrame);edgeResizeFrame=0;
     ghost.hidden=true;panel.classList.remove("layout-resizing");
   };
   const finish=e=>{

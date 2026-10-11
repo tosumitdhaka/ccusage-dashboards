@@ -101,3 +101,19 @@ are accepted. CSV/JSON column mapping and independent filters are future work.
   manually set heights are preserved.
 - Placement updates no longer reappend every widget on each graph redraw,
   and both graph dialogs preserve the viewport position when closed.
+
+## Border resizing, viewport lock status and model list scrolling
+
+In **🔓 Layout Unlocked**, drag the top, bottom, left or right widget border
+to resize in that axis, or drag a corner to resize both. A light snap outline
+tracks the proposed bounds without rerendering charts on every pointer event.
+Changes are committed on release. The heading is still a drag handle for
+moving a widget. The only always-visible arrangement controls are slim
+**⌃ / ⌄** arrows, with accessible move labels.
+
+**🔒 Layout Locked** means arrangement is disabled; click it to unlock. The
+control displays the actual state, not the next action.
+
+The **Most-used models** panel has a single vertical bar-list scroll area,
+rather than nested card-and-list scrollbars. On stacked/narrow screens, the
+card returns to natural height with the single optional bar-list scroller.
