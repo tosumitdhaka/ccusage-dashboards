@@ -623,7 +623,10 @@ function installLayoutPanel(panel){
 function minimumWidgetRows(id){return id==="kpis"?4:id==="sessions"?10:id==="trend"?9:id==="cache"?6:id==="guidance"?5:6;}
 function installLayoutEditor(){
   const grid=$("dashboard-grid");
-  for(const panel of grid.querySelectorAll("[data-widget]"))installLayoutPanel(panel);
+  for(const panel of grid.querySelectorAll("[data-widget]")){
+    installLayoutPanel(panel);
+    installVisualizationMenu(panel);
+  }
   // A single grid-level drop target supports empty cells, horizontal moves
   // and arbitrary grid positions, not just 'before/after' another panel.
   const preview=el("div","layout-drop-preview");
@@ -686,22 +689,7 @@ function createCustomPanel(chart){
     customSelect(chart.id,"Group","breakdown",[["total","Total"],["provider","Provider"],["model","Model"]]),
     customSelect(chart.id,"Period","period",[["daily","Daily"],["weekly","Weekly"],["monthly","Monthly"]])
   );
-  const remove=el("button","custom-remove","Remove");
-  remove.type="button";
-  remove.setAttribute("aria-label","Remove graph "+chart.title);
-  remove.addEventListener("click",()=>{
-    const charts=dashboardConfig.charts.filter(c=>c.id!==chart.id);
-    const widgets=dashboardConfig.widgets.filter(w=>w!==chart.id);
-    // Removing the last enabled graph should always leave a valid, visible dashboard.
-    if(!widgets.length)widgets.push("kpis");
-    const widths={...dashboardConfig.layout.widths};delete widths[chart.id];
-    const positions={...dashboardConfig.layout.positions};delete positions[chart.id];
-    persistDashboardConfig({...dashboardConfig,charts,widgets,layout:{widths,positions}});
-    customHiddenSeries.delete(chart.id);
-    if(state.report)render();
-    refreshArrangeTools();
-  });
-  controls.append(remove);header.append(intro,controls);
+  header.append(intro,controls);
   const bars=el("div","bars custom-bars");bars.id="custom-bars-"+chart.id;
   const plot=el("div","chart-container custom-line");
   const svg=svgEl("svg",{role:"img","aria-label":chart.title+" over time"});
@@ -724,6 +712,7 @@ function syncCustomChartNodes(){
       grid.append(card);
       installLayoutPanel(card);
     }
+    installVisualizationMenu(card);
     card.querySelector(".custom-title").textContent=chart.title;
     for(const select of card.querySelectorAll("[data-custom-field]"))
       select.value=chart[select.dataset.customField];
@@ -785,3 +774,177 @@ function setupCustomGraphBuilder(){
   });
 }
 setupCustomGraphBuilder();
+
+
+let editingVisualization=null;
+function dimensionsForGraph(id,group){
+  if(!state.report)return group==="total"?["Total"]:[];
+  const catalog=chartCatalog(state.report);
+  if(id==="sessions"||id==="providers")return catalog.agents;
+  if(id==="models")return catalog.models;
+  return group==="total"?["Total"]:group==="model"?catalog.models:catalog.agents;
+}
+function settingsForGraph(id){
+  if(id==="trend")return {metric:state.metric,breakdown:state.breakdown,
+    maxSeries:dashboardConfig.widgetSettings.trend.maxSeries,
+    showLabels:dashboardConfig.widgetSettings.trend.showLabels,
+    hiddenDimensions:[...dashboardConfig.widgetSettings.trend.hiddenDimensions]};
+  if(id==="providers"||id==="models")return {...dashboardConfig.widgetSettings[id]};
+  if(id==="sessions")return {metric:state.sessionMetric,
+    hiddenDimensions:[...dashboardConfig.widgetSettings.sessions.hiddenDimensions]};
+  return {...dashboardConfig.charts.find(c=>c.id===id)};
+}
+function editorField(label,key,type,values=[]) {
+  const wrapper=el("label","visual-editor-field");
+  wrapper.append(el("span","",label));
+  if(type==="checkbox"){
+    const checkbox=el("input");checkbox.type="checkbox";checkbox.checked=Boolean(editingVisualization.draft[key]);
+    checkbox.addEventListener("change",()=>{editingVisualization.draft[key]=checkbox.checked;});
+    wrapper.append(checkbox);
+  }else{
+    const select=type==="text"?el("input"):el("select");
+    if(type==="text"){select.value=editingVisualization.draft[key];select.maxLength=80;select.required=true;}
+    else for(const [value,title] of values){
+      const opt=el("option","",title);opt.value=String(value);select.append(opt);
+    }
+    if(type!=="text")select.value=String(editingVisualization.draft[key]);
+    select.addEventListener(type==="text"?"input":"change",()=>{
+      editingVisualization.draft[key]=type==="number"?Number(select.value):select.value;
+      if(key==="breakdown")refreshDimensionChoices();
+    });
+    wrapper.append(select);
+  }
+  return wrapper;
+}
+function refreshDimensionChoices(){
+  const current=editingVisualization;
+  const region=$("visual-dimension-options");
+  region.replaceChildren();
+  const candidates=[...new Set([...dimensionsForGraph(current.id,current.draft.breakdown??"provider"),
+    ...(current.draft.hiddenDimensions??[])])].slice(0,40);
+  if(!candidates.length){
+    region.append(el("p","empty","Load the local usage report to select available dimensions."));
+    return;
+  }
+  const hidden=new Set(current.draft.hiddenDimensions??[]);
+  for(const name of candidates){
+    const wrapper=el("label","visual-dimension");
+    const input=el("input");input.type="checkbox";input.checked=!hidden.has(name);
+    input.value=name;
+    input.addEventListener("change",()=>{
+      if(input.checked)hidden.delete(name);else hidden.add(name);
+      current.draft.hiddenDimensions=[...hidden];
+    });
+    wrapper.append(input,document.createTextNode(name));
+    region.append(wrapper);
+  }
+}
+function openVisualizationEditor(id){
+  const custom=dashboardConfig.charts.some(chart=>chart.id===id);
+  editingVisualization={id,custom,draft:settingsForGraph(id)};
+  $("visual-editor-heading").textContent="Edit "+(WIDGET_REGISTRY[id]?.title ??
+    dashboardConfig.charts.find(c=>c.id===id)?.title??id);
+  const fields=$("visual-editor-fields");
+  fields.replaceChildren();
+  const metricOptions=Object.entries(METRIC_NAMES),breakdownOptions=[
+    ["total","Total"],["provider","Provider"],["model","Model"]
+  ],periodOptions=[["daily","Daily"],["weekly","Weekly"],["monthly","Monthly"]];
+  if(custom){
+    fields.append(editorField("Graph title","title","text"),
+      editorField("Chart type","visual","select",[["line","Line"],["bars","Bars"]]),
+      editorField("Metric","metric","select",metricOptions),
+      editorField("Group by","breakdown","select",breakdownOptions),
+      editorField("Time grouping","period","select",periodOptions));
+  }else if(id==="trend"){
+    fields.append(editorField("Metric","metric","select",metricOptions),
+      editorField("Group by","breakdown","select",breakdownOptions),
+      editorField("Maximum lines","maxSeries","number",[[3,"3"],[6,"6"],[12,"12"]]),
+      editorField("Point labels","showLabels","checkbox"));
+  }else if(id==="providers"||id==="models"){
+    fields.append(editorField("Metric","metric","select",metricOptions),
+      editorField("Maximum bars","limit","number",[[5,"5"],[10,"10"],[12,"12"]]));
+  }else if(id==="sessions"){
+    fields.append(editorField("Session metric","metric","select",[
+      ["totalTokens","Tokens"],["totalCost","Estimated API cost"],["outputTokens","Output tokens"]]));
+  }
+  $("visual-editor-dimensions").hidden=!["trend","providers","models","sessions"].includes(id)&&!custom;
+  if(!$("visual-editor-dimensions").hidden)refreshDimensionChoices();
+  $("visual-editor-status").textContent="";
+  $("visual-editor").showModal();
+}
+function hideWidget(id){
+  const next=dashboardConfig.widgets.filter(value=>value!==id);
+  if(!next.length){$("visual-editor-status").textContent="Keep at least one visible widget.";return;}
+  persistDashboardConfig({...dashboardConfig,widgets:next});
+  if(state.report)render();
+  $("visual-editor").close();
+  refreshArrangeTools();
+}
+function deleteCustomChart(id){
+  const charts=dashboardConfig.charts.filter(chart=>chart.id!==id);
+  const widgets=dashboardConfig.widgets.filter(widget=>widget!==id);
+  if(!widgets.length)widgets.push("kpis");
+  const widths={...dashboardConfig.layout.widths},positions={...dashboardConfig.layout.positions};
+  delete widths[id];delete positions[id];customHiddenSeries.delete(id);
+  persistDashboardConfig({...dashboardConfig,charts,widgets,layout:{widths,positions}});
+  if(state.report)render();
+  refreshArrangeTools();
+}
+function installVisualizationMenu(panel){
+  if(panel.querySelector(":scope > .section-header .viz-menu"))return;
+  const id=panel.dataset.widget;
+  const header=panel.querySelector(":scope > .section-header");
+  if(!header)return; // KPI collection has no individual visualization header
+  const menu=el("details","viz-menu");
+  const trigger=el("summary","viz-menu-trigger","⋮");
+  trigger.title="Visualization options";
+  trigger.setAttribute("aria-label","Options for "+(WIDGET_REGISTRY[id]?.title??id));
+  const body=el("div","viz-menu-body");
+  const edit=el("button","viz-menu-item","Edit visualization");
+  edit.type="button";edit.addEventListener("click",()=>{menu.open=false;openVisualizationEditor(id);});
+  const hide=el("button","viz-menu-item","Hide visualization");
+  hide.type="button";hide.addEventListener("click",()=>{
+    menu.open=false;editingVisualization={id};hideWidget(id);
+  });
+  body.append(edit,hide);
+  if(id.startsWith("custom-")){
+    const remove=el("button","viz-menu-item danger","Delete graph");
+    remove.type="button";remove.addEventListener("click",()=>{menu.open=false;deleteCustomChart(id);});
+    body.append(remove);
+  }
+  menu.append(trigger,body);
+  header.append(menu);
+}
+$("visual-editor-close").addEventListener("click",()=>$("visual-editor").close());
+$("visual-editor-hide").addEventListener("click",()=>{
+  if(editingVisualization)hideWidget(editingVisualization.id);
+});
+$("visual-editor-form").addEventListener("submit",event=>{
+  event.preventDefault();
+  const editor=editingVisualization;
+  if(!editor)return;
+  try{
+    const draft=editor.draft,id=editor.id;
+    if(editor.custom){
+      const charts=dashboardConfig.charts.map(c=>c.id===id?{...c,...draft}:c);
+      persistDashboardConfig({...dashboardConfig,charts});
+    }else if(id==="trend"){
+      state.metric=draft.metric;state.breakdown=draft.breakdown;
+      persistDashboardConfig(configWithCurrentFilters({...dashboardConfig,widgetSettings:{
+        ...dashboardConfig.widgetSettings,trend:{
+          showLabels:draft.showLabels,maxSeries:draft.maxSeries,hiddenDimensions:draft.hiddenDimensions
+        }}}));
+    }else if(id==="providers"||id==="models"){
+      persistDashboardConfig({...dashboardConfig,widgetSettings:{
+        ...dashboardConfig.widgetSettings,[id]:draft}});
+    }else if(id==="sessions"){
+      state.sessionMetric=draft.metric;
+      persistDashboardConfig(configWithCurrentFilters({...dashboardConfig,widgetSettings:{
+        ...dashboardConfig.widgetSettings,sessions:{hiddenDimensions:draft.hiddenDimensions}}}));
+    }
+    if(state.report)render();
+    $("visual-editor").close();
+  }catch(error){
+    $("visual-editor-status").textContent=error instanceof Error?error.message:"Invalid visualization.";
+  }
+});

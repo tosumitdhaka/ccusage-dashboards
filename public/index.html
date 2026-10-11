@@ -151,5 +151,23 @@
         <div class="customize-actions"><button type="submit" class="save-button">Create graph</button></div>
       </form>
     </dialog>
+    <dialog id="visual-editor" class="customize-dialog" aria-labelledby="visual-editor-heading">
+      <form id="visual-editor-form">
+        <div class="customize-heading">
+          <div><div class="eyebrow">VISUALIZATION / OPTIONS</div><h2 id="visual-editor-heading">Edit visualization</h2>
+            <p>Change graph settings and select which dimensions are shown. Saved locally.</p></div>
+          <button id="visual-editor-close" type="button" class="customize-dismiss" aria-label="Close visualization editor">×</button>
+        </div>
+        <div id="visual-editor-fields" class="visual-editor-fields"></div>
+        <fieldset id="visual-editor-dimensions" class="visual-editor-dimensions"><legend>Show dimensions</legend>
+          <div id="visual-dimension-options" class="visual-dimension-options"></div>
+        </fieldset>
+        <p id="visual-editor-status" class="config-status" role="status" aria-live="polite"></p>
+        <div class="customize-actions">
+          <button id="visual-editor-hide" type="button" class="refresh">Hide widget</button>
+          <button id="visual-editor-save" type="submit" class="save-button">Save visualization</button>
+        </div>
+      </form>
+    </dialog>
 </body>
 </html>

@@ -341,3 +341,36 @@ button:focus-visible,input:focus-visible,.import-button:focus-within{outline:2px
   .dashboard-grid.is-arranging>[data-widget]{padding-bottom:68px}
   .dashboard-grid .layout-drop-preview{display:none!important}
 }
+
+
+/* A consistent per-visualization overflow menu; inline selectors remain visible. */
+.dashboard-grid .section-header{position:relative}
+.viz-menu{position:relative;align-self:flex-start;flex:0 0 auto;z-index:12}
+.viz-menu[open]{z-index:60}
+.viz-menu-trigger{list-style:none;width:35px;height:35px;display:grid;place-items:center;
+  cursor:pointer;border:1px solid #38526a;background:#18283a;border-radius:8px;
+  color:#d7e8f5;font-size:22px;line-height:1}
+.viz-menu-trigger::-webkit-details-marker{display:none}
+.viz-menu-trigger::marker{content:""}
+.viz-menu-trigger:hover,.viz-menu[open] .viz-menu-trigger{background:#27414e;border-color:#53d6be}
+.viz-menu-trigger:focus-visible{outline:2px solid #53d6be;outline-offset:3px}
+.viz-menu-body{position:absolute;right:0;top:calc(100% + 6px);min-width:190px;
+  padding:6px;display:grid;gap:2px;border:1px solid #3e566d;border-radius:10px;
+  background:#122235;box-shadow:0 12px 32px #000b}
+.viz-menu-item{width:100%;border:0;padding:10px;border-radius:7px;background:transparent;
+  text-align:left;color:#daecf9;font-size:12px}
+.viz-menu-item:hover{background:#263f53}
+.viz-menu-item.danger{color:#ffb9c4}
+.visual-editor-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:14px 0}
+.visual-editor-field{display:grid;gap:7px;color:#a8bed2;font-size:12px}
+.visual-editor-field input:not([type="checkbox"]),.visual-editor-field select{width:100%;min-width:0;
+  padding:9px;border:1px solid #425e73;background:#16263a;color:#e5f4ff;border-radius:8px}
+.visual-editor-dimensions{border:1px solid #34495b;border-radius:10px;padding:12px;margin:15px 0}
+.visual-editor-dimensions[hidden]{display:none!important}
+.visual-editor-dimensions legend{font-size:11px;color:#a9becf;font-weight:700}
+.visual-dimension-options{max-height:180px;overflow-y:auto;display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.visual-dimension{display:flex;align-items:center;gap:8px;word-break:break-word;
+  color:#c8d8e7;font-size:11px}
+.visual-dimension input{accent-color:#53d6be;flex:0 0 auto}
+@media(max-width:520px){.visual-editor-fields,.visual-dimension-options{grid-template-columns:minmax(0,1fr)}}
