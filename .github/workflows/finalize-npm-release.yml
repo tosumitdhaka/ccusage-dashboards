@@ -1,0 +1,140 @@
+# Completes a GitHub release after npm acknowledged publishing but registry
+# processing exceeded the publication workflow's short verification window.
+# Does NOT publish or mutate any npm version.
+name: Finalize existing npm release
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Existing published npm version (e.g. 0.2.1)
+        required: true
+        type: string
+      published_source_sha:
+        description: Exact original source SHA used by the successful npm publish step
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: npm-release
+  cancel-in-progress: false
+
+jobs:
+  finalize:
+    if: github.repository == 'tosumitdhaka/ccusage-dashboards' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout trusted recovery workflow source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Verify exact published SHA and main ancestry
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+          SOURCE_SHA: ${{ inputs.published_source_sha }}
+          REPOSITORY: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$VERSION" =~ ^[0-9]+[.][0-9]+[.][0-9]+$ ]] || exit 1
+          [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]] || exit 1
+          [[ "$(git rev-parse HEAD)" == "$GITHUB_SHA" ]] || exit 1
+          relationship="$(gh api "repos/$REPOSITORY/compare/$SOURCE_SHA...$GITHUB_SHA" --jq '.status')"
+          [[ "$relationship" == ahead || "$relationship" == identical ]] || {
+            echo "Published source is not an ancestor of the current main commit." >&2; exit 1;
+          }
+
+      - name: Checkout original published source, not today's main
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.published_source_sha }}
+          path: release-source
+          persist-credentials: false
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+          package-manager-cache: false
+
+      - name: Verify immutable source manifest and repack original source
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+          SOURCE_SHA: ${{ inputs.published_source_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$(git -C release-source rev-parse HEAD)" == "$SOURCE_SHA" ]] || exit 1
+          node --input-type=module <<'NODE'
+          import {readFileSync} from "node:fs";
+          const p=JSON.parse(readFileSync("release-source/package.json","utf8"));
+          const lock=JSON.parse(readFileSync("release-source/package-lock.json","utf8"));
+          if (p.name!=="ccusage-dashboards" || p.version!==process.env.VERSION ||
+              lock.version!==p.version || lock.packages[""].version!==p.version ||
+              p.bin?.["ccusage-dashboards"]!=="bin/ccusage-dashboards.mjs")
+            throw new Error("Original source does not match expected published npm identity");
+          NODE
+          cd release-source
+          npm ci --no-audit --no-fund
+          npm run check
+          npm test
+          npm pack --dry-run --json > package-preview.json
+          node scripts/assert-package.mjs package-preview.json
+          npm pack --json > release-archive.json
+          node --input-type=module <<'NODE'
+          import {readFileSync,existsSync} from "node:fs";
+          import {createHash} from "node:crypto";
+          const x=JSON.parse(readFileSync("release-archive.json","utf8"));
+          if (x.length!==1 || !/^ccusage-dashboards-[0-9]+[.][0-9]+[.][0-9]+[.]tgz$/.test(x[0].filename) ||
+              !existsSync(x[0].filename) ||
+              createHash("sha1").update(readFileSync(x[0].filename)).digest("hex")!==x[0].shasum)
+            throw new Error("Repacked original tarball failed integrity verification");
+          NODE
+
+      - name: Wait for npm processing and verify published tarball SHA1
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          node scripts/verify-npm-release.mjs post "$VERSION" release-source/release-archive.json
+
+      - name: Create or verify exact-source GitHub release
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+          SOURCE_SHA: ${{ inputs.published_source_sha }}
+          REPOSITORY: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="dashboard-v$VERSION"
+          if gh api "repos/$REPOSITORY/git/ref/tags/$tag" > tag.json 2>/dev/null; then
+            [[ "$(jq -r '.object.type' tag.json)" == commit &&
+               "$(jq -r '.object.sha' tag.json)" == "$SOURCE_SHA" ]] || {
+              echo "Existing tag points to another source; refusing to move it." >&2; exit 1;
+            }
+          fi
+          if gh release view "$tag" -R "$REPOSITORY" --json targetCommitish > release.json 2>/dev/null; then
+            [[ "$(jq -r '.targetCommitish' release.json)" == "$SOURCE_SHA" ]] || {
+              echo "Existing release points to another source." >&2; exit 1;
+            }
+            echo "GitHub release already matches the verified npm package."
+            exit 0
+          fi
+          {
+            echo "Published ccusage-dashboards@$VERSION using npm Trusted Publishing."
+            echo
+            echo "Verified the registry's immutable tarball hash against the original release source commit $SOURCE_SHA."
+            echo
+            echo 'Install: `npx --yes ccusage-dashboards@'"$VERSION"'` or `bunx ccusage-dashboards@'"$VERSION"'`.'
+            echo
+            echo "Costs are estimated API equivalents, not subscription charges. Unknown model pricing is not fabricated."
+          } > release-notes.md
+          gh release create "$tag" -R "$REPOSITORY" --target "$SOURCE_SHA" \
+            --title "ccusage-dashboards v$VERSION" --notes-file release-notes.md --latest
