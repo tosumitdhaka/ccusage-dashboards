@@ -227,3 +227,50 @@ button:focus-visible,input:focus-visible,.import-button:focus-within{outline:2px
   .chart-adjust-trigger{padding:8px 10px}
   .trend-header-actions .chart-adjust-panel .trend-controls label{flex:unset;min-width:0}
 }
+
+/* Inline per-graph controls: no menus or extra click before filtering. */
+.dashboard-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:17px;
+  align-items:start;margin-top:17px}
+.dashboard-grid>[data-widget]{min-width:0;margin:0;align-self:start}
+.dashboard-grid>[data-widget][hidden]{display:none!important}
+.dashboard-grid>[data-widget][data-width="full"]{grid-column:1/-1}
+.dashboard-grid>[data-widget][data-width="half"]{grid-column:span 1}
+.dashboard-grid>.kpis{grid-column:1/-1}
+.chart-section-header,.trend-card .trend-header{display:flex;gap:12px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap}
+.trend-header-actions{display:flex;align-items:flex-start;justify-content:flex-end;flex:1 1 500px;min-width:0;flex-wrap:wrap;gap:9px}
+.chart-header-controls{display:flex;align-items:center;justify-content:flex-end;gap:8px 12px;flex-wrap:wrap;min-width:0}
+.trend-header-actions>.chart-header-controls{flex:0 1 auto}
+.chart-header-controls .trend-controls,.chart-header-controls .bar-controls,
+.trend-header-actions .chart-header-controls .trend-controls{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px 12px;margin:0;width:auto}
+.chart-header-controls .trend-controls label,.chart-header-controls .bar-controls label,
+.trend-header-actions .chart-header-controls .trend-controls label{display:inline-flex;flex-direction:row;align-items:center;gap:6px;
+  min-width:0;margin:0;color:#94aabe;font-size:11px;flex:0 1 auto;white-space:nowrap}
+.chart-header-controls select,.chart-header-controls .trend-controls select,
+.chart-header-controls .bar-controls select,.trend-header-actions .chart-header-controls select,
+.trend-header-actions .chart-header-controls .trend-controls label[for="breakdown"] select{
+  width:auto;min-width:80px;max-width:150px;height:34px;padding:6px 24px 6px 9px;font-size:11px}
+.chart-header-controls .chart-checkbox,.trend-header-actions .chart-header-controls .chart-checkbox{
+  display:inline-flex;flex-direction:row;align-items:center;gap:6px;white-space:nowrap}
+.chart-header-controls .chart-checkbox input{flex:0 0 auto}
+.chart-chip{align-self:center}
+/* Keep cache cards compact even when the neighboring Notes panel is hidden. */
+.dashboard-grid .token-grid{display:grid;grid-template-columns:repeat(2,minmax(0,235px));
+  align-items:start;justify-content:start;gap:12px}
+.dashboard-grid .token-grid>div{min-height:83px}
+.dashboard-grid>[data-widget="cache"]{align-self:start}
+@media(max-width:950px){
+  .chart-section-header .chart-header-controls{width:100%;justify-content:flex-start}
+  .trend-header-actions{justify-content:flex-start}
+}
+@media(max-width:740px){
+  .dashboard-grid{grid-template-columns:minmax(0,1fr)}
+  .dashboard-grid>[data-widget]{grid-column:1/-1!important}
+  .dashboard-grid .token-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .chart-section-header .chart-header-controls{justify-content:flex-start}
+  .chart-header-controls .trend-controls,.chart-header-controls .bar-controls,
+  .trend-header-actions .chart-header-controls .trend-controls{justify-content:flex-start}
+}
+@media(max-width:420px){
+  .dashboard-grid .token-grid{grid-template-columns:minmax(0,1fr)}
+  .chart-header-controls select{max-width:125px}
+}

@@ -31,28 +31,26 @@ test("independent graph controls, warnings and sidebar navigation are wired", as
   assert.match(js, /updateGraphSettings/);
 });
 
-test("graph settings live in right-hand headers and stay keyboard accessible", async () => {
-  const html = await readFile(new URL("./public/index.html", import.meta.url), "utf8");
-  const checks = [
-    ["trend", ["metric", "breakdown", "trend-series-limit", "trend-show-labels"]],
-    ["providers", ["provider-metric", "provider-limit"]],
-    ["models", ["model-metric", "model-limit"]],
-    ["sessions", ["session-metric"]]
-  ];
-  const opening = '<details class="chart-adjust" name="graph-adjust">';
-  for (const [name, ids] of checks) {
-    const start = html.indexOf('id="' + name + '"');
-    assert.ok(start >= 0, "Missing graph section " + name);
-    const rest = html.slice(start);
-    const from = rest.indexOf(opening);
-    const until = rest.indexOf("</details>", from);
-    assert.ok(from >= 0 && until > from, "Missing graph-header adjuster in " + name);
-    const settings = rest.slice(from, until);
-    assert.ok(settings.includes('<summary class="chart-adjust-trigger" aria-label="Adjust '), "Missing accessible adjust control in " + name);
-    for (const id of ids) assert.ok(settings.includes('id="' + id + '"'), name + " missing " + id + " in settings");
+test("graph selectors are directly visible in graph headings without a popover", async () => {
+  const html = await readFile(new URL("./public/index.html",import.meta.url),"utf8");
+  const checks=[["trend",["metric","breakdown","trend-series-limit","trend-show-labels"]],
+    ["providers",["provider-metric","provider-limit"]],["models",["model-metric","model-limit"]],
+    ["sessions",["session-metric"]]];
+  for(const [name,ids] of checks){
+    const start=html.indexOf('id="'+name+'"');
+    assert.ok(start>=0,"Missing chart "+name);
+    const content=html.slice(start,html.indexOf("</section>",start));
+    assert.ok(content.includes('class="chart-header-controls"'),"Missing inline chart controls "+name);
+    for(const id of ids)assert.ok(content.includes('id="'+id+'"'),name+" missing "+id);
   }
-  assert.equal(html.split(opening).length - 1, 4);
-  const css = await readFile(new URL("./public/styles.css", import.meta.url), "utf8");
-  assert.ok(css.includes(".chart-adjust-panel{position:absolute;right:0"));
-  assert.ok(css.includes(".chart-adjust-trigger:focus-visible"));
+  assert.ok(!html.includes('class="chart-adjust"'));
+  assert.ok(!html.includes('⚙ Adjust'));
+});
+test("widget surface uses one responsive grid without legacy paired wrappers", async()=>{
+  const html=await readFile(new URL("./public/index.html",import.meta.url),"utf8");
+  const css=await readFile(new URL("./public/styles.css",import.meta.url),"utf8");
+  assert.ok(html.includes('id="dashboard-grid"'));
+  assert.ok(!html.includes('data-widget-group'));
+  assert.ok(html.includes('id="layout-edit"'));
+  assert.ok(css.includes('.dashboard-grid .token-grid{display:grid;grid-template-columns:repeat(2,minmax(0,235px))'));
 });
