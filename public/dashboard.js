@@ -485,7 +485,7 @@ async function load() {
     }
 }
 document.querySelectorAll(".period").forEach((button) => button.addEventListener("click", () => {
-    state.section = button.dataset.period;
+    state.section = button.dataset.period ?? "daily";
     persistFilters();
     render();
 }));
