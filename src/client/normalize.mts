@@ -66,20 +66,20 @@ export function buildView(report: ReportRow, { section = "daily", agent = "all" 
     const label = periodLabel(row, section);
     if (!chosen || !label) continue;
     accumulate(totals, chosen);
-    trend.push({ period: label, ...Object.fromEntries(FIELDS.map((key) => [key, number(chosen[key])])) });
+    trend.push({ period: label, ...Object.fromEntries(FIELDS.map((key) => [key, number(chosen[key])])) } as {period:string}&Totals);
 
     // An aggregate row's per-agent records are authoritative for attribution.
     for (const p of agentRows(row)) {
       if (agent !== "all" && p.agent !== agent) continue;
       if (!providerMap.has(p.agent)) providerMap.set(p.agent, emptyTotals());
-      accumulate(providerMap.get(p.agent), p);
+      accumulate(providerMap.get(p.agent)!, p);
     }
 
     const breakdowns = Array.isArray(chosen.modelBreakdowns) ? chosen.modelBreakdowns : [];
     for (const item of breakdowns) {
       if (!item || typeof item.modelName !== "string" || !item.modelName) continue;
       if (!modelMap.has(item.modelName)) modelMap.set(item.modelName, { modelName: item.modelName, ...emptyTotals(), missingPricing: false });
-      const entry = modelMap.get(item.modelName);
+      const entry = modelMap.get(item.modelName)!;
       for (const key of TOKEN_FIELDS) entry[key] += number(item[key]);
       entry.totalCost += number(item.cost);
       if (item.missingPricing === true) {
@@ -99,7 +99,7 @@ export function buildView(report: ReportRow, { section = "daily", agent = "all" 
       session: String(s.period ?? s.session ?? ""),
       totalTokens: number(s.totalTokens),
       totalCost: number(s.totalCost),
-      models: Array.isArray(s.modelsUsed) ? s.modelsUsed.filter((m) => typeof m === "string") : [],
+      models: Array.isArray(s.modelsUsed) ? s.modelsUsed.filter((m: unknown) => typeof m === "string") : [],
       lastActivity: typeof s.metadata?.lastActivity === "string" ? s.metadata.lastActivity : null
     }))
     .sort((a, b) => (b.lastActivity ?? "").localeCompare(a.lastActivity ?? ""))
@@ -113,9 +113,9 @@ export function buildView(report: ReportRow, { section = "daily", agent = "all" 
     section, agent,
     providers: Array.from(providers).sort(),
     totals,
-    hasCost: rows.some((r) => pickRow(r, agent) && typeof pickRow(r, agent).totalCost === "number"),
+    hasCost: rows.some((r) => pickRow(r, agent) && typeof pickRow(r, agent)?.totalCost === "number"),
     trend,
-    providerTotals: Array.from(providerMap, ([name, value]) => ({ name, ...value })).sort((a, b) => b.totalTokens - a.totalTokens),
+    providerTotals: Array.from(providerMap, ([name, value]) => ({ name, ...value } as {name:string}&Totals)).sort((a, b) => b.totalTokens - a.totalTokens),
     models: Array.from(modelMap.values()).sort((a, b) => b.outputTokens - a.outputTokens).slice(0, 10),
     missingPricing: Array.from(missingPricing).sort(),
     sessions
