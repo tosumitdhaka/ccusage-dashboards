@@ -28,19 +28,29 @@ export const DEFAULT_DASHBOARD = Object.freeze({
     metric: "totalTokens", breakdown: "total", sessionMetric: "totalTokens"
   },
   widgetSettings: {
-    trend: { showLabels: true, maxSeries: 6 },
-    providers: { metric: "totalTokens", limit: 12 },
-    models: { metric: "totalTokens", limit: 12 }
+    trend: { showLabels: true, maxSeries: 6, hiddenDimensions: [] },
+    providers: { metric: "totalTokens", limit: 12, hiddenDimensions: [] },
+    models: { metric: "totalTokens", limit: 12, hiddenDimensions: [] },
+    sessions: { hiddenDimensions: [] }
   },
   layout: { widths: { kpis:"full", trend:"full", providers:"half", models:"half", cache:"half", guidance:"half", sessions:"full" } },
   charts: []
 });
 const FIELDS = new Set(["schemaVersion", "id", "title", "widgets", "filters", "widgetSettings", "layout", "charts"]);
 const GRAPH_FIELDS = Object.freeze({
-  trend: new Set(["showLabels", "maxSeries"]),
-  providers: new Set(["metric", "limit"]),
-  models: new Set(["metric", "limit"])
+  trend: new Set(["showLabels", "maxSeries", "hiddenDimensions"]),
+  providers: new Set(["metric", "limit", "hiddenDimensions"]),
+  models: new Set(["metric", "limit", "hiddenDimensions"]),
+  sessions: new Set(["hiddenDimensions"])
 });
+function validateHiddenDimensions(values) {
+  if (values === undefined) return [];
+  if (!Array.isArray(values) || values.length > 40 ||
+      values.some(name => typeof name !== "string" || !name.trim() || name.length > 160 ||
+        /[\u0000-\u001f\u007f]/.test(name)) ||
+      new Set(values).size !== values.length) throw Error("Invalid hidden graph dimensions.");
+  return [...values];
+}
 function validateWidgetSettings(settings) {
   if (settings !== undefined && !isRecord(settings)) throw new Error("Invalid widget settings.");
   if (Object.keys(settings ?? {}).some((key) => !Object.hasOwn(GRAPH_FIELDS, key))) {
@@ -55,10 +65,11 @@ function validateWidgetSettings(settings) {
       throw new Error("Unknown graph setting.");
     }
     const options = { ...defaults[name], ...(value ?? {}) };
+    options.hiddenDimensions = validateHiddenDimensions(options.hiddenDimensions);
     if (name === "trend") {
       if (typeof options.showLabels !== "boolean") throw new Error("Invalid value labels setting.");
       if (![3, 6, 12].includes(options.maxSeries)) throw new Error("Invalid trend series limit.");
-    } else {
+    } else if (name !== "sessions") {
       if (!Object.hasOwn(METRIC_NAMES, options.metric)) throw new Error("Invalid graph metric.");
       if (![5, 10, 12].includes(options.limit)) throw new Error("Invalid graph bar limit.");
     }
@@ -76,7 +87,7 @@ function sourceName(name, value) {
   return value;
 }
 
-const CHART_FIELDS=new Set(["id","title","visual","metric","breakdown","period"]);
+const CHART_FIELDS=new Set(["id","title","visual","metric","breakdown","period","hiddenDimensions"]);
 export function validateCustomCharts(charts){
   if(charts===undefined)return [];
   if(!Array.isArray(charts)||charts.length>4)throw Error("Maximum four custom graphs.");
@@ -93,7 +104,7 @@ export function validateCustomCharts(charts){
     if(!["daily","weekly","monthly"].includes(chart.period))throw Error("Invalid graph period.");
     if(!["total","provider","model"].includes(chart.breakdown))throw Error("Invalid graph breakdown.");
     return {id:chart.id,title:chart.title,visual:chart.visual,metric:chart.metric,
-      period:chart.period,breakdown:chart.breakdown};
+      period:chart.period,breakdown:chart.breakdown,hiddenDimensions:validateHiddenDimensions(chart.hiddenDimensions)};
   });
 }
 export function validateDashboardConfig(config) {

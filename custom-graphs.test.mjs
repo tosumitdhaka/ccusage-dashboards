@@ -19,3 +19,14 @@ test("reject executable fields and unknown graph expressions",()=>{
  assert.throws(()=>validateCustomCharts(Array(5).fill(graph)),/four/);
  assert.throws(()=>validateDashboardConfig({...DEFAULT_DASHBOARD,widgets:[...DEFAULT_DASHBOARD.widgets,"custom-1"]}),/widget/);
 });
+
+test("per-graph dimensions accept bounded name filters but not executable entries",()=>{
+ const base={...graph,hiddenDimensions:["codex","claude-code"]};
+ assert.deepEqual(validateCustomCharts([base])[0].hiddenDimensions,base.hiddenDimensions);
+ assert.throws(()=>validateCustomCharts([{...base,hiddenDimensions:["a","a"]}]),/dimensions/);
+ assert.throws(()=>validateCustomCharts([{...base,hiddenDimensions:["<script>\\n"]}]),/dimensions/);
+ assert.throws(()=>validateCustomCharts([{...base,hiddenDimensions:Array(41).fill("a")}]),/dimensions/);
+ const v=validateDashboardConfig({...DEFAULT_DASHBOARD,widgetSettings:{providers:{hiddenDimensions:["codex"]},sessions:{hiddenDimensions:["claude-code"]}}});
+ assert.deepEqual(v.widgetSettings.providers.hiddenDimensions,["codex"]);
+ assert.deepEqual(v.widgetSettings.sessions.hiddenDimensions,["claude-code"]);
+});
