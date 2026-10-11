@@ -388,3 +388,12 @@ button:focus-visible,input:focus-visible,.import-button:focus-within{outline:2px
     grid-column:auto!important;grid-row:auto!important}
   .dashboard-grid .layout-drop-preview{display:none!important}
 }
+
+/* Top-layer menus escape the scrollable snapped-height chart panels. */
+.viz-popover-menu{position:fixed!important;inset:auto;width:210px;min-width:190px;
+  max-height:min(260px,75vh);overflow-y:auto;margin:0;box-sizing:border-box;
+  z-index:9999;border:1px solid #3e566d}
+.viz-popover-menu:not(:popover-open){display:none!important}
+.viz-menu-trigger{flex:0 0 auto;align-self:flex-start}
+.dashboard-grid [data-widget="kpis"]>.viz-menu-trigger{position:absolute;top:5px;right:5px;z-index:14;
+  width:28px;height:28px}

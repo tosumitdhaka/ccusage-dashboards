@@ -87,3 +87,12 @@ test("unlocked view, free grid placement and options editor expose explicit cont
  assert.ok(css.includes("grid-template-columns:repeat(12,minmax(0,1fr))"));
  assert.ok(css.includes("@container(min-width:680px)"));
 });
+
+test("visualization menu uses native top-layer popovers outside scroll-clipped grid items",async()=>{
+ const src=await readFile(new URL("./public/dashboard.js",import.meta.url),"utf8");
+ const css=await readFile(new URL("./public/styles.css",import.meta.url),"utf8");
+ assert.ok(src.includes('menu.popover="auto"'));
+ assert.ok(src.includes('menu.showPopover()'));
+ assert.ok(src.includes('menu.hidePopover()'));
+ assert.ok(css.includes('.viz-popover-menu{position:fixed!important'));
+});

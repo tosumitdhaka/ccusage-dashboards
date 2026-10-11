@@ -513,7 +513,7 @@ setInterval(load, 60_000);
 
 let arranging=false;
 let activeDragId=null;
-const interactiveHeaderTarget=target=>target.closest("button,select,input,label,a,summary,.viz-menu");
+const interactiveHeaderTarget=target=>target.closest("button,select,input,label,a,summary,.viz-menu-trigger,.viz-popover-menu");
 function currentPosition(id){return dashboardConfig.layout.positions[id];}
 function refreshArrangeTools(){
   const grid=$("dashboard-grid");
@@ -920,29 +920,48 @@ function deleteCustomChart(id){
   refreshArrangeTools();
 }
 function installVisualizationMenu(panel){
-  if(panel.querySelector(".viz-menu"))return;
+  if(panel.querySelector(".viz-menu-trigger"))return;
   const id=panel.dataset.widget;
   const header=panel.querySelector(":scope > .section-header")??(id==="kpis"?panel:null);
-  if(!header)return; // Headerless collection uses an overlaid options control
-  const menu=el("details","viz-menu");
-  const trigger=el("summary","viz-menu-trigger","⋮");
+  if(!header)return;
+  const trigger=el("button","viz-menu-trigger","⋮");
+  trigger.type="button";
   trigger.title="Visualization options";
   trigger.setAttribute("aria-label","Options for "+(WIDGET_REGISTRY[id]?.title??id));
-  const body=el("div","viz-menu-body");
-  const edit=el("button","viz-menu-item","Edit visualization");
-  edit.type="button";edit.addEventListener("click",()=>{menu.open=false;openVisualizationEditor(id);});
-  const hide=el("button","viz-menu-item","Hide visualization");
-  hide.type="button";hide.addEventListener("click",()=>{
-    menu.open=false;editingVisualization={id};hideWidget(id);
+  trigger.setAttribute("aria-haspopup","menu");
+  trigger.setAttribute("aria-expanded","false");
+  const menu=el("div","viz-menu-body viz-popover-menu");
+  menu.popover="auto";
+  menu.id="viz-popover-"+id;
+  trigger.setAttribute("aria-controls",menu.id);
+  const add=(label,action,cls="")=>{
+    const button=el("button","viz-menu-item"+(cls?" "+cls:""),label);
+    button.type="button";
+    button.addEventListener("click",()=>{
+      if(menu.matches(":popover-open"))menu.hidePopover();
+      action();
+    });
+    menu.append(button);
+  };
+  add("Edit visualization",()=>openVisualizationEditor(id));
+  add("Hide visualization",()=>{
+    editingVisualization={id};
+    hideWidget(id);
   });
-  body.append(edit,hide);
-  if(id.startsWith("custom-")){
-    const remove=el("button","viz-menu-item danger","Delete graph");
-    remove.type="button";remove.addEventListener("click",()=>{menu.open=false;deleteCustomChart(id);});
-    body.append(remove);
-  }
-  menu.append(trigger,body);
-  header.append(menu);
+  if(id.startsWith("custom-"))add("Delete graph",()=>deleteCustomChart(id),"danger");
+  menu.addEventListener("toggle",e=>trigger.setAttribute("aria-expanded",String(e.newState==="open")));
+  trigger.addEventListener("click",()=>{
+    if(menu.matches(":popover-open")){menu.hidePopover();return;}
+    const rect=trigger.getBoundingClientRect();
+    // Native popover paints in the top layer, outside clipped graph viewports.
+    const width=210;
+    const left=Math.max(8,Math.min(window.innerWidth-width-8,rect.right-width));
+    const top=Math.max(8,Math.min(window.innerHeight-160,rect.bottom+7));
+    menu.style.left=left+"px";
+    menu.style.top=top+"px";
+    menu.showPopover();
+  });
+  header.append(trigger,menu);
 }
 $("visual-editor-close").addEventListener("click",()=>$("visual-editor").close());
 $("visual-editor-hide").addEventListener("click",()=>{
