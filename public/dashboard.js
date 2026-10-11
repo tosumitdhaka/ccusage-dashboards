@@ -745,6 +745,7 @@ function renderCustomCharts(){
 }
 function setupCustomGraphBuilder(){
   $("add-graph").addEventListener("click",()=>{
+    rememberViewport();
     $("graph-status").textContent="";
     $("graph-dialog").showModal();
   });
@@ -840,6 +841,7 @@ function refreshDimensionChoices(){
   }
 }
 function openVisualizationEditor(id){
+  rememberViewport();
   const custom=dashboardConfig.charts.some(chart=>chart.id===id);
   editingVisualization={id,custom,draft:settingsForGraph(id)};
   $("visual-editor-heading").textContent="Edit "+(WIDGET_REGISTRY[id]?.title ??
@@ -869,15 +871,24 @@ function openVisualizationEditor(id){
   }
   $("visual-editor-dimensions").hidden=!["trend","providers","models","sessions"].includes(id)&&!custom;
   if(!$("visual-editor-dimensions").hidden)refreshDimensionChoices();
+  else fields.append(el("p","empty","This panel has no series dimensions. Unlock layout to move or resize it."));
   $("visual-editor-status").textContent="";
   $("visual-editor").showModal();
 }
+let dashboardViewportAnchor=0;
+function rememberViewport(){dashboardViewportAnchor=window.scrollY;}
+function restoreViewport(){
+  const offset=dashboardViewportAnchor;
+  requestAnimationFrame(()=>requestAnimationFrame(()=>window.scrollTo({top:offset,behavior:"instant"})));
+}
+$("graph-dialog").addEventListener("close",restoreViewport);
+$("visual-editor").addEventListener("close",restoreViewport);
 function hideWidget(id){
   const next=dashboardConfig.widgets.filter(value=>value!==id);
   if(!next.length){$("visual-editor-status").textContent="Keep at least one visible widget.";return;}
   persistDashboardConfig({...dashboardConfig,widgets:next});
   if(state.report)render();
-  $("visual-editor").close();
+  if($("visual-editor").open)$("visual-editor").close();
   refreshArrangeTools();
 }
 function deleteCustomChart(id){

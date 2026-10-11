@@ -69,3 +69,21 @@ test("v0.3 editor and graph builder are wired to validated configuration",async(
  assert.ok(js.includes("renderCustomCharts()"));
  assert.ok(js.includes('event.dataTransfer.setData("text/plain",id)'));
 });
+
+test("unlocked view, free grid placement and options editor expose explicit controls",async()=>{
+ const html=await readFile(new URL("./public/index.html",import.meta.url),"utf8");
+ const js=await readFile(new URL("./public/dashboard.js",import.meta.url),"utf8");
+ const css=await readFile(new URL("./public/styles.css",import.meta.url),"utf8");
+ for(const id of ["visual-editor","visual-editor-form","visual-editor-dimensions","visual-dimension-options"]) 
+   assert.ok(html.includes('id="'+id+'"'));
+ assert.ok(html.includes("Unlock layout"));
+ assert.ok(!html.includes(">↕ Arrange<"));
+ assert.ok(js.includes('header.draggable=arranging'));
+ assert.ok(js.includes('snapToGrid(event.clientX,event.clientY'));
+ assert.ok(js.includes('resize.setPointerCapture(event.pointerId)'));
+ assert.ok(js.includes('function installVisualizationMenu('));
+ assert.ok(js.includes('function refreshDimensionChoices('));
+ assert.ok(!js.includes('grid.append(panel)'));
+ assert.ok(css.includes("grid-template-columns:repeat(12,minmax(0,1fr))"));
+ assert.ok(css.includes("@container(min-width:680px)"));
+});

@@ -5,7 +5,7 @@ import {stringifyDashboardConfig,parseDashboardJSON} from "./public/dashboard-co
 const graph={id:"custom-1",title:"Output by provider",visual:"bars",metric:"outputTokens",breakdown:"provider",period:"weekly"};
 test("custom graphs are data-only and roundtrip JSON import",()=>{
  const cfg=validateDashboardConfig({...DEFAULT_DASHBOARD,charts:[graph],widgets:[...DEFAULT_DASHBOARD.widgets,graph.id],layout:{widths:{[graph.id]:"full"}}});
- assert.deepEqual(cfg.charts,[graph]);
+ assert.deepEqual(cfg.charts,[{...graph,hiddenDimensions:[]}]);
  assert.equal(cfg.layout.widths[graph.id],"full");
  assert.deepEqual(parseDashboardJSON(stringifyDashboardConfig(cfg)),cfg);
 });
@@ -24,7 +24,7 @@ test("per-graph dimensions accept bounded name filters but not executable entrie
  const base={...graph,hiddenDimensions:["codex","claude-code"]};
  assert.deepEqual(validateCustomCharts([base])[0].hiddenDimensions,base.hiddenDimensions);
  assert.throws(()=>validateCustomCharts([{...base,hiddenDimensions:["a","a"]}]),/dimensions/);
- assert.throws(()=>validateCustomCharts([{...base,hiddenDimensions:["<script>\\n"]}]),/dimensions/);
+ assert.throws(()=>validateCustomCharts([{...base,hiddenDimensions:["bad"+String.fromCharCode(10)]}]),/dimensions/);
  assert.throws(()=>validateCustomCharts([{...base,hiddenDimensions:Array(41).fill("a")}]),/dimensions/);
  const v=validateDashboardConfig({...DEFAULT_DASHBOARD,widgetSettings:{providers:{hiddenDimensions:["codex"]},sessions:{hiddenDimensions:["claude-code"]}}});
  assert.deepEqual(v.widgetSettings.providers.hiddenDimensions,["codex"]);
