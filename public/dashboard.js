@@ -517,6 +517,7 @@ setInterval(load, 60_000);
 
 let arranging=false;
 let activeDragId=null;
+let dragPointerOffset={x:0,y:0};
 const interactiveHeaderTarget=target=>target.closest("button,select,input,label,a,summary,.viz-menu-trigger,.viz-popover-menu");
 function currentPosition(id){return dashboardConfig.layout.positions[id];}
 function refreshArrangeTools(){
@@ -571,6 +572,8 @@ function installLayoutPanel(panel){
       event.preventDefault();return;
     }
     activeDragId=id;
+    const bounds=panel.getBoundingClientRect();
+    dragPointerOffset={x:event.clientX-bounds.left,y:event.clientY-bounds.top};
     event.dataTransfer.effectAllowed="move";
     event.dataTransfer.setData("text/plain",id);
     panel.classList.add("layout-drag-source");
@@ -656,7 +659,7 @@ function installLayoutEditor(){
     event.preventDefault();
     event.dataTransfer.dropEffect="move";
     const r=currentPosition(activeDragId);
-    const target=snapToGrid(event.clientX,event.clientY,grid.getBoundingClientRect(),r.w,r.h);
+    const target=snapToGrid(event.clientX-dragPointerOffset.x,event.clientY-dragPointerOffset.y,grid.getBoundingClientRect(),r.w,r.h);
     preview.hidden=false;
     preview.style.gridColumn=(target.x+1)+" / span "+target.w;
     preview.style.gridRow=(target.y+1)+" / span "+target.h;
@@ -667,7 +670,7 @@ function installLayoutEditor(){
     const id=activeDragId;
     activeDragId=null;preview.hidden=true;
     const r=currentPosition(id);
-    saveGridPosition(id,snapToGrid(event.clientX,event.clientY,grid.getBoundingClientRect(),r.w,r.h));
+    saveGridPosition(id,snapToGrid(event.clientX-dragPointerOffset.x,event.clientY-dragPointerOffset.y,grid.getBoundingClientRect(),r.w,r.h));
   });
   grid.addEventListener("dragleave",event=>{
     if(!grid.contains(event.relatedTarget))preview.hidden=true;
