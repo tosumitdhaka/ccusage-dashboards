@@ -131,9 +131,9 @@ try{
   await delay(90);
   const drag=await evaluate(`(()=>{
     const card=document.querySelector('[data-widget="providers"]');
-    const match=card.style.transform.match(/translate3d\\(([-\\d.]+)px,([-\\d.]+)px,0\\)/);
-    return {transform:card.style.transform,dx:match?Number(match[1]):null,
-      dy:match?Number(match[2]):null,source:card.classList.contains("layout-drag-source")};
+    const matrix=new DOMMatrixReadOnly(getComputedStyle(card).transform);
+    return {transform:card.style.transform,dx:matrix.m41,dy:matrix.m42,
+      source:card.classList.contains("layout-drag-source")};
   })()`);
   assert.ok(drag.source,"Provider widget should enter floating drag mode: "+JSON.stringify(drag));
   assert.ok(Math.abs(drag.dx-36)<12&&Math.abs(drag.dy-57.6)<12,
