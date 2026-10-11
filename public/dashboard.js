@@ -60,6 +60,11 @@ let navigationFrame = 0;
 // Customization holds only presentation settings in browser-local storage.
 let dashboardConfig = validateDashboardConfig(DEFAULT_DASHBOARD);
 let storageWarning = "";
+// The initial widget arrangement renders before the asynchronous report loads.
+// Initialize edit-session state first: activeLayout() reads layoutDraft.
+let arranging=false;
+let layoutDraft=null;
+let movementFrame=0;
 try { dashboardConfig = readDashboardConfig(window.localStorage); }
 catch { storageWarning = "Saved dashboard preferences are unavailable; defaults are in use."; }
 function applyFilterState(filters) {
@@ -520,11 +525,6 @@ load();
 setInterval(load, 60_000);
 
 
-
-
-let arranging=false;
-let layoutDraft=null;
-let movementFrame=0;
 const interactiveHeaderTarget=target=>target.closest("button,select,input,label,a,summary,.viz-menu-trigger,.viz-popover-menu");
 function activeLayout(){return layoutDraft??dashboardConfig.layout;}
 function currentPosition(id){return activeLayout().positions[id];}
