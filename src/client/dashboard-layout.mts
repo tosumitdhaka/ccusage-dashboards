@@ -7,8 +7,8 @@ export interface GridLayout { widths: Record<string, GridWidth>; positions: Grid
 // Twelve-column snap grid. Persist *only* integers, never arbitrary CSS or scripts.
 export const GRID_COLUMNS=12;
 export const GRID_MAX_ROW=400;
-export const DEFAULT_WIDTHS=Object.freeze({kpis:"full",trend:"full",providers:"half",models:"half",cache:"half",guidance:"half",sessions:"full"});
-export const DEFAULT_ROWS=Object.freeze({kpis:5,trend:15,providers:13,models:13,cache:9,guidance:9,sessions:19});
+export const DEFAULT_WIDTHS: Readonly<Record<string,GridWidth>>=Object.freeze({kpis:"full",trend:"full",providers:"half",models:"half",cache:"half",guidance:"half",sessions:"full"});
+export const DEFAULT_ROWS: Readonly<Record<string,number>>=Object.freeze({kpis:5,trend:15,providers:13,models:13,cache:9,guidance:9,sessions:19});
 const record=(v: unknown): v is Record<string, any>=>v!==null&&typeof v==="object"&&!Array.isArray(v);
 export const minimumRows=(id: string): number=>id==="kpis"?4:id==="sessions"?10:id==="trend"?9:id==="cache"?6:id==="guidance"?5:6;
 const defaultHeight=(id: string): number=>DEFAULT_ROWS[id]??11;
