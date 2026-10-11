@@ -179,7 +179,7 @@ function drawLineChart(data: any, metric: string, options: any = {}) {
   const groupKind = activeBreakdown === "model" ? "model" : "provider";
   const settings = options.settings ?? dashboardConfig.widgetSettings.trend;
   const excluded=new Set(settings.hiddenDimensions ?? []);
-  const shown = data.series.filter(s: any=>!excluded.has(s.name)).slice(0, settings.maxSeries);
+  const shown = data.series.filter((s: any)=>!excluded.has(s.name)).slice(0, settings.maxSeries);
   shown.forEach((s: any) => {
     const key = el("button", "legend-item legend-toggle");
     key.type = "button";
@@ -256,7 +256,7 @@ function drawLineChart(data: any, metric: string, options: any = {}) {
 function drawBars(id: string, entries: any[], metric: string, emptyMessage: string, limit: number, kind: string, hiddenDimensions: string[]=[]) {
   const target = $(id);
   target.replaceChildren();
-  const visible=entries.filter(entry: any=>!hiddenDimensions.includes(entry.name));
+  const visible=entries.filter((entry: any)=>!hiddenDimensions.includes(entry.name));
   if (!visible.length) { empty(target, emptyMessage); return; }
   const max = Math.max(1e-10, ...visible.map((e: any) => e.value));
   visible.slice(0, limit).forEach((item: any) => {
@@ -378,8 +378,8 @@ function render() {
   $("provider-summary").textContent = "Ranked by " + METRIC_NAMES[providerSettings.metric].toLowerCase();
   $("model-summary").textContent = "Ranked by " + METRIC_NAMES[modelSettings.metric].toLowerCase();
   const sessions = buildSessions(state.report, { agent: state.agent, model: state.model, metric: state.sessionMetric });
-  drawSessionGraph(sessions.filter(s: any=>!dashboardConfig.widgetSettings.sessions.hiddenDimensions.includes(s.agent)));
-  drawSessionTable(buildSessions(state.report, { agent: state.agent, model: state.model, metric: "totalTokens", limit: 30 }).filter(s: any=>!dashboardConfig.widgetSettings.sessions.hiddenDimensions.includes(s.agent)).slice(0,10));
+  drawSessionGraph(sessions.filter((s: any)=>!dashboardConfig.widgetSettings.sessions.hiddenDimensions.includes(s.agent)));
+  drawSessionTable(buildSessions(state.report, { agent: state.agent, model: state.model, metric: "totalTokens", limit: 30 }).filter((s: any)=>!dashboardConfig.widgetSettings.sessions.hiddenDimensions.includes(s.agent)).slice(0,10));
   renderCustomCharts();
   const warnings = state.model === "all" ? view.missingPricing : view.missingPricing.filter((m) => m === state.model);
   const notice = $("notice");
@@ -443,7 +443,7 @@ function populateCustomizeDialog() {
   $("config-status").textContent = storageWarning;
   const group = $("widget-options");
   group.replaceChildren();
-  const options=[...Object.entries(WIDGET_REGISTRY),...dashboardConfig.charts.map(chart: any=>[chart.id,{title:chart.title}])];
+  const options=[...Object.entries(WIDGET_REGISTRY),...dashboardConfig.charts.map((chart: any)=>[chart.id,{title:chart.title}])];
   for (const [key, widget] of options) {
     const label = el("label", "widget-option");
     const input = el("input");
@@ -462,7 +462,7 @@ $("customize-form").addEventListener("submit", (event: any) => {
   event.preventDefault();
   try {
     const checked = new Set([...$("widget-options").querySelectorAll("input:checked")].map(input=>input.value));
-    const widgets = [...dashboardConfig.widgets.filter(id: string=>checked.has(id)),
+    const widgets = [...dashboardConfig.widgets.filter((id: string)=>checked.has(id)),
       ...[...checked].filter(id=>!dashboardConfig.widgets.includes(id))];
     const title = $("dashboard-title").value.trim();
     const sameVisibility=widgets.length===dashboardConfig.widgets.length&&
@@ -527,7 +527,7 @@ load();
 setInterval(load, 60_000);
 
 
-const interactiveHeaderTarget=target: any=>target.closest("button,select,input,label,a,summary,.viz-menu-trigger,.viz-popover-menu");
+const interactiveHeaderTarget=(target: any)=>target.closest("button,select,input,label,a,summary,.viz-menu-trigger,.viz-popover-menu");
 function activeLayout(){return layoutDraft??dashboardConfig.layout;}
 function currentPosition(id: string){return activeLayout().positions[id];}
 function layoutAfterVisibilityChange(widgets: any){
@@ -607,7 +607,7 @@ function installLayoutPanel(panel: HTMLElement){
   if(panel.dataset.layoutInstalled==="true")return;
   panel.dataset.layoutInstalled="true";
   const id=panel.dataset.widget;
-  const label=()=>WIDGET_REGISTRY[id]?.title??dashboardConfig.charts.find(c: any=>c.id===id)?.title??id;
+  const label=()=>WIDGET_REGISTRY[id]?.title??dashboardConfig.charts.find((c: any)=>c.id===id)?.title??id;
   const header=panel.querySelector(":scope > .section-header");
   // One internal scrolling body per graph. Header and popover remain outside it.
   if(id!=="kpis"){
@@ -616,7 +616,7 @@ function installLayoutPanel(panel: HTMLElement){
     panel.append(body);
   }
   const dragSurface=header??(id==="kpis"?panel:null);
-  if(dragSurface)dragSurface.addEventListener("pointerdown",event: any=>beginPanelDrag(event,dragSurface,panel,id));
+  if(dragSurface)dragSurface.addEventListener("pointerdown",(event: any)=>beginPanelDrag(event,dragSurface,panel,id));
   for(const direction of ["n","s","e","w","ne","nw","se","sw"]){
     const edge=el("span","layout-resize-edge edge-"+direction);
     edge.hidden=true;edge.tabIndex=-1;
@@ -624,8 +624,8 @@ function installLayoutPanel(panel: HTMLElement){
     edge.setAttribute("aria-label","Resize "+label()+" from "+direction+" edge");
     edge.title="Drag this border to resize "+label();
     panel.append(edge);
-    edge.addEventListener("pointerdown",event: any=>beginEdgeResize(event,edge,panel,id,direction));
-    edge.addEventListener("keydown",event: any=>{
+    edge.addEventListener("pointerdown",(event: any)=>beginEdgeResize(event,edge,panel,id,direction));
+    edge.addEventListener("keydown",(event: any)=>{
       if(!arranging||!["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(event.key))return;
       event.preventDefault();
       const before=currentPosition(id);
@@ -667,7 +667,7 @@ function beginEdgeResize(event: any,edge: HTMLElement,panel: HTMLElement,id: str
   let next={...before};
   panel.classList.add("layout-resizing");
   edge.setPointerCapture(event.pointerId);
-  const move=e: PointerEvent=>{
+  const move=(e: PointerEvent)=>{
     const candidate=resizeGridRectangle(before,id,direction,
       Math.round((e.clientX-x0)/step),Math.round((e.clientY-y0)/32));
     if(["x","y","w","h"].every(k=>candidate[k]===next[k]))return;
@@ -676,7 +676,7 @@ function beginEdgeResize(event: any,edge: HTMLElement,panel: HTMLElement,id: str
       next=candidate;scheduleLayoutPreview(positions);
     }catch{/* Keep last valid rectangle when no cells are free. */}
   };
-  const cleanup=e: PointerEvent=>{
+  const cleanup=(e: PointerEvent)=>{
     edge.removeEventListener("pointermove",move);
     edge.removeEventListener("pointerup",finish);
     edge.removeEventListener("pointercancel",cancel);
@@ -684,12 +684,12 @@ function beginEdgeResize(event: any,edge: HTMLElement,panel: HTMLElement,id: str
     if(movementFrame)cancelAnimationFrame(movementFrame);
     movementFrame=0;panel.classList.remove("layout-resizing");
   };
-  const finish=e: PointerEvent=>{
+  const finish=(e: PointerEvent)=>{
     move(e);cleanup(e);
     if(["x","y","w","h"].some(k=>before[k]!==next[k]))saveGridPosition(id,next);
     else applyGridPreview(original);
   };
-  const cancel=e: PointerEvent=>{cleanup(e);applyGridPreview(original);};
+  const cancel=(e: PointerEvent)=>{cleanup(e);applyGridPreview(original);};
   edge.addEventListener("pointermove",move);
   edge.addEventListener("pointerup",finish);
   edge.addEventListener("pointercancel",cancel);
@@ -705,7 +705,7 @@ function beginPanelDrag(event: any,surface: HTMLElement,panel: HTMLElement,id: s
   const ghost=$("grid-drop-preview");
   let next={...start},moved=false;
   surface.setPointerCapture(event.pointerId);
-  const move=e: PointerEvent=>{
+  const move=(e: PointerEvent)=>{
     if(!moved&&Math.hypot(e.clientX-x0,e.clientY-y0)<5)return;
     moved=true;
     const candidate=snapToGrid(e.clientX-offset.x,e.clientY-offset.y,
@@ -721,7 +721,7 @@ function beginPanelDrag(event: any,surface: HTMLElement,panel: HTMLElement,id: s
       scheduleLayoutPreview(positions);
     }catch{/* Keep last valid position. */}
   };
-  const cleanup=e: PointerEvent=>{
+  const cleanup=(e: PointerEvent)=>{
     surface.removeEventListener("pointermove",move);
     surface.removeEventListener("pointerup",finish);
     surface.removeEventListener("pointercancel",cancel);
@@ -729,12 +729,12 @@ function beginPanelDrag(event: any,surface: HTMLElement,panel: HTMLElement,id: s
     if(movementFrame)cancelAnimationFrame(movementFrame);
     movementFrame=0;ghost.hidden=true;panel.classList.remove("layout-drag-source");
   };
-  const finish=e: PointerEvent=>{
+  const finish=(e: PointerEvent)=>{
     move(e);cleanup(e);
     if(["x","y"].some(k=>start[k]!==next[k]))saveGridPosition(id,next,"drag");
     else applyGridPreview(original);
   };
-  const cancel=e: PointerEvent=>{cleanup(e);applyGridPreview(original);};
+  const cancel=(e: PointerEvent)=>{cleanup(e);applyGridPreview(original);};
   surface.addEventListener("pointermove",move);
   surface.addEventListener("pointerup",finish);
   surface.addEventListener("pointercancel",cancel);
@@ -757,7 +757,7 @@ installLayoutEditor();
 
 const customHiddenSeries=new Map<string,Set<string>>();
 function customChartUpdate(id: string,patch: Record<string, any>){
-  const charts=dashboardConfig.charts.map(c: any=>c.id===id?{...c,...patch}:c);
+  const charts=dashboardConfig.charts.map((c: any)=>c.id===id?{...c,...patch}:c);
   persistDashboardConfig({...dashboardConfig,charts});
   if(state.report)render();
 }
@@ -799,7 +799,7 @@ function createCustomPanel(chart: any){
 }
 function syncCustomChartNodes(){
   const grid=$("dashboard-grid");
-  const configs=new Map(dashboardConfig.charts.map(c: any=>[c.id,c]));
+  const configs=new Map(dashboardConfig.charts.map((c: any)=>[c.id,c]));
   for(const card of grid.querySelectorAll(".custom-chart-card"))
     if(!configs.has(card.dataset.widget))card.remove();
   for(const chart of dashboardConfig.charts){
@@ -851,7 +851,7 @@ function setupCustomGraphBuilder(){
     event.preventDefault();
     try{
       if(dashboardConfig.charts.length>=4)throw Error("Maximum four user-defined graphs.");
-      let i=1;while(dashboardConfig.charts.some(c: any=>c.id==="custom-"+i))i++;
+      let i=1;while(dashboardConfig.charts.some((c: any)=>c.id==="custom-"+i))i++;
       const chart={
         id:"custom-"+i,title:$("graph-title").value.trim(),
         visual:$("graph-visual").value,metric:$("graph-metric").value,
@@ -894,7 +894,7 @@ function settingsForGraph(id: string){
   if(id==="sessions")return {metric:state.sessionMetric,
     hiddenDimensions:[...dashboardConfig.widgetSettings.sessions.hiddenDimensions]};
   if(id==="cache"||id==="kpis"||id==="guidance")return {hiddenDimensions:[...dashboardConfig.widgetSettings[id].hiddenDimensions]};
-  return {...dashboardConfig.charts.find(c: any=>c.id===id)};
+  return {...dashboardConfig.charts.find((c: any)=>c.id===id)};
 }
 function editorField(label: string,key: string,type: string,values: Array<[string | number,string]> =[]) {
   const wrapper=el("label","visual-editor-field");
@@ -943,10 +943,10 @@ function refreshDimensionChoices(){
 }
 function openVisualizationEditor(id: string){
   rememberViewport();
-  const custom=dashboardConfig.charts.some(chart: any=>chart.id===id);
+  const custom=dashboardConfig.charts.some((chart: any)=>chart.id===id);
   editingVisualization={id,custom,draft:settingsForGraph(id)};
   $("visual-editor-heading").textContent="Edit "+(WIDGET_REGISTRY[id]?.title ??
-    dashboardConfig.charts.find(c: any=>c.id===id)?.title??id);
+    dashboardConfig.charts.find((c: any)=>c.id===id)?.title??id);
   const fields=$("visual-editor-fields");
   fields.replaceChildren();
   const metricOptions=Object.entries(METRIC_NAMES),breakdownOptions=[
@@ -986,7 +986,7 @@ $("graph-dialog").addEventListener("close",restoreViewport);
 $("visual-editor").addEventListener("close",restoreViewport);
 function hideWidget(id: string){
   const previousScroll=window.scrollY;
-  const next=dashboardConfig.widgets.filter(value: any=>value!==id);
+  const next=dashboardConfig.widgets.filter((value: any)=>value!==id);
   if(arranging){$("visual-editor-status").textContent="Save or cancel your layout edit before hiding widgets.";return;}
   if(!next.length){$("visual-editor-status").textContent="Keep at least one visible widget.";return;}
   persistDashboardConfig({...dashboardConfig,widgets:next,layout:layoutAfterVisibilityChange(next)});
@@ -997,8 +997,8 @@ function hideWidget(id: string){
 }
 function deleteCustomChart(id: string){
   if(arranging)return;
-  const charts=dashboardConfig.charts.filter(chart: any=>chart.id!==id);
-  const widgets=dashboardConfig.widgets.filter(widget: any=>widget!==id);
+  const charts=dashboardConfig.charts.filter((chart: any)=>chart.id!==id);
+  const widgets=dashboardConfig.widgets.filter((widget: any)=>widget!==id);
   if(!widgets.length)widgets.push("kpis");
   const widths={...dashboardConfig.layout.widths},positions={...dashboardConfig.layout.positions};
   delete widths[id];delete positions[id];customHiddenSeries.delete(id);
@@ -1037,7 +1037,7 @@ function installVisualizationMenu(panel: HTMLElement){
     hideWidget(id);
   });
   if(id.startsWith("custom-"))add("Delete graph",()=>deleteCustomChart(id),"danger");
-  menu.addEventListener("toggle",e: any=>trigger.setAttribute("aria-expanded",String(e.newState==="open")));
+  menu.addEventListener("toggle",(e: any)=>trigger.setAttribute("aria-expanded",String(e.newState==="open")));
   trigger.addEventListener("click",()=>{
     if(menu.matches(":popover-open")){menu.hidePopover();return;}
     const rect=trigger.getBoundingClientRect();
@@ -1055,14 +1055,14 @@ $("visual-editor-close").addEventListener("click",()=>$("visual-editor").close()
 $("visual-editor-hide").addEventListener("click",()=>{
   if(editingVisualization)hideWidget(editingVisualization.id);
 });
-$("visual-editor-form").addEventListener("submit",event: any=>{
+$("visual-editor-form").addEventListener("submit",(event: any)=>{
   event.preventDefault();
   const editor=editingVisualization;
   if(!editor)return;
   try{
     const draft=editor.draft,id=editor.id;
     if(editor.custom){
-      const charts=dashboardConfig.charts.map(c: any=>c.id===id?{...c,...draft}:c);
+      const charts=dashboardConfig.charts.map((c: any)=>c.id===id?{...c,...draft}:c);
       persistDashboardConfig({...dashboardConfig,charts});
     }else if(id==="trend"){
       state.metric=draft.metric;state.breakdown=draft.breakdown;
