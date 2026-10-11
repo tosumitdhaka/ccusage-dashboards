@@ -418,7 +418,8 @@ function populateCustomizeDialog() {
   $("config-status").textContent = storageWarning;
   const group = $("widget-options");
   group.replaceChildren();
-  for (const [key, widget] of Object.entries(WIDGET_REGISTRY)) {
+  const options=[...Object.entries(WIDGET_REGISTRY),...dashboardConfig.charts.map(chart=>[chart.id,{title:chart.title}])];
+  for (const [key, widget] of options) {
     const label = el("label", "widget-option");
     const input = el("input");
     input.type = "checkbox"; input.value = key;
@@ -435,7 +436,10 @@ $("customize-cancel").addEventListener("click", () => $("customize-dialog").clos
 $("customize-form").addEventListener("submit", (event) => {
   event.preventDefault();
   try {
-    const widgets = [...$("widget-options").querySelectorAll("input:checked")].map((input) => input.value);
+    const checked = new Set([...$("widget-options").querySelectorAll("input:checked")].map(input=>input.value));
+    // Changing visibility must not reset the user's arranged widget positions.
+    const widgets = [...dashboardConfig.widgets.filter(id=>checked.has(id)),
+      ...[...checked].filter(id=>!dashboardConfig.widgets.includes(id))];
     const title = $("dashboard-title").value.trim();
     persistDashboardConfig(configWithCurrentFilters({ ...dashboardConfig, title, widgets }));
     $("customize-dialog").close();
