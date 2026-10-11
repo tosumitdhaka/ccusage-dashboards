@@ -52,7 +52,8 @@ test("widget surface uses one responsive grid without legacy paired wrappers", a
   assert.ok(html.includes('id="dashboard-grid"'));
   assert.ok(!html.includes('data-widget-group'));
   assert.ok(html.includes('id="layout-edit"'));
-  assert.ok(css.includes('.dashboard-grid .token-grid{display:grid;grid-template-columns:repeat(2,minmax(0,235px))'));
+  assert.ok(css.includes('.dashboard-grid .token-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))'));
+  assert.ok(css.includes('max-width:482px'));
 });
 
 test("v0.3 editor and graph builder are wired to validated configuration",async()=>{

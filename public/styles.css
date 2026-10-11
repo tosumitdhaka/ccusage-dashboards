@@ -254,8 +254,8 @@ button:focus-visible,input:focus-visible,.import-button:focus-within{outline:2px
 .chart-header-controls .chart-checkbox input{flex:0 0 auto}
 .chart-chip{align-self:center}
 /* Keep cache cards compact even when the neighboring Notes panel is hidden. */
-.dashboard-grid .token-grid{display:grid;grid-template-columns:repeat(2,minmax(0,235px));
-  align-items:start;justify-content:start;gap:12px}
+.dashboard-grid .token-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+  width:100%;max-width:482px;align-items:start;justify-content:start;gap:12px}
 .dashboard-grid .token-grid>div{min-height:83px}
 .dashboard-grid>[data-widget="cache"]{align-self:start}
 @media(max-width:950px){

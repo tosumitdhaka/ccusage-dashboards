@@ -109,6 +109,7 @@ function replaceDashboardConfig(config, persist = true) {
   if (persist) persistDashboardConfig(config);
   else { dashboardConfig = validateDashboardConfig(config); showWidgetSelection(); }
   applyFilterState(dashboardConfig.filters);
+  refreshArrangeTools();
   if (state.report) { updateSelectors(); render(); }
 }
 applyFilterState(dashboardConfig.filters);
@@ -655,7 +656,7 @@ function syncCustomChartNodes(){
     if(!card){
       card=createCustomPanel(chart);
       grid.append(card);
-      if(typeof installLayoutPanel==="function")installLayoutPanel(card);
+      installLayoutPanel(card);
     }
     card.querySelector(".custom-title").textContent=chart.title;
     for(const select of card.querySelectorAll("[data-custom-field]"))
