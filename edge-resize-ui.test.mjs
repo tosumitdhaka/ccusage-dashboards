@@ -21,10 +21,11 @@ test("unlocked grid offers eight edge resize zones without cluttering widget con
  assert.ok(css.includes(".dashboard-grid .layout-resize-edge:hover"));
 });
 
-test("live resize previews peers and saves only to draft on pointerup",async()=>{
+test("live resize previews floating target and saves only on pointerup",async()=>{
  const js=await readFile(new URL("./src/client/dashboard.ts",import.meta.url),"utf8");
  const block=js.slice(js.indexOf("function beginEdgeResize("),js.indexOf("function beginPanelDrag("));
- assert.ok(block.includes("reflowGridAfterResize("));
+ assert.ok(!block.includes("reflowGridAfterResize("));
+ assert.ok(js.includes("reflowGridAfterResize(previous,id,rect,dashboardConfig.widgets)"));
  assert.ok(block.includes("createPointerFrame(update)"));
  assert.ok(block.includes("pointer.finish(e);cleanup(e)"));
  assert.ok(block.includes("showFloatingGridTarget(next,stepX)"));
