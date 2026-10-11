@@ -31,7 +31,7 @@ test("independent graph controls, warnings and sidebar navigation are wired", as
   assert.match(js, /updateGraphSettings/);
 });
 
-test("graph selectors are directly visible in graph headings without a popover", async () => {
+test("graph selectors remain inline in headings, revealed on hover/focus", async () => {
   const html = await readFile(new URL("./public/index.html",import.meta.url),"utf8");
   const checks=[["trend",["metric","breakdown","trend-series-limit","trend-show-labels"]],
     ["providers",["provider-metric","provider-limit"]],["models",["model-metric","model-limit"]],
@@ -67,7 +67,9 @@ test("v0.3 editor and graph builder are wired to validated configuration",async(
  assert.ok(js.includes("installLayoutEditor()"));
  assert.ok(js.includes("syncCustomChartNodes()"));
  assert.ok(js.includes("renderCustomCharts()"));
- assert.ok(js.includes('event.dataTransfer.setData("text/plain",id)'));
+ assert.ok(js.includes('surface.setPointerCapture(event.pointerId)'));
+ assert.ok(js.includes('closeLayoutEdit(true)'));
+ assert.ok(js.includes('closeLayoutEdit(false)'));
 });
 
 test("unlocked view, free grid placement and options editor expose explicit controls",async()=>{
@@ -78,8 +80,8 @@ test("unlocked view, free grid placement and options editor expose explicit cont
    assert.ok(html.includes('id="'+id+'"'));
  assert.ok(html.includes("Layout Locked"));
  assert.ok(!html.includes(">↕ Arrange<"));
- assert.ok(js.includes('header.draggable=arranging'));
- assert.ok(js.includes('snapToGrid(event.clientX-dragPointerOffset.x,event.clientY-dragPointerOffset.y'));
+ assert.ok(js.includes('header.draggable=false'));
+ assert.ok(js.includes('const candidate=snapToGrid(e.clientX-offset.x,e.clientY-offset.y'));
  assert.ok(js.includes('edge.setPointerCapture(event.pointerId)'));
  assert.ok(js.includes('resizeGridRectangle('));
  assert.ok(!js.includes('layout-handle\",\"⠿'));

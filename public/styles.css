@@ -473,18 +473,18 @@ button:focus-visible,input:focus-visible,.import-button:focus-within{outline:2px
 /* Reveal editing controls on panel hover or keyboard focus, always on touch. */
 .dashboard-grid>[data-widget] .viz-menu-trigger,
 .dashboard-grid>[data-widget] .chart-header-controls{
-  opacity:0;visibility:hidden;pointer-events:none;
-  transition:opacity 130ms ease,visibility 130ms ease}
+  opacity:0;pointer-events:none;
+  transition:opacity 130ms ease
 .dashboard-grid>[data-widget]:hover .viz-menu-trigger,
 .dashboard-grid>[data-widget]:focus-within .viz-menu-trigger,
 .dashboard-grid>[data-widget] .viz-menu-trigger[aria-expanded="true"],
 .dashboard-grid>[data-widget]:hover .chart-header-controls,
 .dashboard-grid>[data-widget]:focus-within .chart-header-controls{
-  opacity:1;visibility:visible;pointer-events:auto}
+  opacity:1;pointer-events:auto}
 @media(hover:none){
   .dashboard-grid>[data-widget] .viz-menu-trigger,
   .dashboard-grid>[data-widget] .chart-header-controls{
-    opacity:1;visibility:visible;pointer-events:auto}
+    opacity:1;pointer-events:auto}
 }
 .top-actions{gap:9px;flex-wrap:wrap;justify-content:flex-end}
 .topbar{height:auto;min-height:73px;padding-top:9px;padding-bottom:9px}

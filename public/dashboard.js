@@ -633,7 +633,7 @@ function installLayoutPanel(panel){
     });
   }
 }
-function minimumWidgetRows(id){return id==="kpis"?4:id==="sessions"?10:id==="trend"?9:id==="cache"?6:id==="guidance"?5:6;}
+function minimumWidgetRows(id){return id==="kpis"?5:id==="sessions"?10:id==="trend"?9:id==="cache"?6:id==="guidance"?5:6;}
 function resizeGridRectangle(before,id,direction,dx,dy){
   let {x,y,w,h}=before;
   const minW=2,minH=minimumWidgetRows(id);
@@ -643,6 +643,7 @@ function resizeGridRectangle(before,id,direction,dx,dy){
   if(direction.includes("n")){const bottom=y+h;y=Math.max(0,Math.min(bottom-minH,y+dy));h=bottom-y;
     if(h>48){y=bottom-48;h=48;}
   }
+  if(id==="kpis"){x=0;w=GRID_COLUMNS;}
   if(id==="cache"&&dx!==0&&dy===0){
     const step=($("dashboard-grid").getBoundingClientRect().width+8)/GRID_COLUMNS;
     h=cacheRowsForWidth(step*w-8,step*before.w-8,h);
