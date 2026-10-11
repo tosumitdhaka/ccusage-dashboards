@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 
 // Registry errors or a conflicting immutable npm tarball must fail closed.
 export async function registryState({ name, version, shasum, fetcher = fetch, attempts = 1,
-  pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms)) }) {
+  delayMs = 5000, pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms)) }) {
   if (name !== "ccusage-dashboards" || !/^[0-9]+\.[0-9]+\.[0-9]+$/.test(version) ||
     !/^[a-f0-9]{40}$/.test(shasum) || !Number.isInteger(attempts) || attempts < 1) {
     throw new Error("Invalid package release identity");
@@ -13,7 +13,7 @@ export async function registryState({ name, version, shasum, fetcher = fetch, at
       headers: {accept:"application/json"}, cache:"no-store", signal:AbortSignal.timeout(15000)
     });
     if (result.status===404) {
-      if (i+1<attempts) { await pause(3000); continue; }
+      if (i+1<attempts) { await pause(delayMs); continue; }
       return "absent";
     }
     if (!result.ok) throw new Error("npm registry HTTP "+result.status);
@@ -30,10 +30,13 @@ async function run() {
   const data=JSON.parse(await readFile(file,"utf8"));
   if (!Array.isArray(data)||data.length!==1||data[0]?.version!==version)
     throw new Error("Expected one matching packed npm archive");
+  // npm can acknowledge OIDC publishing while processing the package for minutes.
+  // Allow up to 10 minutes for eventual visibility before failing.
   const state=await registryState({
-    name:data[0].name,version,shasum:data[0].shasum,attempts:mode==="post"?10:1
+    name:data[0].name,version,shasum:data[0].shasum,
+    attempts:mode==="post"?121:1, delayMs:5000
   });
-  if (mode==="post"&&state!=="present") throw new Error("Published version not visible on npm after retries");
+  if (mode==="post"&&state!=="present") throw new Error("Published version not visible on npm after ten-minute registry propagation window");
   process.stdout.write(state+"\n");
 }
 if(process.argv[1] && fileURLToPath(import.meta.url)===process.argv[1])

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {registryState} from "./scripts/verify-npm-release.mjs";
-const src={name:"ccusage-dashboards",version:"0.2.0",shasum:"a".repeat(40)};
+const src={name:"ccusage-dashboards",version:"0.2.1",shasum:"a".repeat(40)};
 const response=(status,body)=>({status,ok:status>=200&&status<300,json:async()=>body});
 test("unpublished npm version is absent",async()=>{
   assert.equal(await registryState({...src,fetcher:async()=>response(404)}),"absent");
@@ -18,4 +18,15 @@ test("registry retry tolerates short post-publication delay",async()=>{
   let call=0;
   const state=await registryState({...src,attempts:2,pause:async()=>{},fetcher:async()=>++call===1?response(404):response(200,{...src,dist:{shasum:src.shasum}})});
   assert.equal(state,"present"); assert.equal(call,2);
+});
+
+test("post-publication polling respects a longer configured interval", async () => {
+  const waits=[]; let calls=0;
+  const state=await registryState({
+    ...src, attempts:3, delayMs:5000, pause:async n=>{waits.push(n);},
+    fetcher:async()=>++calls<3?response(404):response(200,{...src,dist:{shasum:src.shasum}})
+  });
+  assert.equal(state,"present");
+  assert.deepEqual(waits,[5000,5000]);
+  assert.equal(calls,3);
 });

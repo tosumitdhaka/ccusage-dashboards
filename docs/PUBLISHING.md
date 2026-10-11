@@ -100,3 +100,23 @@ only when the published tarball hash matches the tested source.
 `npm whoami` in a local shell does not verify OIDC permissions. This workflow
 never needs `NPM_TOKEN` or your npm password. Configure publisher identity on
 npmjs.com itself (the GitHub connection cannot edit npm package settings).
+
+## Registry processing delay after successful publication
+
+npm may log `+ ccusage-dashboards@VERSION` and "package is being processed"
+while version metadata still returns HTTP 404 for several minutes. The normal
+release workflow now polls for up to ten minutes, rather than reporting an
+immediate post-publish failure.
+
+**Do not re-publish a version after npm has acknowledged publishing it.**
+If publication succeeded but GitHub release finalization failed because npm
+metadata was still processing, run
+`.github/workflows/finalize-npm-release.yml` from the GitHub Actions tab.
+Enter the **already published** version and the **original publishing run's exact
+source SHA**, not the current main SHA. For the 2026-10-11 recovery, those are
+`0.2.1` and `30fb4ee9c49dc597364836336ffe5a9e9b20e794`.
+This recovery never runs `npm publish`. It verifies original source ancestry,
+rebuilds/tests/repacks the exact original commit, waits for public npm metadata
+with the matching archive hash, and creates the GitHub release at that original
+SHA. Failures to match provenance, archive or release target stop without
+creating a misleading release.
