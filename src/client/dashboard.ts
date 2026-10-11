@@ -36,7 +36,7 @@ function updateGraphSettings(group, patch) {
   render();
 }
 function updateActiveNavigation() {
-  const anchors = [...document.querySelectorAll(".sidebar .nav-link")];
+  const anchors = [...document.querySelectorAll<HTMLElement>(".sidebar .nav-link")];
   const enabled = new Set(dashboardConfig.widgets);
   let current = "overview";
   for (const anchor of anchors) {
@@ -162,7 +162,7 @@ function availableModels(report, agent) {
   }
   return [...models].sort();
 }
-function drawLineChart(data, metric, options={}) {
+function drawLineChart(data: any, metric: string, options: any = {}) {
   const svg = $(options.svgId ?? "trend-chart");
   const legend = $(options.legendId ?? "trend-legend");
   const activeSection=options.period ?? state.section;
@@ -338,20 +338,20 @@ function render() {
   $("break-cache").textContent = fmt(vals.cacheReadTokens);
   $("break-write").textContent = fmt(vals.cacheCreationTokens);
   const cacheHidden=new Set(dashboardConfig.widgetSettings.cache.hiddenDimensions);
-  [...document.querySelectorAll('[data-widget="cache"] .token-grid>div')].forEach((node,index)=>{
+  [...document.querySelectorAll<HTMLElement>('[data-widget="cache"] .token-grid>div')].forEach((node,index)=>{
     node.hidden=cacheHidden.has(["Input","Output","Cache reads","Cache writes"][index]);
   });
   const noteHidden=new Set(dashboardConfig.widgetSettings.guidance.hiddenDimensions);
-  [...document.querySelectorAll('[data-widget="guidance"] .information>div')].forEach((node,index)=>{
+  [...document.querySelectorAll<HTMLElement>('[data-widget="guidance"] .information>div')].forEach((node,index)=>{
     node.hidden=noteHidden.has(["Pricing estimates","Subscription quotas","Local reports"][index]);
   });
   const kpiHidden=new Set(dashboardConfig.widgetSettings.kpis.hiddenDimensions);
-  [...document.querySelectorAll('[data-widget="kpis"] .kpi')].forEach((node,index)=>{
+  [...document.querySelectorAll<HTMLElement>('[data-widget="kpis"] .kpi')].forEach((node,index)=>{
     node.hidden=kpiHidden.has(["Reported tokens","Fresh input","Generated output","API-equivalent cost"][index]);
   });
   $("trend-period").textContent = state.section.toUpperCase();
   $("chart-heading").textContent = (state.metric === "totalCost" ? "Estimated cost" : "Token consumption") + " over time";
-  document.querySelectorAll(".period").forEach((button) => {
+  document.querySelectorAll<HTMLElement>(".period").forEach((button) => {
     const active = button.dataset.period === state.section;
     button.classList.toggle("active", active); button.setAttribute("aria-pressed", String(active));
   });
@@ -362,7 +362,7 @@ function render() {
   drawLineChart(chart, state.metric);
   const notes = [];
   if (state.section === "hourly") notes.push("Hourly is observed deltas between dashboard refreshes (UTC hour), not exact event-time usage. Starts only after two changed readings; gaps reflect missing observation periods. Price refreshes can alter observed cost deltas.");
-  if (chart.isModelCategorySum || state.model !== "all" && state.metric === "totalTokens") notes.push("Per-model totals sum token categories and may differ from upstream reported totals.");
+  if (("isModelCategorySum" in chart && chart.isModelCategorySum) || state.model !== "all" && state.metric === "totalTokens") notes.push("Per-model totals sum token categories and may differ from upstream reported totals.");
   if (chart.series.length > dashboardConfig.widgetSettings.trend.maxSeries) notes.push("Chart draws the top " + dashboardConfig.widgetSettings.trend.maxSeries + " series; increase the series limit or filter the view.");
   if (dashboardConfig.widgetSettings.trend.showLabels && chart.points.length > 12) notes.push("Value labels are sampled to avoid collisions; point tooltips retain every value.");
   if (state.metric === "totalCost") notes.push("API-equivalent estimated cost, not subscription billing. Unknown model prices can understate totals.");
@@ -420,7 +420,7 @@ async function load() {
     notice.textContent = (error instanceof Error ? error.message : "Failed to load report") + " Inspect the dashboard server terminal.";
   } finally { button.disabled = false; button.textContent = "↻  Refresh data"; }
 }
-document.querySelectorAll(".period").forEach((button) => button.addEventListener("click", () => {
+document.querySelectorAll<HTMLElement>(".period").forEach((button) => button.addEventListener("click", () => {
   state.section = button.dataset.period; persistFilters(); render();
 }));
 $("agent").addEventListener("change", () => { state.agent = $("agent").value; updateSelectors(); persistFilters(); render(); });
@@ -586,7 +586,7 @@ function beginLayoutEdit(){
   if(arranging)return;
   layoutDraft={widths:{...dashboardConfig.layout.widths},
     positions:Object.fromEntries(Object.entries(dashboardConfig.layout.positions)
-      .map(([id,r])=>[id,{...r}]))};
+      .map(([id,r])=>[id,{...(r as object)}]))};
   arranging=true;
   refreshArrangeTools();
 }
