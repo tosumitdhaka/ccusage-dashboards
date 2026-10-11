@@ -6,11 +6,11 @@ export function validateLayout(layout,registered=Object.keys(DEFAULT_WIDTHS)){
   if(Object.keys(layout??{}).some(k=>k!=="widths"))throw Error("Unknown dashboard layout setting.");
   if(layout?.widths!==undefined&&!record(layout.widths))throw Error("Invalid widget widths.");
   const known=new Set(registered);
-  if(Object.keys(layout?.widths??{}).some(k=>!known.has(k)||!Object.hasOwn(DEFAULT_WIDTHS,k)))
+  if(Object.keys(layout?.widths??{}).some(k=>!known.has(k)))
     throw Error("Unknown layout widget.");
   const widths={};
   for(const id of registered){
-    const value=layout?.widths?.[id]??DEFAULT_WIDTHS[id];
+    const value=layout?.widths?.[id]??DEFAULT_WIDTHS[id]??"half";
     if(!["half","full"].includes(value))throw Error("Invalid widget width.");
     if(id==="kpis"&&value!=="full")throw Error("Summary must stay full width.");
     widths[id]=value;

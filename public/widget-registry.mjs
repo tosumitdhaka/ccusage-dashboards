@@ -32,9 +32,10 @@ export const DEFAULT_DASHBOARD = Object.freeze({
     providers: { metric: "totalTokens", limit: 12 },
     models: { metric: "totalTokens", limit: 12 }
   },
-  layout: { widths: { kpis:"full", trend:"full", providers:"half", models:"half", cache:"half", guidance:"half", sessions:"full" } }
+  layout: { widths: { kpis:"full", trend:"full", providers:"half", models:"half", cache:"half", guidance:"half", sessions:"full" } },
+  charts: []
 });
-const FIELDS = new Set(["schemaVersion", "id", "title", "widgets", "filters", "widgetSettings", "layout"]);
+const FIELDS = new Set(["schemaVersion", "id", "title", "widgets", "filters", "widgetSettings", "layout", "charts"]);
 const GRAPH_FIELDS = Object.freeze({
   trend: new Set(["showLabels", "maxSeries"]),
   providers: new Set(["metric", "limit"]),
@@ -74,6 +75,27 @@ function sourceName(name, value) {
   }
   return value;
 }
+
+const CHART_FIELDS=new Set(["id","title","visual","metric","breakdown","period"]);
+export function validateCustomCharts(charts){
+  if(charts===undefined)return [];
+  if(!Array.isArray(charts)||charts.length>4)throw Error("Maximum four custom graphs.");
+  const ids=new Set();
+  return charts.map(chart=>{
+    if(!isRecord(chart)||Object.keys(chart).some(k=>!CHART_FIELDS.has(k)))throw Error("Invalid custom graph definition.");
+    if(typeof chart.id!=="string"||!/^custom-[a-z0-9-]{1,24}$/.test(chart.id)||ids.has(chart.id))
+      throw Error("Invalid or duplicate graph ID.");
+    ids.add(chart.id);
+    if(typeof chart.title!=="string"||!chart.title.trim()||chart.title.length>80||
+      /[\u0000-\u001f\u007f]/.test(chart.title))throw Error("Invalid graph title.");
+    if(!["line","bars"].includes(chart.visual))throw Error("Unknown graph visualization.");
+    if(!Object.hasOwn(METRIC_NAMES,chart.metric))throw Error("Unknown graph metric.");
+    if(!["daily","weekly","monthly"].includes(chart.period))throw Error("Invalid graph period.");
+    if(!["total","provider","model"].includes(chart.breakdown))throw Error("Invalid graph breakdown.");
+    return {id:chart.id,title:chart.title,visual:chart.visual,metric:chart.metric,
+      period:chart.period,breakdown:chart.breakdown};
+  });
+}
 export function validateDashboardConfig(config) {
   if (!isRecord(config)) throw new Error("Dashboard definition must be an object.");
   if (Object.keys(config).some((key) => !FIELDS.has(key))) throw new Error("Unsupported dashboard field.");
@@ -82,9 +104,11 @@ export function validateDashboardConfig(config) {
   const title = config.title === undefined ? config.id : config.title;
   if (typeof title !== "string" || !title.trim() || title.length > 80 ||
       /[\u0000-\u001f\u007f]/.test(title)) throw new Error("Invalid dashboard title.");
+  const charts=validateCustomCharts(config.charts);
+  const known=[...Object.keys(WIDGET_REGISTRY),...charts.map(chart=>chart.id)];
   if (!Array.isArray(config.widgets) || !config.widgets.length ||
-      config.widgets.length > Object.keys(WIDGET_REGISTRY).length) throw new Error("Dashboard needs registered widgets.");
-  if (config.widgets.some((w) => typeof w !== "string" || !Object.hasOwn(WIDGET_REGISTRY, w))) {
+      config.widgets.length > known.length) throw new Error("Dashboard needs registered widgets.");
+  if (config.widgets.some(w=>typeof w!=="string"||!known.includes(w))) {
     throw new Error("Unknown widget type.");
   }
   if (new Set(config.widgets).size !== config.widgets.length) throw new Error("Duplicate widget IDs unsupported in schema v1.");
@@ -100,6 +124,6 @@ export function validateDashboardConfig(config) {
   return {
     schemaVersion: SCHEMA_VERSION, id: config.id, title,
     widgets: [...config.widgets], filters, widgetSettings: validateWidgetSettings(config.widgetSettings),
-    layout: validateLayout(config.layout,Object.keys(WIDGET_REGISTRY))
+    layout: validateLayout(config.layout,known), charts
   };
 }
