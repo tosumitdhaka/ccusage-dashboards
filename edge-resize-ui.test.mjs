@@ -25,12 +25,15 @@ test("live resize previews peers and saves only to draft on pointerup",async()=>
  const js=await readFile(new URL("./src/client/dashboard.ts",import.meta.url),"utf8");
  const block=js.slice(js.indexOf("function beginEdgeResize("),js.indexOf("function beginPanelDrag("));
  assert.ok(block.includes("reflowGridAfterResize("));
- assert.ok(block.includes("scheduleLayoutPreview(positions)"));
+ assert.ok(block.includes("createPointerFrame(update)"));
+ assert.ok(block.includes("pointer.finish(e);cleanup(e)"));
+ assert.ok(block.includes("applyGridPreview(positions)"));
  assert.ok(block.includes('edge.addEventListener("pointerup",finish)'));
  assert.ok(block.includes('saveGridPosition(id,next)'));
  assert.ok(!block.includes("render();"));
  assert.ok(js.includes("surface.setPointerCapture(event.pointerId)"));
  assert.ok(js.includes("layoutDraft={...layoutDraft,widths,positions}"));
+ assert.ok(js.includes("if(type===\"resize\"&&state.report"));
  assert.ok(js.includes('closeLayoutEdit(false)'));
  assert.ok(js.includes('closeLayoutEdit(true)'));
 });

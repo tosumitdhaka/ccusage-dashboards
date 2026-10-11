@@ -462,7 +462,7 @@ button:focus-visible,input:focus-visible,.import-button:focus-within{outline:2px
 .dashboard-grid>[data-widget]:not([data-widget="kpis"])>.section-header{flex:0 0 auto}
 .dashboard-grid>[data-widget]>.widget-scroll-body{
   flex:1 1 auto;min-height:0;min-width:0;overflow-y:auto;overflow-x:hidden;
-  overscroll-behavior:contain;scrollbar-gutter:stable}
+  overscroll-behavior-y:auto;scrollbar-gutter:stable}
 .dashboard-grid .widget-scroll-body .bars{max-height:none;overflow:visible}
 .dashboard-grid .widget-scroll-body .table-wrap{overflow-x:auto;overflow-y:hidden}
 @media(max-width:1100px){
@@ -475,6 +475,7 @@ button:focus-visible,input:focus-visible,.import-button:focus-within{outline:2px
 .dashboard-grid>[data-widget] .chart-header-controls{
   opacity:0;pointer-events:none;
   transition:opacity 130ms ease
+}
 .dashboard-grid>[data-widget]:hover .viz-menu-trigger,
 .dashboard-grid>[data-widget]:focus-within .viz-menu-trigger,
 .dashboard-grid>[data-widget] .viz-menu-trigger[aria-expanded="true"],
@@ -497,3 +498,12 @@ button:focus-visible,input:focus-visible,.import-button:focus-within{outline:2px
 
 /* Only enable the layout editor when the twelve-column snap grid is active. */
 @media(max-width:1100px){.top-actions #layout-edit:disabled{cursor:not-allowed;opacity:.56}}
+
+/* Let the document receive wheel input over plotted graphs. Inner scroll is
+ * retained only for genuinely long lists/tables, with native boundary chaining. */
+.dashboard-grid>[data-widget="trend"]>.widget-scroll-body,
+.dashboard-grid>.custom-chart-card[data-chart-visual="line"]>.widget-scroll-body{
+  overflow-y:hidden;overscroll-behavior-y:auto}
+.dashboard-grid .widget-scroll-body,
+.dashboard-grid .widget-scroll-body .table-wrap{
+  overscroll-behavior-y:auto}
