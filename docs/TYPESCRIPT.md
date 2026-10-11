@@ -6,14 +6,18 @@ The dashboard's browser-side code is being migrated incrementally. Public
 is only a development dependency; installing the published package does not
 require the TypeScript compiler, Vite or React.
 
-## Migrated modules (stage 1)
+## Migrated modules (first two stages)
 - `src/client/dashboard-layout.mts` compiles to `public/dashboard-layout.mjs`.
 - `src/client/chart-presentation.mts` compiles to `public/chart-presentation.mjs`.
+- `src/client/widget-registry.mts` compiles to `public/widget-registry.mjs`.
+- `src/client/dashboard-config.mts` compiles to `public/dashboard-config.mjs`.
 
-Both modules are checked under TypeScript strict mode. The other existing
+All four modules are checked under TypeScript strict mode. The other existing
 `public` JavaScript modules retain their interfaces until migrated in
 subsequent reviewed commits. Generated browser modules are kept in Git so
-running the repository does not require an initial build.
+running the repository does not require an initial build. `npm pack`
+and `npm publish` regenerate the modules via `prepack` to keep the
+shipped package current with its TypeScript sources.
 
 ## Development
 ```sh
@@ -35,6 +39,6 @@ and official ccusage CLI integration.
 - No change to the served URLs, CSP, or browser JavaScript import paths.
 - No change to npm package binary entry point or runtime dependencies.
 - Preserve offline, localhost-only, read-only processing.
-- Migrate normalization, analytics, registry/configuration, dashboard
-  controller, and optionally Node backend in separately reviewed steps.
+- Next: migrate normalization, analytics, dashboard controller,
+  and optionally Node backend in separately reviewed steps.
 - Browser-based interaction acceptance is still required before a release.
