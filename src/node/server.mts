@@ -42,7 +42,7 @@ export function createDashboardServer({ collect = collectLive, cacheMs = 45_000,
       pending = Promise.resolve().then(collect).then(async (data) => {
         if (!data || !Array.isArray(data.daily)) throw new Error("Invalid ccusage report.");
         // Recording is best-effort: a storage issue must not hide live data.
-        try { await history.append(data); } catch (e) { console.error("[dashboard] Failed to save observation:", e.message); }
+        try { await history.append(data); } catch (e) { console.error("[dashboard] Failed to save observation:", e instanceof Error ? e.message : String(e)); }
         latest = data;
         loadedAt = Date.now();
         return data;

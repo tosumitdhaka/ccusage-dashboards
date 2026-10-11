@@ -36,7 +36,7 @@ export function collectUsage({ exec = execFile, env = process.env, args = report
       cwd, shell: false, windowsHide: true,
       timeout: 120_000, maxBuffer: 32 * 1024 * 1024,
       env: { ...env, LOG_LEVEL: "0" }
-    }, (error, stdout, stderr) => {
+    }, (error: Error|null, stdout: string, stderr: string) => {
       if (error) {
         console.error("[dashboard] Official ccusage CLI failed:", stderr?.trim() || error.message);
         reject(new Error("ccusage could not produce a report. Check the terminal and verify npm dependencies."));

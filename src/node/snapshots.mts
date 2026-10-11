@@ -33,7 +33,7 @@ export function observation(report: Record<string,any>, at: string = new Date().
     day: row.day,
     row: {
       ...pick(row), agent: row.agent || "all",
-      agents: Array.isArray(row.agents) ? row.agents.filter((a) => typeof a?.agent === "string").map((a) => ({ agent: a.agent, ...pick(a) })) : []
+      agents: Array.isArray(row.agents) ? row.agents.filter((a: any) => typeof a?.agent === "string").map((a: any) => ({ agent: a.agent, ...pick(a) })) : []
     }
   };
 }
@@ -47,7 +47,7 @@ export function createSnapshotStore({ file = join(homedir(), ".ccusage-dashboard
       const parsed = JSON.parse(await readFile(file, "utf8"));
       cache = Array.isArray(parsed) ? parsed.filter((r) => typeof r?.timestamp === "string" && r.row) : [];
     } catch (error) {
-      if (error?.code !== "ENOENT") throw error;
+      if ((error as NodeJS.ErrnoException)?.code !== "ENOENT") throw error;
       cache = [];
     }
     return cache;
