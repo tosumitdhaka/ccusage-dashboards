@@ -4,7 +4,7 @@ import { METRIC_NAMES, DEFAULT_DASHBOARD, WIDGET_REGISTRY, validateDashboardConf
 import { MAX_DASHBOARD_JSON_LENGTH, readDashboardConfig, saveDashboardConfig, resetDashboardConfig, parseDashboardJSON, stringifyDashboardConfig } from "./dashboard-config.mjs";
 import { buildChart, buildObservedHourly, buildSessions, chartCatalog } from "./analytics.mjs";
 import { colorForDimension, labelPointIndices } from "./chart-presentation.mjs";
-import { GRID_COLUMNS, relocateGridWidget, snapToGrid, cacheRowsForWidth, visibleGridOrder, compactVisibleLayout, reflowGridAfterResize } from "./dashboard-layout.mjs";
+import { GRID_COLUMNS, relocateGridWidget, cacheRowsForWidth, visibleGridOrder, compactVisibleLayout, reflowGridAfterResize } from "./dashboard-layout.mjs";
 const $ = (id) => document.getElementById(id);
 const state = { report: null, hourly: [], section: "daily", agent: "all", model: "all",
     breakdown: "total", metric: "totalTokens", sessionMetric: "totalTokens" };
@@ -707,7 +707,7 @@ function closeLayoutEdit(save) {
     if (movementFrame)
         cancelAnimationFrame(movementFrame);
     movementFrame = 0;
-    $("grid-drop-preview").hidden = true;
+    hideFloatingGridTarget();
     const result = layoutDraft;
     layoutDraft = null;
     arranging = false;
@@ -821,6 +821,24 @@ function createPointerFrame(update) {
         }
     };
 }
+// A floating preview does not participate in CSS grid placement, so neither
+// scroll anchoring nor peer relayout can amplify a pointer gesture.
+function showFloatingGridTarget(rect, stepX, valid = true) {
+    const preview = $("grid-drop-preview");
+    const sizeX = Math.max(12, rect.w * stepX - 8);
+    const sizeY = Math.max(16, rect.h * 32 - 8);
+    preview.hidden = false;
+    preview.classList.toggle("layout-invalid-target", !valid);
+    preview.style.width = sizeX + "px";
+    preview.style.height = sizeY + "px";
+    preview.style.transform = "translate3d(" + (rect.x * stepX) + "px," + (rect.y * 32) + "px,0)";
+}
+function hideFloatingGridTarget() {
+    const preview = $("grid-drop-preview");
+    preview.hidden = true;
+    preview.style.transform = "";
+    preview.classList.remove("layout-invalid-target");
+}
 function beginEdgeResize(event, edge, panel, id, direction) {
     if (!arranging || event.button !== 0 || getComputedStyle($("dashboard-grid")).display !== "grid")
         return;
@@ -829,22 +847,17 @@ function beginEdgeResize(event, edge, panel, id, direction) {
     const before = currentPosition(id);
     if (!before)
         return;
-    const original = activeLayout().positions;
-    const columnStep = ($("dashboard-grid").getBoundingClientRect().width + 8) / GRID_COLUMNS;
+    const stepX = ($("dashboard-grid").getBoundingClientRect().width + 8) / GRID_COLUMNS;
     const x0 = event.clientX, y0 = event.clientY;
     let next = { ...before };
     panel.classList.add("layout-resizing");
     edge.setPointerCapture(event.pointerId);
     const update = (x, y) => {
-        const candidate = resizeGridRectangle(before, id, direction, Math.round((x - x0) / columnStep), Math.round((y - y0) / 32), columnStep);
+        const candidate = resizeGridRectangle(before, id, direction, Math.round((x - x0) / stepX), Math.round((y - y0) / 32), stepX);
         if (["x", "y", "w", "h"].every(k => candidate[k] === next[k]))
             return;
-        try {
-            const positions = reflowGridAfterResize(original, id, candidate, dashboardConfig.widgets);
-            next = candidate;
-            applyGridPreview(positions);
-        }
-        catch { /* Preserve last valid position when the grid has no room. */ }
+        next = candidate;
+        showFloatingGridTarget(next, stepX);
     };
     const pointer = createPointerFrame(update);
     const move = (e) => {
@@ -859,22 +872,26 @@ function beginEdgeResize(event, edge, panel, id, direction) {
         if (edge.hasPointerCapture(e.pointerId))
             edge.releasePointerCapture(e.pointerId);
         panel.classList.remove("layout-resizing");
+        hideFloatingGridTarget();
     };
     const finish = (e) => {
         if (e.pointerId !== event.pointerId)
             return;
         pointer.finish(e);
         cleanup(e);
-        if (["x", "y", "w", "h"].some(k => before[k] !== next[k]))
-            saveGridPosition(id, next);
-        else
-            applyGridPreview(original);
+        if (["x", "y", "w", "h"].some(k => before[k] !== next[k])) {
+            try {
+                saveGridPosition(id, next);
+            }
+            catch {
+                applyGridPreview(activeLayout().positions);
+            }
+        }
     };
     const cancel = (e) => {
         if (e.pointerId !== event.pointerId)
             return;
         cleanup(e);
-        applyGridPreview(original);
     };
     edge.addEventListener("pointermove", move);
     edge.addEventListener("pointerup", finish);
@@ -888,30 +905,26 @@ function beginPanelDrag(event, surface, panel, id) {
     if (!start)
         return;
     event.preventDefault();
-    const grid = $("dashboard-grid"), bounds = panel.getBoundingClientRect();
-    const gridBounds = grid.getBoundingClientRect();
-    const offset = { x: event.clientX - bounds.left, y: event.clientY - bounds.top };
-    const original = activeLayout().positions, x0 = event.clientX, y0 = event.clientY;
-    const ghost = $("grid-drop-preview");
+    const stepX = ($("dashboard-grid").getBoundingClientRect().width + 8) / GRID_COLUMNS;
+    const x0 = event.clientX, y0 = event.clientY;
     let next = { ...start }, moved = false;
     surface.setPointerCapture(event.pointerId);
     const update = (x, y) => {
-        if (!moved && Math.hypot(x - x0, y - y0) < 5)
+        const dx = x - x0, dy = y - y0;
+        if (!moved && Math.hypot(dx, dy) < 5)
             return;
         moved = true;
-        const candidate = snapToGrid(x - offset.x, y - offset.y, gridBounds, start.w, start.h);
-        if (["x", "y", "w", "h"].every(k => candidate[k] === next[k]))
+        // One cell of pointer travel changes one grid cell. This remains stable
+        // even when the dragged item was previously moved by the user.
+        const candidate = { ...start,
+            x: Math.max(0, Math.min(GRID_COLUMNS - start.w, start.x + Math.round(dx / stepX))),
+            y: Math.max(0, Math.min(999 - start.h, start.y + Math.round(dy / 32))) };
+        panel.classList.add("layout-drag-source");
+        panel.style.transform = "translate3d(" + dx + "px," + dy + "px,0)";
+        if (candidate.x === next.x && candidate.y === next.y)
             return;
-        try {
-            const positions = relocateGridWidget(original, id, candidate, dashboardConfig.widgets);
-            next = candidate;
-            panel.classList.add("layout-drag-source");
-            ghost.hidden = false;
-            ghost.style.gridColumn = (next.x + 1) + " / span " + next.w;
-            ghost.style.gridRow = (next.y + 1) + " / span " + next.h;
-            applyGridPreview(positions);
-        }
-        catch { /* Keep last valid placement on collisions or grid overflow. */ }
+        next = candidate;
+        showFloatingGridTarget(next, stepX);
     };
     const pointer = createPointerFrame(update);
     const move = (e) => {
@@ -925,24 +938,28 @@ function beginPanelDrag(event, surface, panel, id) {
         surface.removeEventListener("pointercancel", cancel);
         if (surface.hasPointerCapture(e.pointerId))
             surface.releasePointerCapture(e.pointerId);
-        ghost.hidden = true;
+        panel.style.transform = "";
         panel.classList.remove("layout-drag-source");
+        hideFloatingGridTarget();
     };
     const finish = (e) => {
         if (e.pointerId !== event.pointerId)
             return;
         pointer.finish(e);
+        if (next.x !== start.x || next.y !== start.y) {
+            try {
+                saveGridPosition(id, next, "drag");
+            }
+            catch {
+                applyGridPreview(activeLayout().positions);
+            }
+        }
         cleanup(e);
-        if (["x", "y"].some(k => start[k] !== next[k]))
-            saveGridPosition(id, next, "drag");
-        else
-            applyGridPreview(original);
     };
     const cancel = (e) => {
         if (e.pointerId !== event.pointerId)
             return;
         cleanup(e);
-        applyGridPreview(original);
     };
     surface.addEventListener("pointermove", move);
     surface.addEventListener("pointerup", finish);
@@ -962,6 +979,20 @@ function installLayoutEditor() {
     $("layout-edit").addEventListener("click", beginLayoutEdit);
     $("layout-save").addEventListener("click", () => closeLayoutEdit(true));
     $("layout-cancel").addEventListener("click", () => closeLayoutEdit(false));
+    // Explicit wheel routing: graph content may remain an independent scroll
+    // container for keyboard/scrollbar access, but wheel/trackpad input always
+    // moves the document instead of appearing to freeze over a visualization.
+    grid.addEventListener("wheel", (event) => {
+        if (!event.cancelable || event.ctrlKey || event.metaKey || event.shiftKey || event.deltaY === 0)
+            return;
+        const target = event.target;
+        if (!(target instanceof Element) || !target.closest(".widget-scroll-body") ||
+            target.closest("select,input,textarea,[role=dialog],.viz-popover-menu"))
+            return;
+        event.preventDefault();
+        const scale = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? window.innerHeight : 1;
+        window.scrollBy({ top: event.deltaY * scale, behavior: "instant" });
+    }, { passive: false });
     refreshArrangeTools();
 }
 installLayoutEditor();
