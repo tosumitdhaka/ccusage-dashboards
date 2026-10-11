@@ -164,7 +164,8 @@ button:focus-visible,input:focus-visible,.import-button:focus-within{outline:2px
 /* Keep remaining panels full-width and controls usable at mobile widths. */
 .panel-grid:has(> [data-widget][hidden]){grid-template-columns:minmax(0,1fr)}
 .breadcrumb strong{display:inline-block;max-width:min(30vw,300px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}
-@media(max-width:740px){.topbar{height:auto;min-height:73px;flex-wrap:wrap;padding-block:12px}.top-actions{width:100%;justify-content:flex-end}}
+@media(max-width:740px){.topbar{height:auto;min-height:73px;flex-wrap:wrap;padding-block:12px}.top-actions{width:100%;justify-content:flex-start;flex-wrap:wrap;gap:8px}.top-actions>.refresh{flex:1 1 auto;min-width:0}}
+@media(max-width:440px){.top-actions>.refresh{flex:1 1 calc(50% - 8px);max-width:calc(50% - 4px);padding-inline:7px}}
 
 /* Sidebar stays navigable while the active section follows page scrolling. */
 .sidebar{overflow-y:auto;scrollbar-width:thin}
@@ -382,7 +383,7 @@ button:focus-visible,input:focus-visible,.import-button:focus-within{outline:2px
 
 /* A two-row KPI layout cannot fit safely into the default desktop row span.
    At compact laptop/tablet widths, switch to natural-height stacked widgets. */
-@media (min-width:741px) and (max-width:1050px){
+@media (min-width:741px) and (max-width:1100px){
   .dashboard-grid{display:flex;flex-direction:column;gap:14px}
   .dashboard-grid>[data-widget]{width:100%;height:auto;min-height:0;overflow:visible;
     grid-column:auto!important;grid-row:auto!important}
@@ -429,14 +430,16 @@ button:focus-visible,input:focus-visible,.import-button:focus-within{outline:2px
   transition:transform 75ms ease-out,width 75ms ease-out,height 75ms ease-out}
 .dashboard-grid>.grid-resize-preview[hidden]{display:none!important}
 /* One scroller: the model bar list, not a nested card + list pair. */
-.dashboard-grid>[data-widget="models"]{display:flex;flex-direction:column;overflow:hidden}
-.dashboard-grid>[data-widget="models"]>.section-header{flex:0 0 auto}
-.dashboard-grid>[data-widget="models"]>#model-bars{flex:1 1 auto;min-height:0;
-  max-height:none;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain}
-@media(max-width:1050px){
-  .dashboard-grid>[data-widget="models"]{overflow:visible;height:auto}
-  .dashboard-grid>[data-widget="models"]>#model-bars{flex:none;max-height:380px}
+.dashboard-grid>[data-widget="models"],.dashboard-grid>[data-widget="providers"]{display:flex;flex-direction:column;overflow:hidden}
+.dashboard-grid>[data-widget="models"]>.section-header,.dashboard-grid>[data-widget="providers"]>.section-header{flex:0 0 auto}
+.dashboard-grid>[data-widget="models"]>#model-bars,.dashboard-grid>[data-widget="providers"]>#provider-bars{
+  flex:1 1 auto;min-height:0;max-height:none;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain}
+@media(max-width:1100px){
+  .dashboard-grid>[data-widget="models"],.dashboard-grid>[data-widget="providers"]{overflow:visible;height:auto}
+  .dashboard-grid>[data-widget="models"]>#model-bars,.dashboard-grid>[data-widget="providers"]>#provider-bars{flex:none;max-height:380px}
 }
+.layout-compact-hint{max-width:280px;font-size:11px;line-height:1.4;color:#9eb4c6}
+.layout-compact-hint[hidden]{display:none!important}
 @media(pointer:coarse){
   .dashboard-grid .edge-n,.dashboard-grid .edge-s{height:14px}
   .dashboard-grid .edge-e,.dashboard-grid .edge-w{width:14px}

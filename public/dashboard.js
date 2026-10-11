@@ -6,7 +6,7 @@ import {
 } from "./dashboard-config.mjs";
 import { buildChart, buildObservedHourly, buildSessions, chartCatalog } from "./analytics.mjs";
 import { colorForDimension, labelPointIndices } from "./chart-presentation.mjs";
-import { GRID_COLUMNS, relocateGridWidget, snapToGrid, cacheRowsForWidth } from "./dashboard-layout.mjs";
+import { GRID_COLUMNS, relocateGridWidget, snapToGrid, cacheRowsForWidth, visibleGridOrder, moveWidgetByVisualOrder, compactVisibleLayout } from "./dashboard-layout.mjs";
 
 const $ = (id) => document.getElementById(id);
 const state = { report: null, hourly: [], section: "daily", agent: "all", model: "all",
@@ -84,9 +84,11 @@ function showWidgetSelection() {
   syncCustomChartNodes();
   const enabled=new Set(dashboardConfig.widgets);
   const grid=$("dashboard-grid");
+  const ordered=visibleGridOrder(dashboardConfig.layout.positions,Object.keys(dashboardConfig.layout.positions));
   for(const panel of grid.querySelectorAll("[data-widget]")){
     const id=panel.dataset.widget;
     panel.hidden=!enabled.has(id);
+    panel.style.order=String(ordered.indexOf(id));
     const rect=dashboardConfig.layout.positions[id];
     if(!rect)continue;
     panel.style.gridColumn=(rect.x+1)+" / span "+rect.w;
@@ -452,11 +454,13 @@ $("customize-form").addEventListener("submit", (event) => {
   event.preventDefault();
   try {
     const checked = new Set([...$("widget-options").querySelectorAll("input:checked")].map(input=>input.value));
-    // Changing visibility must not reset the user's arranged widget positions.
     const widgets = [...dashboardConfig.widgets.filter(id=>checked.has(id)),
       ...[...checked].filter(id=>!dashboardConfig.widgets.includes(id))];
     const title = $("dashboard-title").value.trim();
-    persistDashboardConfig(configWithCurrentFilters({ ...dashboardConfig, title, widgets }));
+    const sameVisibility=widgets.length===dashboardConfig.widgets.length&&
+      widgets.every(id=>dashboardConfig.widgets.includes(id));
+    const layout=sameVisibility?dashboardConfig.layout:layoutAfterVisibilityChange(widgets);
+    persistDashboardConfig(configWithCurrentFilters({ ...dashboardConfig, title, widgets, layout }));
     $("customize-dialog").close();
     if (state.report) render();
   } catch (error) {
@@ -506,6 +510,7 @@ $("refresh").addEventListener("click", load);
 // the plot when the browser resizes rather than stretching the old coordinates.
 let resizeFrame = 0;
 window.addEventListener("resize", () => {
+  refreshArrangeTools();
   if (!state.report) return;
   if (resizeFrame) cancelAnimationFrame(resizeFrame);
   resizeFrame = requestAnimationFrame(() => { resizeFrame = 0; render(); updateActiveNavigation(); });
@@ -520,8 +525,19 @@ let activeDragId=null;
 let dragPointerOffset={x:0,y:0};
 const interactiveHeaderTarget=target=>target.closest("button,select,input,label,a,summary,.viz-menu-trigger,.viz-popover-menu");
 function currentPosition(id){return dashboardConfig.layout.positions[id];}
+function layoutAfterVisibilityChange(widgets){
+  const positions=compactVisibleLayout(dashboardConfig.layout.positions,widgets,
+    $("dashboard-grid").getBoundingClientRect().width);
+  const widths={...dashboardConfig.layout.widths};
+  if(positions.cache?.w===12)widths.cache="full";
+  return {...dashboardConfig.layout,widths,positions};
+}
 function refreshArrangeTools(){
   const grid=$("dashboard-grid");
+  const gridMode=getComputedStyle(grid).display==="grid";
+  $("layout-help").hidden=!arranging||gridMode;
+  $("layout-edit").title=gridMode?"Unlock to drag and resize widgets.":
+    "Stacked view supports arrow reordering; drag and resize are available on wider screens.";
   grid.classList.toggle("is-arranging",arranging);
   $("layout-edit").textContent=arranging?"🔓 Layout Unlocked":"🔒 Layout Locked";
   $("layout-edit").setAttribute("aria-pressed",String(arranging));
@@ -531,32 +547,28 @@ function refreshArrangeTools(){
     if(!tools)continue;
     tools.hidden=!arranging||panel.hidden;
     const header=panel.querySelector(":scope > .section-header");
-    if(header)header.draggable=arranging;
+    if(header)header.draggable=arranging&&gridMode;
     for(const edge of panel.querySelectorAll(".layout-resize-edge")){
-      edge.hidden=!arranging||panel.hidden;
-      edge.tabIndex=arranging&&!panel.hidden?0:-1;
+      edge.hidden=!arranging||!gridMode||panel.hidden;
+      edge.tabIndex=arranging&&gridMode&&!panel.hidden?0:-1;
     }
   }
 }
 function saveGridPosition(id,rect){
   const viewport=window.scrollY;
   const positions=relocateGridWidget(dashboardConfig.layout.positions,id,rect,dashboardConfig.widgets);
-  persistDashboardConfig({...dashboardConfig,layout:{...dashboardConfig.layout,positions}});
+  const widgets=visibleGridOrder(positions,dashboardConfig.widgets);
+  persistDashboardConfig({...dashboardConfig,widgets,layout:{...dashboardConfig.layout,positions}});
   refreshArrangeTools();
   if(state.report)render();
   requestAnimationFrame(()=>window.scrollTo({top:viewport,behavior:"instant"}));
 }
 function swapGridNeighbors(id,direction){
   const viewport=window.scrollY;
-  const order=dashboardConfig.widgets;
-  const index=order.indexOf(id),other=order[index+direction];
-  if(index<0||!other)return;
-  const left=currentPosition(id),right=currentPosition(other);
-  let positions={...dashboardConfig.layout.positions};
-  // When sizes differ, swap locations then displace any collisions predictably.
-  positions=relocateGridWidget(positions,id,{...left,x:Math.min(right.x,GRID_COLUMNS-left.w),y:right.y},order);
-  const reordered=[...order];[reordered[index],reordered[index+direction]]=[reordered[index+direction],reordered[index]];
-  persistDashboardConfig({...dashboardConfig,widgets:reordered,layout:{...dashboardConfig.layout,positions}});
+  const positions=moveWidgetByVisualOrder(dashboardConfig.layout.positions,dashboardConfig.widgets,id,direction);
+  if(!positions)return;
+  const widgets=visibleGridOrder(positions,dashboardConfig.widgets);
+  persistDashboardConfig({...dashboardConfig,widgets,layout:{...dashboardConfig.layout,positions}});
   if(state.report)render();
   requestAnimationFrame(()=>window.scrollTo({top:viewport,behavior:"instant"}));
 }
@@ -941,7 +953,7 @@ function hideWidget(id){
   const previousScroll=window.scrollY;
   const next=dashboardConfig.widgets.filter(value=>value!==id);
   if(!next.length){$("visual-editor-status").textContent="Keep at least one visible widget.";return;}
-  persistDashboardConfig({...dashboardConfig,widgets:next});
+  persistDashboardConfig({...dashboardConfig,widgets:next,layout:layoutAfterVisibilityChange(next)});
   if(state.report)render();
   if($("visual-editor").open)$("visual-editor").close();
   refreshArrangeTools();
@@ -953,7 +965,8 @@ function deleteCustomChart(id){
   if(!widgets.length)widgets.push("kpis");
   const widths={...dashboardConfig.layout.widths},positions={...dashboardConfig.layout.positions};
   delete widths[id];delete positions[id];customHiddenSeries.delete(id);
-  persistDashboardConfig({...dashboardConfig,charts,widgets,layout:{widths,positions}});
+  const packed=compactVisibleLayout(positions,widgets,$("dashboard-grid").getBoundingClientRect().width);
+  persistDashboardConfig({...dashboardConfig,charts,widgets,layout:{widths,positions:packed}});
   if(state.report)render();
   refreshArrangeTools();
 }

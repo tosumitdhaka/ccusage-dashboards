@@ -102,3 +102,44 @@ export function cacheRowsForWidth(newWidthPx,oldWidthPx,rows){
   if(oldWidthPx>=680&&newWidthPx<680&&rows===6)return 9;
   return rows; // preserve manually customized heights
 }
+
+/** Return the visible order from snapped positions, independent of document order. */
+export function visibleGridOrder(positions,visible){
+  if(!record(positions)||!Array.isArray(visible))throw Error("Invalid visual grid order.");
+  return visible.filter(id=>Object.hasOwn(positions,id))
+    .sort((a,b)=>positions[a].y-positions[b].y||positions[a].x-positions[b].x||a.localeCompare(b));
+}
+/** Insert one widget immediately before/after its actual visual neighbor. */
+export function moveWidgetByVisualOrder(positions,visible,id,direction){
+  if(![-1,1].includes(direction))throw Error("Invalid grid movement.");
+  const order=visibleGridOrder(positions,visible);
+  const i=order.indexOf(id),neighbor=order[i+direction];
+  if(i<0||!neighbor)return null;
+  const moving=direction<0?id:neighbor;
+  const destination=positions[direction<0?neighbor:id];
+  const rect=positions[moving];
+  return relocateGridWidget(positions,moving,
+    {...rect,x:Math.min(destination.x,GRID_COLUMNS-rect.w),y:destination.y},order);
+}
+/** Fill holes only when visibility changes; hidden panels no longer reserve grid cells. */
+export function compactVisibleLayout(positions,visible,containerWidth=0){
+  if(!record(positions)||!Array.isArray(visible)||new Set(visible).size!==visible.length||
+    visible.some(id=>!Object.hasOwn(positions,id)))throw Error("Invalid visibility layout.");
+  const all=Object.keys(positions),enabled=new Set(visible);
+  const order=[...visibleGridOrder(positions,visible),
+    ...visibleGridOrder(positions,all.filter(id=>!enabled.has(id)))];
+  const placed={};
+  for(const id of order){
+    const before=validRect(positions[id],id);
+    let {w,h}=before;
+    if(id==="cache"&&!enabled.has("guidance")&&positions.guidance&&
+       before.w===6&&positions.guidance.y===before.y&&
+       Number.isFinite(containerWidth)&&containerWidth>0){
+      const step=(containerWidth+8)/GRID_COLUMNS;
+      h=cacheRowsForWidth(step*12-8,step*6-8,h);
+      w=12;
+    }
+    placed[id]=firstFree(placed,w,h,0);
+  }
+  return Object.fromEntries(all.map(id=>[id,placed[id]]));
+}
