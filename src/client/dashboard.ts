@@ -427,7 +427,7 @@ async function load() {
   } finally { button.disabled = false; button.textContent = "↻  Refresh data"; }
 }
 document.querySelectorAll<HTMLElement>(".period").forEach((button) => button.addEventListener("click", () => {
-  state.section = button.dataset.period; persistFilters(); render();
+  state.section = button.dataset.period ?? "daily"; persistFilters(); render();
 }));
 $("agent").addEventListener("change", () => { state.agent = $("agent").value; updateSelectors(); persistFilters(); render(); });
 $("model").addEventListener("change", () => { state.model = $("model").value; persistFilters(); render(); });
@@ -582,7 +582,7 @@ function saveGridPosition(id: string,rect: GridRect,type="resize"){
   const positions=type==="resize"?
     reflowGridAfterResize(previous,id,rect,dashboardConfig.widgets):
     relocateGridWidget(previous,id,rect,dashboardConfig.widgets);
-  const widths={...layoutDraft.widths,[id]:rect.w===12?"full":"half"};
+  const widths: GridLayout["widths"]={...layoutDraft.widths,[id]:rect.w===12?"full":"half"};
   layoutDraft={...layoutDraft,widths,positions};
   showWidgetSelection();
   if(state.report)render();
@@ -592,7 +592,7 @@ function beginLayoutEdit(){
   if(arranging)return;
   layoutDraft={widths:{...dashboardConfig.layout.widths},
     positions:Object.fromEntries(Object.entries(dashboardConfig.layout.positions)
-      .map(([id,r])=>[id,{...(r as object)}]))};
+      .map(([id,r])=>[id,{...r}]))};
   arranging=true;
   refreshArrangeTools();
 }
@@ -692,7 +692,7 @@ function beginEdgeResize(event: any,edge: HTMLElement,panel: HTMLElement,id: str
   };
   const finish=(e: PointerEvent)=>{
     move(e);cleanup(e);
-    if(["x","y","w","h"].some(k=>before[k]!==next[k]))saveGridPosition(id,next);
+    if(["x","y","w","h"].some(k=>before[k as keyof GridRect]!==next[k as keyof GridRect]))saveGridPosition(id,next);
     else applyGridPreview(original);
   };
   const cancel=(e: PointerEvent)=>{cleanup(e);applyGridPreview(original);};
@@ -737,7 +737,7 @@ function beginPanelDrag(event: any,surface: HTMLElement,panel: HTMLElement,id: s
   };
   const finish=(e: PointerEvent)=>{
     move(e);cleanup(e);
-    if(["x","y"].some(k=>start[k]!==next[k]))saveGridPosition(id,next,"drag");
+    if(["x","y"].some(k=>start[k as keyof GridRect]!==next[k as keyof GridRect]))saveGridPosition(id,next,"drag");
     else applyGridPreview(original);
   };
   const cancel=(e: PointerEvent)=>{cleanup(e);applyGridPreview(original);};
@@ -818,7 +818,7 @@ function syncCustomChartNodes(){
     installVisualizationMenu(card);
     card.querySelector(".custom-title").textContent=chart.title;
     for(const select of card.querySelectorAll("[data-custom-field]"))
-      select.value=chart[select.dataset.customField];
+      select.value=chart[select.dataset.customField as keyof typeof chart];
   }
 }
 function renderCustomCharts(){
