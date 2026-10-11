@@ -8,10 +8,12 @@
     "node": ">=20"
   },
   "scripts": {
+    "build:client": "tsc -p tsconfig.client.json",
+    "typecheck": "tsc -p tsconfig.client.json --noEmit",
     "dashboard": "node server.mjs",
     "start": "node server.mjs",
     "test": "node --test *.test.mjs",
-    "check": "node --check server.mjs && node --check ccusage-adapter.mjs && node --check public/dashboard.js && node --check public/dashboard-layout.mjs && node --check bin/ccusage-dashboards.mjs",
+    "check": "npm run typecheck && npm run build:client && node --check server.mjs && node --check ccusage-adapter.mjs && node --check public/dashboard.js && node --check public/dashboard-layout.mjs && node --check public/chart-presentation.mjs && node --check bin/ccusage-dashboards.mjs",
     "packcheck": "npm pack --dry-run --json"
   },
   "dependencies": {
@@ -50,5 +52,8 @@
   ],
   "publishConfig": {
     "access": "public"
+  },
+  "devDependencies": {
+    "typescript": "5.8.3"
   }
 }
