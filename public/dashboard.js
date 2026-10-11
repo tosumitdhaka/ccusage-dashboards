@@ -6,7 +6,7 @@ import {
 } from "./dashboard-config.mjs";
 import { buildChart, buildObservedHourly, buildSessions, chartCatalog } from "./analytics.mjs";
 import { colorForDimension, labelPointIndices } from "./chart-presentation.mjs";
-import { moveWidgetOrder } from "./dashboard-layout.mjs";
+import { GRID_COLUMNS, relocateGridWidget, snapToGrid } from "./dashboard-layout.mjs";
 
 const $ = (id) => document.getElementById(id);
 const state = { report: null, hourly: [], section: "daily", agent: "all", model: "all",
@@ -82,21 +82,22 @@ function configWithCurrentFilters(config = dashboardConfig) {
 }
 function showWidgetSelection() {
   syncCustomChartNodes();
-  const enabled = new Set(dashboardConfig.widgets);
-  const grid = $("dashboard-grid");
-  // Move existing panels; preserve chart DOM and their controls/listeners.
-  const ids=[...Object.keys(WIDGET_REGISTRY),...dashboardConfig.charts.map(c=>c.id)];
-  const ordered=[...dashboardConfig.widgets,...ids.filter(id=>!enabled.has(id))];
-  for(const id of ordered){
-    const panel=[...grid.children].find(child=>child.dataset.widget===id);
-    if(!panel)continue;
-    panel.dataset.width=dashboardConfig.layout.widths[id];
+  const enabled=new Set(dashboardConfig.widgets);
+  const grid=$("dashboard-grid");
+  for(const panel of grid.querySelectorAll("[data-widget]")){
+    const id=panel.dataset.widget;
     panel.hidden=!enabled.has(id);
-    grid.append(panel);
+    const rect=dashboardConfig.layout.positions[id];
+    if(!rect)continue;
+    panel.style.gridColumn=(rect.x+1)+" / span "+rect.w;
+    panel.style.gridRow=(rect.y+1)+" / span "+rect.h;
+    panel.dataset.width=rect.w===12?"full":"half";
+    panel.style.setProperty("--grid-rows",String(rect.h));
   }
-  $("view-name").textContent = dashboardConfig.title;
+  $("view-name").textContent=dashboardConfig.title;
   updateActiveNavigation();
 }
+
 function persistDashboardConfig(config) {
   dashboardConfig = validateDashboardConfig(config);
   storageWarning = "";
@@ -167,7 +168,8 @@ function drawLineChart(data, metric, options={}) {
   const L = 78, T = 40, R = 18, B = 48, PW = W - L - R, PH = H - T - B;
   const groupKind = activeBreakdown === "model" ? "model" : "provider";
   const settings = options.settings ?? dashboardConfig.widgetSettings.trend;
-  const shown = data.series.slice(0, settings.maxSeries);
+  const excluded=new Set(settings.hiddenDimensions ?? []);
+  const shown = data.series.filter(s=>!excluded.has(s.name)).slice(0, settings.maxSeries);
   shown.forEach((s) => {
     const key = el("button", "legend-item legend-toggle");
     key.type = "button";
@@ -241,12 +243,13 @@ function drawLineChart(data, metric, options={}) {
     svg.append(label);
   });
 }
-function drawBars(id, entries, metric, emptyMessage, limit, kind) {
+function drawBars(id, entries, metric, emptyMessage, limit, kind, hiddenDimensions=[]) {
   const target = $(id);
   target.replaceChildren();
-  if (!entries.length) { empty(target, emptyMessage); return; }
-  const max = Math.max(1e-10, ...entries.map((e) => e.value));
-  entries.slice(0, limit).forEach((item) => {
+  const visible=entries.filter(entry=>!hiddenDimensions.includes(entry.name));
+  if (!visible.length) { empty(target, emptyMessage); return; }
+  const max = Math.max(1e-10, ...visible.map((e) => e.value));
+  visible.slice(0, limit).forEach((item) => {
     const group = el("div", "bar-row");
     const label = el("div", "bar-labels");
     const name = el("span", "bar-name", item.name);
@@ -348,13 +351,13 @@ function render() {
   const modelSettings = dashboardConfig.widgetSettings.models;
   const providerGraph = buildChart(state.report, { ...current, metric: providerSettings.metric, breakdown: "provider" });
   const modelGraph = buildChart(state.report, { ...current, metric: modelSettings.metric, breakdown: "model" });
-  drawBars("provider-bars", providerGraph.series, providerSettings.metric, "No provider breakdown available.", providerSettings.limit, "provider");
-  drawBars("model-bars", modelGraph.series, modelSettings.metric, "No model breakdown available.", modelSettings.limit, "model");
+  drawBars("provider-bars", providerGraph.series, providerSettings.metric, "No provider breakdown available.", providerSettings.limit, "provider", providerSettings.hiddenDimensions);
+  drawBars("model-bars", modelGraph.series, modelSettings.metric, "No model breakdown available.", modelSettings.limit, "model", modelSettings.hiddenDimensions);
   $("provider-summary").textContent = "Ranked by " + METRIC_NAMES[providerSettings.metric].toLowerCase();
   $("model-summary").textContent = "Ranked by " + METRIC_NAMES[modelSettings.metric].toLowerCase();
   const sessions = buildSessions(state.report, { agent: state.agent, model: state.model, metric: state.sessionMetric });
-  drawSessionGraph(sessions);
-  drawSessionTable(buildSessions(state.report, { agent: state.agent, model: state.model, metric: "totalTokens", limit: 10 }));
+  drawSessionGraph(sessions.filter(s=>!dashboardConfig.widgetSettings.sessions.hiddenDimensions.includes(s.agent)));
+  drawSessionTable(buildSessions(state.report, { agent: state.agent, model: state.model, metric: "totalTokens", limit: 30 }).filter(s=>!dashboardConfig.widgetSettings.sessions.hiddenDimensions.includes(s.agent)).slice(0,10));
   renderCustomCharts();
   const warnings = state.model === "all" ? view.missingPricing : view.missingPricing.filter((m) => m === state.model);
   const notice = $("notice");
@@ -499,103 +502,158 @@ load();
 setInterval(load, 60_000);
 
 
+
 let arranging=false;
+let activeDragId=null;
+const interactiveHeaderTarget=target=>target.closest("button,select,input,label,a,summary,.viz-menu");
+function currentPosition(id){return dashboardConfig.layout.positions[id];}
 function refreshArrangeTools(){
   const grid=$("dashboard-grid");
   grid.classList.toggle("is-arranging",arranging);
-  $("layout-edit").textContent=arranging?"✓ Done arranging":"↕ Arrange";
+  $("layout-edit").textContent=arranging?"🔒 Lock view":"🔓 Unlock layout";
   $("layout-edit").setAttribute("aria-pressed",String(arranging));
+  $("layout-edit").setAttribute("aria-label",arranging?"Lock dashboard layout":"Unlock dashboard layout for editing");
   for(const panel of grid.querySelectorAll("[data-widget]")){
     const tools=panel.querySelector(".layout-tools");
     if(!tools)continue;
     tools.hidden=!arranging||panel.hidden;
-    const width=tools.querySelector("[data-layout-width]");
-    if(width){
-      const isFull=dashboardConfig.layout.widths[panel.dataset.widget]==="full";
-      width.textContent=isFull?"½ width":"Full width";
-      width.disabled=panel.dataset.widget==="kpis";
-      width.title=isFull?"Use half-width panel":"Use full-width panel";
-    }
+    const header=panel.querySelector(":scope > .section-header");
+    if(header)header.draggable=arranging;
+    const handle=tools.querySelector(".layout-handle");
+    if(handle)handle.draggable=arranging;
   }
 }
-function saveNewOrder(order){
-  persistDashboardConfig({...dashboardConfig,widgets:order});
+function saveGridPosition(id,rect){
+  const positions=relocateGridWidget(dashboardConfig.layout.positions,id,rect,dashboardConfig.widgets);
+  persistDashboardConfig({...dashboardConfig,layout:{...dashboardConfig.layout,positions}});
   refreshArrangeTools();
   if(state.report)render();
 }
-function moveRelative(id,direction){
-  const order=[...dashboardConfig.widgets],index=order.indexOf(id);
-  const target=index+direction;
-  if(index<0||target<0||target>=order.length)return;
-  [order[index],order[target]]=[order[target],order[index]];
-  saveNewOrder(order);
-}
-function changeWidth(id){
-  if(id==="kpis")return;
-  const current=dashboardConfig.layout.widths[id];
-  persistDashboardConfig({...dashboardConfig,layout:{widths:{
-    ...dashboardConfig.layout.widths,[id]:current==="full"?"half":"full"
-  }}});
-  refreshArrangeTools();
+function swapGridNeighbors(id,direction){
+  const order=dashboardConfig.widgets;
+  const index=order.indexOf(id),other=order[index+direction];
+  if(index<0||!other)return;
+  const left=currentPosition(id),right=currentPosition(other);
+  let positions={...dashboardConfig.layout.positions};
+  // When sizes differ, swap locations then displace any collisions predictably.
+  positions=relocateGridWidget(positions,id,{...left,x:Math.min(right.x,GRID_COLUMNS-left.w),y:right.y},order);
+  const reordered=[...order];[reordered[index],reordered[index+direction]]=[reordered[index+direction],reordered[index]];
+  persistDashboardConfig({...dashboardConfig,widgets:reordered,layout:{...dashboardConfig.layout,positions}});
   if(state.report)render();
+}
+function toggleLock(){
+  arranging=!arranging;
+  refreshArrangeTools();
 }
 function installLayoutPanel(panel){
-    if(panel.querySelector(".layout-tools"))return;
-    const id=panel.dataset.widget;
-    const label=WIDGET_REGISTRY[id]?.title ?? dashboardConfig.charts.find(chart=>chart.id===id)?.title ?? id;
-    const tools=el("div","layout-tools");
-    tools.hidden=true;
-    const drag=el("span","layout-handle","⠿ Drag");
-    drag.draggable=true;
-    drag.setAttribute("aria-label","Drag "+label);
-    drag.addEventListener("dragstart",(event)=>{
-      if(!arranging){event.preventDefault();return;}
-      event.dataTransfer.effectAllowed="move";
-      event.dataTransfer.setData("text/plain",id);
-    });
-    tools.append(drag);
-    for(const [label,direction] of [["↑ Earlier",-1],["↓ Later",1]]){
-      const button=el("button","",label);
-      button.type="button";
-      button.setAttribute("aria-label",(direction<0?"Move earlier: ":"Move later: ")+label);
-      button.addEventListener("click",()=>moveRelative(id,direction));
-      tools.append(button);
+  if(panel.querySelector(".layout-tools"))return;
+  const id=panel.dataset.widget;
+  const label=()=>WIDGET_REGISTRY[id]?.title ?? dashboardConfig.charts.find(c=>c.id===id)?.title ?? id;
+  const header=panel.querySelector(":scope > .section-header");
+  const startDrag=event=>{
+    if(!arranging || (event.currentTarget===header&&interactiveHeaderTarget(event.target))){
+      event.preventDefault();return;
     }
-    const width=el("button");
-    width.type="button";
-    width.dataset.layoutWidth=id;
-    width.addEventListener("click",()=>changeWidth(id));
-    tools.append(width);
-    panel.append(tools);
-    panel.addEventListener("dragover",(event)=>{
-      if(!arranging||panel.hidden)return;
-      event.preventDefault();
-      event.dataTransfer.dropEffect="move";
-      panel.classList.add("layout-drop-target");
-    });
-    panel.addEventListener("dragleave",()=>panel.classList.remove("layout-drop-target"));
-    panel.addEventListener("drop",(event)=>{
-      panel.classList.remove("layout-drop-target");
-      if(!arranging)return;
-      event.preventDefault();
-      const source=event.dataTransfer.getData("text/plain");
-      if(source&&source!==id&&dashboardConfig.widgets.includes(source)&&dashboardConfig.widgets.includes(id)){
-        saveNewOrder(moveWidgetOrder(dashboardConfig.widgets,source,id));
-      }
-    });
-    panel.addEventListener("dragend",()=>panel.classList.remove("layout-drop-target"));
+    activeDragId=id;
+    event.dataTransfer.effectAllowed="move";
+    event.dataTransfer.setData("text/plain",id);
+    panel.classList.add("layout-drag-source");
+  };
+  if(header)header.addEventListener("dragstart",startDrag);
+  const tools=el("div","layout-tools");tools.hidden=true;
+  const handle=el("span","layout-handle","⠿");handle.draggable=false;
+  handle.title="Drag widget to any grid position";
+  handle.setAttribute("aria-label","Drag "+label());
+  handle.addEventListener("dragstart",startDrag);
+  tools.append(handle);
+  for(const [symbol,direction] of [["↑",-1],["↓",1]]){
+    const button=el("button","layout-step",symbol);
+    button.type="button";
+    button.setAttribute("aria-label",(direction<0?"Move earlier: ":"Move later: ")+label());
+    button.addEventListener("click",()=>swapGridNeighbors(id,direction));
+    tools.append(button);
+  }
+  const help=el("span","layout-size-help","Drag corner ↘ to resize");
+  tools.append(help);
+  const resize=el("button","layout-resize","↘");
+  resize.type="button";
+  resize.title="Drag to resize widget along grid rows and columns";
+  resize.setAttribute("aria-label","Resize "+label());
+  tools.append(resize);
+  panel.append(tools);
+  resize.addEventListener("pointerdown",event=>{
+    if(!arranging||event.button!==0)return;
+    event.preventDefault();event.stopPropagation();
+    const before=currentPosition(id);
+    const grid=$("dashboard-grid"),widthStep=(grid.getBoundingClientRect().width+8)/GRID_COLUMNS;
+    const initialX=event.clientX,initialY=event.clientY;
+    let next={...before};
+    resize.setPointerCapture(event.pointerId);
+    const move=e=>{
+      const w=Math.max(2,Math.min(GRID_COLUMNS-before.x,before.w+Math.round((e.clientX-initialX)/widthStep)));
+      const h=Math.max(minimumWidgetRows(id),Math.min(48,before.h+Math.round((e.clientY-initialY)/32)));
+      next={...before,w,h};
+      panel.style.gridColumn=(next.x+1)+" / span "+next.w;
+      panel.style.gridRow=(next.y+1)+" / span "+next.h;
+    };
+    const done=e=>{
+      resize.removeEventListener("pointermove",move);
+      resize.removeEventListener("pointerup",done);
+      resize.removeEventListener("pointercancel",cancel);
+      if(resize.hasPointerCapture(e.pointerId))resize.releasePointerCapture(e.pointerId);
+      saveGridPosition(id,next);
+    };
+    const cancel=e=>{
+      resize.removeEventListener("pointermove",move);
+      resize.removeEventListener("pointerup",done);
+      resize.removeEventListener("pointercancel",cancel);
+      if(resize.hasPointerCapture(e.pointerId))resize.releasePointerCapture(e.pointerId);
+      showWidgetSelection();
+    };
+    resize.addEventListener("pointermove",move);
+    resize.addEventListener("pointerup",done);
+    resize.addEventListener("pointercancel",cancel);
+  });
+  panel.addEventListener("dragend",()=>{
+    activeDragId=null;
+    panel.classList.remove("layout-drag-source");
+    $("grid-drop-preview").hidden=true;
+  });
 }
+function minimumWidgetRows(id){return id==="kpis"?4:id==="sessions"?10:id==="trend"?9:id==="cache"?6:id==="guidance"?5:6;}
 function installLayoutEditor(){
   const grid=$("dashboard-grid");
   for(const panel of grid.querySelectorAll("[data-widget]"))installLayoutPanel(panel);
-  $("layout-edit").addEventListener("click",()=>{
-    arranging=!arranging;
-    refreshArrangeTools();
+  // A single grid-level drop target supports empty cells, horizontal moves
+  // and arbitrary grid positions, not just 'before/after' another panel.
+  const preview=el("div","layout-drop-preview");
+  preview.id="grid-drop-preview";preview.hidden=true;
+  preview.setAttribute("aria-hidden","true");grid.append(preview);
+  grid.addEventListener("dragover",event=>{
+    if(!arranging||!activeDragId)return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect="move";
+    const r=currentPosition(activeDragId);
+    const target=snapToGrid(event.clientX,event.clientY,grid.getBoundingClientRect(),r.w,r.h);
+    preview.hidden=false;
+    preview.style.gridColumn=(target.x+1)+" / span "+target.w;
+    preview.style.gridRow=(target.y+1)+" / span "+target.h;
   });
+  grid.addEventListener("drop",event=>{
+    if(!arranging||!activeDragId)return;
+    event.preventDefault();
+    const id=activeDragId;
+    activeDragId=null;preview.hidden=true;
+    const r=currentPosition(id);
+    saveGridPosition(id,snapToGrid(event.clientX,event.clientY,grid.getBoundingClientRect(),r.w,r.h));
+  });
+  grid.addEventListener("dragleave",event=>{
+    if(!grid.contains(event.relatedTarget))preview.hidden=true;
+  });
+  $("layout-edit").addEventListener("click",toggleLock);
   refreshArrangeTools();
 }
 installLayoutEditor();
-
 
 const customHiddenSeries=new Map();
 function customChartUpdate(id,patch){
@@ -637,7 +695,8 @@ function createCustomPanel(chart){
     // Removing the last enabled graph should always leave a valid, visible dashboard.
     if(!widgets.length)widgets.push("kpis");
     const widths={...dashboardConfig.layout.widths};delete widths[chart.id];
-    persistDashboardConfig({...dashboardConfig,charts,widgets,layout:{widths}});
+    const positions={...dashboardConfig.layout.positions};delete positions[chart.id];
+    persistDashboardConfig({...dashboardConfig,charts,widgets,layout:{widths,positions}});
     customHiddenSeries.delete(chart.id);
     if(state.report)render();
     refreshArrangeTools();
@@ -683,10 +742,10 @@ function renderCustomCharts(){
       drawLineChart(data,chart.metric,{svgId:"custom-svg-"+chart.id,
         legendId:"custom-legend-"+chart.id,period:chart.period,breakdown:chart.breakdown,
         hiddenSeries:customHiddenSeries.get(chart.id),
-        settings:{showLabels:false,maxSeries:6},redraw:renderCustomCharts});
+        settings:{showLabels:false,maxSeries:6,hiddenDimensions:chart.hiddenDimensions},redraw:renderCustomCharts});
     }else{
       drawBars(bars.id,data.series,chart.metric,"No chart data for these filters.",10,
-        chart.breakdown==="model"?"model":"provider");
+        chart.breakdown==="model"?"model":"provider",chart.hiddenDimensions);
     }
     const issues=[];
     if(data.isModelCategorySum)issues.push("Model totals sum reported categories; they may differ from upstream totals.");
@@ -714,7 +773,8 @@ function setupCustomGraphBuilder(){
       persistDashboardConfig({...dashboardConfig,
         charts:[...dashboardConfig.charts,chart],
         widgets:[...dashboardConfig.widgets,chart.id],
-        layout:{widths:{...dashboardConfig.layout.widths,[chart.id]:"half"}}
+        layout:{widths:{...dashboardConfig.layout.widths,[chart.id]:"half"},
+          positions:{...dashboardConfig.layout.positions}}
       });
       if(state.report)render();
       refreshArrangeTools();
