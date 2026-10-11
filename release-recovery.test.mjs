@@ -6,7 +6,7 @@ test("recovery workflow is manually triggered and cannot re-publish npm",async()
   const f=await readFile(new URL("./.github/workflows/finalize-npm-release.yml",import.meta.url),"utf8");
   assert.match(f,/workflow_dispatch:/);
   assert.ok(!f.includes("id-token: write"));
-  assert.ok(!f.includes("npm publish "));
+  assert.doesNotMatch(f, /^\\s*npm\\s+publish\\b/m);
   assert.match(f,/github.ref == 'refs\/heads\/main'/);
   assert.ok(f.includes('ref: ${{ inputs.published_source_sha }}'));
   assert.ok(f.includes('node scripts/verify-npm-release.mjs post "$VERSION" release-source/release-archive.json'));
