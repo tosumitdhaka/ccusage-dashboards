@@ -8,8 +8,8 @@
     "node": ">=20"
   },
   "scripts": {
-    "build:client": "tsc -p tsconfig.client.json",
-    "typecheck": "tsc -p tsconfig.client.json --noEmit",
+    "build:client": "tsc -p tsconfig.client.json && tsc -p tsconfig.dashboard.json",
+    "typecheck": "tsc -p tsconfig.client.json --noEmit && tsc -p tsconfig.dashboard.json --noEmit",
     "dashboard": "node server.mjs",
     "start": "node server.mjs",
     "test": "node --test *.test.mjs",
