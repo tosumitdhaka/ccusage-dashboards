@@ -76,11 +76,14 @@ test("unlocked view, free grid placement and options editor expose explicit cont
  const css=await readFile(new URL("./public/styles.css",import.meta.url),"utf8");
  for(const id of ["visual-editor","visual-editor-form","visual-editor-dimensions","visual-dimension-options"]) 
    assert.ok(html.includes('id="'+id+'"'));
- assert.ok(html.includes("Unlock layout"));
+ assert.ok(html.includes("Layout Locked"));
  assert.ok(!html.includes(">↕ Arrange<"));
  assert.ok(js.includes('header.draggable=arranging'));
  assert.ok(js.includes('snapToGrid(event.clientX-dragPointerOffset.x,event.clientY-dragPointerOffset.y'));
- assert.ok(js.includes('resize.setPointerCapture(event.pointerId)'));
+ assert.ok(js.includes('edge.setPointerCapture(event.pointerId)'));
+ assert.ok(js.includes('resizeGridRectangle('));
+ assert.ok(!js.includes('layout-handle\",\"⠿'));
+ assert.ok(!js.includes('layout-resize\",\"↘'));
  assert.ok(js.includes('function installVisualizationMenu('));
  assert.ok(js.includes('function refreshDimensionChoices('));
  assert.ok(!js.includes('grid.append(panel)'));

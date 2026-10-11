@@ -523,17 +523,19 @@ function currentPosition(id){return dashboardConfig.layout.positions[id];}
 function refreshArrangeTools(){
   const grid=$("dashboard-grid");
   grid.classList.toggle("is-arranging",arranging);
-  $("layout-edit").textContent=arranging?"🔒 Lock view":"🔓 Unlock layout";
+  $("layout-edit").textContent=arranging?"🔓 Layout Unlocked":"🔒 Layout Locked";
   $("layout-edit").setAttribute("aria-pressed",String(arranging));
-  $("layout-edit").setAttribute("aria-label",arranging?"Lock dashboard layout":"Unlock dashboard layout for editing");
+  $("layout-edit").setAttribute("aria-label",arranging?"Layout unlocked. Click to lock positions.":"Layout locked. Click to edit positions.");
   for(const panel of grid.querySelectorAll("[data-widget]")){
     const tools=panel.querySelector(".layout-tools");
     if(!tools)continue;
     tools.hidden=!arranging||panel.hidden;
     const header=panel.querySelector(":scope > .section-header");
     if(header)header.draggable=arranging;
-    const handle=tools.querySelector(".layout-handle");
-    if(handle)handle.draggable=arranging;
+    for(const edge of panel.querySelectorAll(".layout-resize-edge")){
+      edge.hidden=!arranging||panel.hidden;
+      edge.tabIndex=arranging&&!panel.hidden?0:-1;
+    }
   }
 }
 function saveGridPosition(id,rect){
@@ -560,6 +562,7 @@ function swapGridNeighbors(id,direction){
 }
 function toggleLock(){
   arranging=!arranging;
+  if(!arranging){$("grid-drop-preview").hidden=true;$("grid-resize-preview").hidden=true;}
   refreshArrangeTools();
 }
 function installLayoutPanel(panel){
@@ -580,62 +583,33 @@ function installLayoutPanel(panel){
   };
   if(header)header.addEventListener("dragstart",startDrag);
   const tools=el("div","layout-tools");tools.hidden=true;
-  const handle=el("span","layout-handle","⠿");handle.draggable=false;
-  handle.title="Drag widget to any grid position";
-  handle.setAttribute("aria-label","Drag "+label());
-  handle.addEventListener("dragstart",startDrag);
-  tools.append(handle);
-  for(const [symbol,direction] of [["↑",-1],["↓",1]]){
-    const button=el("button","layout-step",symbol);
-    button.type="button";
+  for(const [symbol,direction] of [["⌃",-1],["⌄",1]]){
+    const button=el("button","layout-step",symbol);button.type="button";
+    button.title=direction<0?"Move earlier":"Move later";
     button.setAttribute("aria-label",(direction<0?"Move earlier: ":"Move later: ")+label());
     button.addEventListener("click",()=>swapGridNeighbors(id,direction));
     tools.append(button);
   }
-  const help=el("span","layout-size-help","Drag corner ↘ to resize");
-  tools.append(help);
-  const resize=el("button","layout-resize","↘");
-  resize.type="button";
-  resize.title="Drag to resize widget along grid rows and columns";
-  resize.setAttribute("aria-label","Resize "+label());
-  tools.append(resize);
   panel.append(tools);
-  resize.addEventListener("pointerdown",event=>{
-    if(!arranging||event.button!==0)return;
-    event.preventDefault();event.stopPropagation();
-    const before=currentPosition(id);
-    const grid=$("dashboard-grid"),widthStep=(grid.getBoundingClientRect().width+8)/GRID_COLUMNS;
-    const initialX=event.clientX,initialY=event.clientY;
-    let next={...before};
-    resize.setPointerCapture(event.pointerId);
-    const move=e=>{
-      const w=Math.max(2,Math.min(GRID_COLUMNS-before.x,before.w+Math.round((e.clientX-initialX)/widthStep)));
-      let h=Math.max(minimumWidgetRows(id),Math.min(48,before.h+Math.round((e.clientY-initialY)/32)));
-      if(id==="cache"&&Math.abs(e.clientY-initialY)<16){
-        h=cacheRowsForWidth(widthStep*w-8,widthStep*before.w-8,before.h);
-      }
-      next={...before,w,h};
-      panel.style.gridColumn=(next.x+1)+" / span "+next.w;
-      panel.style.gridRow=(next.y+1)+" / span "+next.h;
-    };
-    const done=e=>{
-      resize.removeEventListener("pointermove",move);
-      resize.removeEventListener("pointerup",done);
-      resize.removeEventListener("pointercancel",cancel);
-      if(resize.hasPointerCapture(e.pointerId))resize.releasePointerCapture(e.pointerId);
-      saveGridPosition(id,next);
-    };
-    const cancel=e=>{
-      resize.removeEventListener("pointermove",move);
-      resize.removeEventListener("pointerup",done);
-      resize.removeEventListener("pointercancel",cancel);
-      if(resize.hasPointerCapture(e.pointerId))resize.releasePointerCapture(e.pointerId);
-      showWidgetSelection();
-    };
-    resize.addEventListener("pointermove",move);
-    resize.addEventListener("pointerup",done);
-    resize.addEventListener("pointercancel",cancel);
-  });
+  // Drag a border or corner to resize; no additional visible drag/resize buttons.
+  for(const direction of ["n","s","e","w","ne","nw","se","sw"]){
+    const edge=el("span","layout-resize-edge edge-"+direction);
+    edge.hidden=true;edge.tabIndex=-1;
+    edge.setAttribute("role","button");
+    edge.setAttribute("aria-label","Resize "+label()+" from "+direction+" edge");
+    edge.title="Drag this border to resize "+label();
+    panel.append(edge);
+    edge.addEventListener("pointerdown",event=>beginEdgeResize(event,edge,panel,id,direction));
+    edge.addEventListener("keydown",event=>{
+      if(!arranging||!["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(event.key))return;
+      event.preventDefault();
+      const before=currentPosition(id);
+      const dx=event.key==="ArrowRight"?1:event.key==="ArrowLeft"?-1:0;
+      const dy=event.key==="ArrowDown"?1:event.key==="ArrowUp"?-1:0;
+      const after=resizeGridRectangle(before,id,direction,dx,dy);
+      if(["x","y","w","h"].some(key=>before[key]!==after[key]))saveGridPosition(id,after);
+    });
+  }
   panel.addEventListener("dragend",()=>{
     activeDragId=null;
     panel.classList.remove("layout-drag-source");
@@ -643,6 +617,57 @@ function installLayoutPanel(panel){
   });
 }
 function minimumWidgetRows(id){return id==="kpis"?4:id==="sessions"?10:id==="trend"?9:id==="cache"?6:id==="guidance"?5:6;}
+function resizeGridRectangle(before,id,direction,dx,dy){
+  let {x,y,w,h}=before;
+  const minW=2,minH=minimumWidgetRows(id);
+  if(direction.includes("e"))w=Math.max(minW,Math.min(GRID_COLUMNS-x,w+dx));
+  if(direction.includes("w")){const right=x+w;x=Math.max(0,Math.min(right-minW,x+dx));w=right-x;}
+  if(direction.includes("s"))h=Math.max(minH,Math.min(48,h+dy));
+  if(direction.includes("n")){const bottom=y+h;y=Math.max(0,Math.min(bottom-minH,y+dy));h=bottom-y;
+    if(h>48){y=bottom-48;h=48;}
+  }
+  if(id==="cache"&&dx!==0&&dy===0){
+    const step=($("dashboard-grid").getBoundingClientRect().width+8)/GRID_COLUMNS;
+    h=cacheRowsForWidth(step*w-8,step*before.w-8,h);
+  }
+  return {x,y,w,h};
+}
+let resizeFrame=0;
+function positionResizePreview(ghost,rect,step){
+  ghost.style.transform="translate3d("+(rect.x*step)+"px,"+(rect.y*32)+"px,0)";
+  ghost.style.width=Math.max(8,rect.w*step-8)+"px";
+  ghost.style.height=Math.max(8,rect.h*32-8)+"px";
+}
+function beginEdgeResize(event,edge,panel,id,direction){
+  if(!arranging||event.button!==0||getComputedStyle($("dashboard-grid")).display!=="grid")return;
+  event.preventDefault();event.stopPropagation();
+  const before=currentPosition(id);if(!before)return;
+  const grid=$("dashboard-grid"),step=(grid.getBoundingClientRect().width+8)/GRID_COLUMNS;
+  const x0=event.clientX,y0=event.clientY,top=window.scrollY;
+  const ghost=$("grid-resize-preview");let next={...before};
+  ghost.hidden=false;positionResizePreview(ghost,next,step);
+  panel.classList.add("layout-resizing");
+  edge.setPointerCapture(event.pointerId);
+  const move=e=>{
+    next=resizeGridRectangle(before,id,direction,Math.round((e.clientX-x0)/step),Math.round((e.clientY-y0)/32));
+    if(!resizeFrame)resizeFrame=requestAnimationFrame(()=>{resizeFrame=0;positionResizePreview(ghost,next,step);});
+  };
+  const cleanup=e=>{
+    edge.removeEventListener("pointermove",move);edge.removeEventListener("pointerup",finish);
+    edge.removeEventListener("pointercancel",cancel);
+    if(edge.hasPointerCapture(e.pointerId))edge.releasePointerCapture(e.pointerId);
+    if(resizeFrame)cancelAnimationFrame(resizeFrame);resizeFrame=0;
+    ghost.hidden=true;panel.classList.remove("layout-resizing");
+  };
+  const finish=e=>{
+    cleanup(e);
+    if(["x","y","w","h"].some(key=>before[key]!==next[key]))saveGridPosition(id,next);
+    requestAnimationFrame(()=>window.scrollTo({top,behavior:"instant"}));
+  };
+  const cancel=e=>cleanup(e);
+  edge.addEventListener("pointermove",move);edge.addEventListener("pointerup",finish);
+  edge.addEventListener("pointercancel",cancel);
+}
 function installLayoutEditor(){
   const grid=$("dashboard-grid");
   for(const panel of grid.querySelectorAll("[data-widget]")){
@@ -654,6 +679,9 @@ function installLayoutEditor(){
   const preview=el("div","layout-drop-preview");
   preview.id="grid-drop-preview";preview.hidden=true;
   preview.setAttribute("aria-hidden","true");grid.append(preview);
+  const ghost=el("div","grid-resize-preview");
+  ghost.id="grid-resize-preview";ghost.hidden=true;
+  ghost.setAttribute("aria-hidden","true");grid.append(ghost);
   grid.addEventListener("dragover",event=>{
     if(!arranging||!activeDragId)return;
     event.preventDefault();
