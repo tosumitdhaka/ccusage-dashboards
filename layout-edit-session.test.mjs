@@ -29,9 +29,11 @@ test("dashboard initializes edit-session state before initial widget placement",
   const {readFile}=await import("node:fs/promises");
   const js=await readFile(new URL("./public/dashboard.js",import.meta.url),"utf8");
   const declared=js.indexOf("let layoutDraft=null;");
-  const startup=js.indexOf("applyFilterState(dashboardConfig.filters);\\nshowWidgetSelection();");
+  const startup=js.indexOf("applyFilterState(dashboardConfig.filters);");
+  const firstPlacement=js.indexOf("showWidgetSelection();",startup);
   const accessor=js.indexOf("function activeLayout(){return layoutDraft??dashboardConfig.layout;}");
-  assert.ok(declared>0&&declared<startup,"layoutDraft must exist before startup render");
+  assert.ok(declared>0&&declared<startup&&firstPlacement>startup,
+    "layoutDraft must exist before startup render");
   assert.ok(accessor>startup,"hoisted accessor must only read initialized state");
   assert.ok(js.indexOf("load();",startup)>startup,"report load must run after widgets are positioned");
   assert.equal(js.split("let layoutDraft=null;").length,2,"single edit session declaration");
