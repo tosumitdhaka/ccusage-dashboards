@@ -55,6 +55,6 @@ test("floating drag and resize leave peer layout unchanged until pointerup",asyn
   assert.ok(!resize.includes("reflowGridAfterResize("));
   assert.ok(!drag.includes("reflowGridAfterResize("));
   const css=await readFile(new URL("./public/styles.css",import.meta.url),"utf8");
-  assert.ok(css.includes(".dashboard-grid .layout-drop-preview{\n  position:absolute"));
+  assert.match(css,/\.dashboard-grid \.layout-drop-preview\{\s*position:absolute/);
   assert.ok(css.includes("pointer-events:none;transition:none!important;"));
 });
