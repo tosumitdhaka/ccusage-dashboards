@@ -14,7 +14,8 @@
     "start": "node server.mjs",
     "test": "node --test *.test.mjs",
     "check": "npm run typecheck && npm run build:client && node --check server.mjs && node --check ccusage-adapter.mjs && node --check public/dashboard.js && node --check public/dashboard-layout.mjs && node --check public/chart-presentation.mjs && node --check bin/ccusage-dashboards.mjs",
-    "packcheck": "npm pack --dry-run --json"
+    "packcheck": "npm pack --dry-run --json",
+    "prepack": "npm run build:client"
   },
   "dependencies": {
     "ccusage": "20.0.26"
