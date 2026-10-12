@@ -73,6 +73,9 @@ try{
   return {before,immediately,after75,after350,autoImmediately};
  })()`);
  console.log("UI_AUDIT_ROOT_BEHAVIOR:"+JSON.stringify(smoothAudit));
+ if(smoothAudit.before.behavior!=="auto"||smoothAudit.immediately!==400||
+    smoothAudit.after75!==400||smoothAudit.after350!==400)
+   throw Error("Document scroll delay persists: "+JSON.stringify(smoothAudit));
  const wheel=async(widget,targetSelector,dy)=>{
   const geometry=await run(`(()=>{
     const card=document.querySelector('[data-widget="${widget}"]');
@@ -90,8 +93,12 @@ try{
   return {widget,targetSelector,dy,before:geometry,after};
  };
  for(const [widget,target,dy] of [["trend","svg",170],["providers",".bar-row",180],["models",".bar-row",180],["cache",".token-grid strong",170],["sessions",".session-row",180]]) {
-  try{console.log("UI_AUDIT_WHEEL:"+JSON.stringify(await wheel(widget,target,dy)));}
-  catch(e){console.log("UI_AUDIT_WHEEL_ERROR:"+JSON.stringify({widget,error:String(e)}));}
+  const result=await wheel(widget,target,dy);
+  console.log("UI_AUDIT_WHEEL:"+JSON.stringify(result));
+  if(result.after.root<=result.before.root+80)
+    throw Error("Page wheel failed over "+widget+" content: "+JSON.stringify(result));
+  if(Math.abs((result.after.inner??0)-(result.before.inner??0))>1)
+    throw Error("Wheel consumed by "+widget+" inner scrollport: "+JSON.stringify(result));
  }
  await run("document.scrollingElement.scrollTop=0");
  await capture("TOP_AFTER_WHEEL");
