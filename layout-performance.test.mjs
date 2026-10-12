@@ -21,7 +21,7 @@ test("pointer move coalesces collisions at one RAF and flushes pointerup",async(
 test("native document wheel continues from graph and exhausted list scroll regions",async()=>{
   const css=await readFile(new URL("./public/styles.css",import.meta.url),"utf8");
   const js=await readFile(new URL("./src/client/dashboard.ts",import.meta.url),"utf8");
-  const hover=css.slice(css.indexOf("/* Reveal editing controls"));
+  const hover=css.slice(css.indexOf("/* Settings and edit affordances"));
   assert.ok(hover.includes("opacity:1;visibility:visible;pointer-events:auto"));
   assert.match(css,/\.widget-scroll-body\{[\s\S]*?overscroll-behavior-y:auto/);
   assert.ok(css.includes('[data-widget="trend"]>.widget-scroll-body'));
