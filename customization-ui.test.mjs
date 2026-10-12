@@ -12,7 +12,7 @@ test("customize controls and every registered widget have a matching dashboard s
     "config-import", "config-import-trigger", "config-reset", "widget-options", "dashboard-title", "config-status"]) {
     assert.ok(html.includes('id="' + id + '"'), "Missing customization control: " + id);
   }
-  const src = await readFile(new URL("./public/dashboard.js", import.meta.url), "utf8");
+  const src = await readFile(new URL("./src/client/dashboard.ts", import.meta.url), "utf8");
   assert.match(src, /readDashboardConfig/);
   assert.match(src, /persistFilters/);
   assert.match(src, /parseDashboardJSON/);
@@ -24,7 +24,7 @@ test("independent graph controls, warnings and sidebar navigation are wired", as
   for (const control of ["trend-show-labels", "trend-series-limit", "provider-metric", "provider-limit", "model-metric", "model-limit"]) {
     assert.ok(html.includes('id="' + control + '"'), "Missing graph control " + control);
   }
-  const js = await readFile(new URL("./public/dashboard.js", import.meta.url), "utf8");
+  const js = await readFile(new URL("./src/client/dashboard.ts", import.meta.url), "utf8");
   assert.match(js, /colorForDimension/);
   assert.match(js, /aria-label", "Dismiss pricing warning"/);
   assert.match(js, /updateActiveNavigation/);
@@ -58,7 +58,7 @@ test("widget surface uses one responsive grid without legacy paired wrappers", a
 
 test("v0.3 editor and graph builder are wired to validated configuration",async()=>{
  const html=await readFile(new URL("./public/index.html",import.meta.url),"utf8");
- const js=await readFile(new URL("./public/dashboard.js",import.meta.url),"utf8");
+ const js=await readFile(new URL("./src/client/dashboard.ts",import.meta.url),"utf8");
  for(const id of ["add-graph","graph-dialog","graph-form","graph-title","graph-visual","graph-metric",
  "graph-group","graph-period","graph-status","layout-edit"]){
   assert.ok(html.includes('id="'+id+'"'),"Missing control "+id);
@@ -74,14 +74,14 @@ test("v0.3 editor and graph builder are wired to validated configuration",async(
 
 test("unlocked view, free grid placement and options editor expose explicit controls",async()=>{
  const html=await readFile(new URL("./public/index.html",import.meta.url),"utf8");
- const js=await readFile(new URL("./public/dashboard.js",import.meta.url),"utf8");
+ const js=await readFile(new URL("./src/client/dashboard.ts",import.meta.url),"utf8");
  const css=await readFile(new URL("./public/styles.css",import.meta.url),"utf8");
  for(const id of ["visual-editor","visual-editor-form","visual-editor-dimensions","visual-dimension-options"]) 
    assert.ok(html.includes('id="'+id+'"'));
  assert.ok(html.includes("Layout Locked"));
  assert.ok(!html.includes(">↕ Arrange<"));
  assert.ok(js.includes('header.draggable=false'));
- assert.ok(js.includes('const candidate=snapToGrid(e.clientX-offset.x,e.clientY-offset.y'));
+ assert.ok(js.includes("start.x+Math.round(dx/stepX)"));
  assert.ok(js.includes('edge.setPointerCapture(event.pointerId)'));
  assert.ok(js.includes('resizeGridRectangle('));
  assert.ok(!js.includes('layout-handle\",\"⠿'));
@@ -94,7 +94,7 @@ test("unlocked view, free grid placement and options editor expose explicit cont
 });
 
 test("visualization menu uses native top-layer popovers outside scroll-clipped grid items",async()=>{
- const src=await readFile(new URL("./public/dashboard.js",import.meta.url),"utf8");
+ const src=await readFile(new URL("./src/client/dashboard.ts",import.meta.url),"utf8");
  const css=await readFile(new URL("./public/styles.css",import.meta.url),"utf8");
  assert.ok(src.includes('menu.popover="auto"'));
  assert.ok(src.includes('menu.showPopover()'));

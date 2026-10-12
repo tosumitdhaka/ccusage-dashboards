@@ -14,7 +14,7 @@ test("recovery workflow is manually triggered and cannot re-publish npm",async()
 });
 test("normal publishing workflow retains bounded post-verification and no push publish",async()=>{
   const f=await readFile(new URL("./.github/workflows/npm-release.yml",import.meta.url),"utf8");
-  const verify=await readFile(new URL("./scripts/verify-npm-release.mjs",import.meta.url),"utf8");
+  const verify=await readFile(new URL("./src/node/scripts/verify-npm-release.mts",import.meta.url),"utf8");
   assert.match(f,/workflow_dispatch:/);
   assert.ok(!f.includes("on: push"));
   assert.ok(f.includes('npm publish "./$archive" --access public'));
