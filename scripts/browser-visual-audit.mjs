@@ -60,6 +60,19 @@ try{
   return {root:{height:document.scrollingElement.scrollHeight,clientHeight:document.scrollingElement.clientHeight,scrollTop:document.scrollingElement.scrollTop},viewport:innerWidth,href:location.href,elements};
  })()`);
  console.log("UI_AUDIT_LAYOUT:"+JSON.stringify(summary));
+ const smoothAudit=await run(`(async()=>{
+  const root=document.scrollingElement,html=document.documentElement;
+  const before={behavior:getComputedStyle(html).scrollBehavior,scrollTop:root.scrollTop};
+  root.scrollTop=400;
+  const immediately=root.scrollTop;
+  await new Promise(resolve=>setTimeout(resolve,75));const after75=root.scrollTop;
+  await new Promise(resolve=>setTimeout(resolve,275));const after350=root.scrollTop;
+  html.style.scrollBehavior='auto';root.scrollTop=0;root.scrollTop=400;
+  const autoImmediately=root.scrollTop;
+  html.style.scrollBehavior='';
+  return {before,immediately,after75,after350,autoImmediately};
+ })()`);
+ console.log("UI_AUDIT_ROOT_BEHAVIOR:"+JSON.stringify(smoothAudit));
  const wheel=async(widget,targetSelector,dy)=>{
   const geometry=await run(`(()=>{
     const card=document.querySelector('[data-widget="${widget}"]');
@@ -88,6 +101,37 @@ try{
  })()`);
  await delay(120);
  await capture("MODELS");
+ // Fixed viewport and disabled smooth scrolling isolate geometric drop effects.
+ await run('document.documentElement.style.scrollBehavior="auto"');
+ const dragStart=await run(`(()=>{
+   const target=document.querySelector('[data-widget="providers"] .section-kicker');
+   target.scrollIntoView({block:'center',behavior:'instant'});
+   const r=target.getBoundingClientRect();
+   const ids=['trend','providers','models','cache','guidance','sessions'];
+   return {x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2),
+     scrollTop:document.scrollingElement.scrollTop,
+     rects:Object.fromEntries(ids.map(id=>[id,document.querySelector('[data-widget="'+id+'"]').getBoundingClientRect().toJSON()]))};
+ })()`);
+ await call("Input.dispatchMouseEvent",{type:"mousePressed",x:dragStart.x,y:dragStart.y,button:"left",buttons:1,clickCount:1});
+ await call("Input.dispatchMouseEvent",{type:"mouseMoved",x:dragStart.x+80,y:dragStart.y+128,button:"left",buttons:1});
+ await delay(100);
+ await capture("DRAGGING");
+ const mid=await run(`(()=>({
+   scrollTop:document.scrollingElement.scrollTop,
+   transform:document.querySelector('[data-widget="providers"]').style.transform,
+   targetTransform:document.querySelector('#grid-drop-preview').style.transform,
+   layout:document.querySelector('[data-widget="providers"]').style.gridRow
+ }))()`);
+ await call("Input.dispatchMouseEvent",{type:"mouseReleased",x:dragStart.x+80,y:dragStart.y+128,button:"left",buttons:0,clickCount:1});
+ await delay(110);
+ await capture("DROPPED");
+ const drop=await run(`(()=>{
+   const ids=['trend','providers','models','cache','guidance','sessions'];
+   return {scrollTop:document.scrollingElement.scrollTop,
+     rects:Object.fromEntries(ids.map(id=>[id,document.querySelector('[data-widget="'+id+'"]').getBoundingClientRect().toJSON()]))};
+ })()`);
+ console.log("UI_AUDIT_DRAG:"+JSON.stringify({dragStart,mid,drop}));
+ await run('document.querySelector("#layout-cancel").click()');
  const state=await run(`(()=>({menu:document.querySelector('[data-widget="models"] .viz-menu-trigger')?.getBoundingClientRect().toJSON(),buttonText:document.querySelector('#customize')?.textContent,scrollTop:document.scrollingElement.scrollTop}))()`);
  console.log("UI_AUDIT_STATE:"+JSON.stringify(state));
  console.log("UI_AUDIT_PASS");
