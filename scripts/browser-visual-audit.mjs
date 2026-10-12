@@ -76,24 +76,42 @@ try{
  if(smoothAudit.before.behavior!=="auto"||smoothAudit.immediately!==400||
     smoothAudit.after75!==400||smoothAudit.after350!==400)
    throw Error("Document scroll delay persists: "+JSON.stringify(smoothAudit));
- const wheel=async(widget,targetSelector,dy)=>{
+ const wheel=async(widget,targetSelector,dy,innerPosition=0)=>{
   const geometry=await run(`(()=>{
     const card=document.querySelector('[data-widget="${widget}"]');
-    const target=card.querySelector(${JSON.stringify(targetSelector)});
+    const body=card?.querySelector('.widget-scroll-body');
+    const target=card?.querySelector(${JSON.stringify(targetSelector)});
+    if(!card||!body||!target)throw Error('Missing wheel target for ${widget}');
     target.scrollIntoView({block:'center',behavior:'instant'});
     const root=document.scrollingElement;
-    root.scrollTop=Math.max(0,root.scrollHeight-root.clientHeight-900);
+    const maxRoot=root.scrollHeight-root.clientHeight;
+    // Target center should be visible and leave enough document remaining to
+    // distinguish true root movement from a clamped scroll boundary.
+    const absolute=target.getBoundingClientRect().top+root.scrollTop;
+    root.scrollTop=Math.max(0,Math.min(maxRoot-260,absolute-innerHeight/2));
+    body.scrollTop=innerPosition;
     const b=target.getBoundingClientRect();
-    const actual=document.elementFromPoint(Math.max(0,Math.min(innerWidth-5,b.left+b.width/2)),Math.max(0,Math.min(innerHeight-5,b.top+b.height/2)));
-    return {x:Math.round(b.left+b.width/2),y:Math.round(b.top+b.height/2),actual:actual?.tagName,actualClass:actual?.getAttribute('class'),root:root.scrollTop,rootMax:root.scrollHeight-root.clientHeight,inner:card.querySelector('.widget-scroll-body')?.scrollTop,bodyMax:(()=>{const el=card.querySelector('.widget-scroll-body');return el?.scrollHeight-el?.clientHeight;})()};
+    const x=Math.round(b.left+b.width/2),y=Math.round(b.top+b.height/2);
+    const actual=document.elementFromPoint(x,y);
+    return {x,y,onViewport:y>30&&y<innerHeight-30,
+      hit:!!actual&&body.contains(actual),
+      actual:actual?.tagName,actualClass:actual?.getAttribute('class'),
+      root:root.scrollTop,rootMax:maxRoot,inner:body.scrollTop,
+      bodyMax:body.scrollHeight-body.clientHeight};
    })()`);
+  if(!geometry.onViewport||!geometry.hit||geometry.rootMax-geometry.root<dy+50)
+    throw Error("Invalid physical wheel target for "+widget+": "+JSON.stringify(geometry));
   await call("Input.dispatchMouseEvent",{type:"mouseWheel",x:geometry.x,y:geometry.y,deltaX:0,deltaY:dy,modifiers:0,pointerType:"mouse"});
   await delay(200);
   const after=await run(`(()=>({root:document.scrollingElement.scrollTop,inner:document.querySelector('[data-widget="${widget}"]>.widget-scroll-body')?.scrollTop}))()`);
   return {widget,targetSelector,dy,before:geometry,after};
  };
- for(const [widget,target,dy] of [["trend","svg",170],["providers",".bar-row",180],["models",".bar-row",180],["cache",".token-grid strong",170],["sessions",".session-row",180]]) {
-  const result=await wheel(widget,target,dy);
+ for(const [widget,target,dy,innerPosition] of [
+  ["trend","svg",170,0],["providers",".bar-row",180,0],
+  ["models",".widget-scroll-body",180,0],["models",".widget-scroll-body",180,100],
+  ["cache",".widget-scroll-body",170,0],["sessions",".widget-scroll-body",180,0]
+ ]) {
+  const result=await wheel(widget,target,dy,innerPosition);
   console.log("UI_AUDIT_WHEEL:"+JSON.stringify(result));
   if(result.after.root<=result.before.root+80)
     throw Error("Page wheel failed over "+widget+" content: "+JSON.stringify(result));
