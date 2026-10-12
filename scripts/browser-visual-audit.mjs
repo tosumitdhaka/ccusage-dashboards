@@ -103,6 +103,9 @@ try{
  await capture("MODELS");
  // Fixed viewport and disabled smooth scrolling isolate geometric drop effects.
  await run('document.documentElement.style.scrollBehavior="auto"');
+ await run('document.querySelector("#layout-edit").click()');
+ const unlocked=await run('document.querySelector("#dashboard-grid").classList.contains("is-arranging")');
+ if(!unlocked)throw Error("The layout editor did not unlock");
  const dragStart=await run(`(()=>{
    const target=document.querySelector('[data-widget="providers"] .section-kicker');
    target.scrollIntoView({block:'center',behavior:'instant'});
