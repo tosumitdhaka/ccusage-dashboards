@@ -89,7 +89,7 @@ try{
     // distinguish true root movement from a clamped scroll boundary.
     const absolute=target.getBoundingClientRect().top+root.scrollTop;
     root.scrollTop=Math.max(0,Math.min(maxRoot-260,absolute-innerHeight/2));
-    body.scrollTop=innerPosition;
+    body.scrollTop=${innerPosition};
     const b=target.getBoundingClientRect();
     const x=Math.round(b.left+b.width/2),y=Math.round(b.top+b.height/2);
     const actual=document.elementFromPoint(x,y);
