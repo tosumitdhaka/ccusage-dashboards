@@ -22,7 +22,7 @@ test("native document wheel continues from graph and exhausted list scroll regio
   const css=await readFile(new URL("./public/styles.css",import.meta.url),"utf8");
   const js=await readFile(new URL("./src/client/dashboard.ts",import.meta.url),"utf8");
   const hover=css.slice(css.indexOf("/* Reveal editing controls"));
-  assert.match(hover,/transition:opacity 130ms ease\s*\}/);
+  assert.ok(hover.includes("opacity:1;visibility:visible;pointer-events:auto"));
   assert.match(css,/\.widget-scroll-body\{[\s\S]*?overscroll-behavior-y:auto/);
   assert.ok(css.includes('[data-widget="trend"]>.widget-scroll-body'));
   assert.ok(css.includes('[data-chart-visual="line"]>.widget-scroll-body'));
@@ -31,8 +31,10 @@ test("native document wheel continues from graph and exhausted list scroll regio
   assert.ok(js.includes("event.preventDefault()"));
   assert.ok(js.includes("page.scrollTop+=event.deltaY*scale"));
   assert.ok(js.includes("{passive:false,capture:true}"));
-  assert.ok(js.includes("maxScroll>1&&available>1"));
-  assert.ok(js.includes("if(hasWheelScroll&&maxScroll>1&&available>1)return"));
+  assert.ok(js.includes("if(activeLayoutGesture)return"));
+  assert.ok(js.includes("body.tabIndex=0"));
+  assert.ok(css.includes("html{scroll-behavior:auto}"));
+  assert.ok(!css.includes("html{scroll-behavior:smooth}"));
   assert.doesNotMatch(css,/\.widget-scroll-body\{[^}]*overscroll-behavior:contain/);
 });
 
@@ -64,7 +66,8 @@ test("floating drag and resize leave peer layout unchanged until pointerup",asyn
 
 test("configuration controls remain visible without hover support",async()=>{
   const css=await readFile(new URL("./public/styles.css",import.meta.url),"utf8");
-  assert.match(css,/\.dashboard-grid>\[data-widget\] \.chart-header-controls,\s*\.dashboard-grid>\[data-widget\] \.viz-menu-trigger\s*\{[^}]*opacity:1!important;visibility:visible!important;pointer-events:auto!important/);
+  assert.match(css,/\.dashboard-grid>\[data-widget\] \.viz-menu-trigger,\s*\.dashboard-grid>\[data-widget\] \.chart-header-controls\s*\{[^}]*opacity:1;visibility:visible;pointer-events:auto/);
+  assert.ok(!css.includes("opacity:0;pointer-events:none;"));
   assert.ok(css.includes(".top-actions #customize{visibility:visible"));
 });
 

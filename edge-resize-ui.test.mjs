@@ -39,14 +39,14 @@ test("live resize previews floating target and saves only on pointerup",async()=
  assert.ok(js.includes('closeLayoutEdit(false)'));
  assert.ok(js.includes('closeLayoutEdit(true)'));
 });
-test("all graph cards have one scroll body and hover-only controls",async()=>{
+test("all graph cards have one scroll body and always-visible controls",async()=>{
  const css=await readFile(new URL("./public/styles.css",import.meta.url),"utf8");
  const js=await readFile(new URL("./src/client/dashboard.ts",import.meta.url),"utf8");
  assert.ok(js.includes('el("div","widget-scroll-body")'));
  assert.ok(css.includes('>.widget-scroll-body{'));
  assert.ok(css.includes('.widget-scroll-body .bars{max-height:none;overflow:visible}'));
- assert.ok(css.includes('.chart-header-controls{')&&css.includes('opacity:0;pointer-events:none;'));
- assert.ok(css.includes('@media(hover:none)'));
+ assert.ok(css.includes('opacity:1;visibility:visible;pointer-events:auto'));
+ assert.ok(!css.includes('opacity:0;pointer-events:none;'));
 });
 test("graph cards scroll inside consistently, not at two levels",async()=>{
  const css=await readFile(new URL("./public/styles.css",import.meta.url),"utf8");
