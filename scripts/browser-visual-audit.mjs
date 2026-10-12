@@ -48,6 +48,38 @@ try{
  for(let i=0;i<120;i++){try{loaded=await run('document.querySelector("#stat-tokens")?.textContent!=="—" && document.querySelector("#notice")?.hidden && !!document.querySelector(\'[data-widget="trend"] .viz-menu-trigger\')');}catch{}if(loaded)break;await delay(100);}
  if(!loaded)throw Error("Populated report did not render: "+await run("document.querySelector('#notice')?.textContent"));
  await capture("TOP");
+ const customization=await run(`(()=>{
+   const model=document.querySelector('[data-widget="models"]');
+   const trigger=model.querySelector('.viz-menu-trigger');
+   trigger.click();
+   const menu=document.querySelector('#viz-popover-models');
+   return {menuOpen:menu.matches(':popover-open'),
+     editAction:!![...menu.querySelectorAll('button')].find(b=>b.textContent==='Edit visualization'),
+     triggerOpacity:getComputedStyle(trigger).opacity};
+ })()`);
+ console.log("UI_AUDIT_CUSTOMIZATION:"+JSON.stringify(customization));
+ if(!customization.menuOpen||!customization.editAction||customization.triggerOpacity!=="1")
+   throw Error("Visualization customization inaccessible: "+JSON.stringify(customization));
+ await capture("MODEL_OPTIONS");
+ const viz=await run(`(()=>{
+   const menu=document.querySelector('#viz-popover-models');
+   [...menu.querySelectorAll('button')].find(b=>b.textContent==='Edit visualization').click();
+   const dialog=document.querySelector('#visual-editor');
+   return {open:dialog.open,fields:dialog.querySelectorAll('input,select').length};
+ })()`);
+ console.log("UI_AUDIT_VISUAL_EDITOR:"+JSON.stringify(viz));
+ if(!viz.open||viz.fields<2)throw Error("Visualization editor failed to open");
+ await capture("VISUAL_EDITOR");
+ await run('document.querySelector("#visual-editor-close").click()');
+ const customize=await run(`(()=>{
+   document.querySelector('#customize').click();
+   const dialog=document.querySelector('#customize-dialog');
+   return {open:dialog.open,inputs:dialog.querySelectorAll('input,select').length};
+ })()`);
+ console.log("UI_AUDIT_CUSTOMIZE_DIALOG:"+JSON.stringify(customize));
+ if(!customize.open||customize.inputs<1)throw Error("Dashboard customization dialog inaccessible");
+ await capture("CUSTOMIZE_DIALOG");
+ await run('document.querySelector("#customize-dialog").close()');
  const summary=await run(`(()=>{
   const sel=(q)=>document.querySelector(q);
   const elements={};
