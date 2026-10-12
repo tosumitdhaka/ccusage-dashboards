@@ -65,6 +65,7 @@ let storageWarning = "";
 // Initialize edit-session state first: activeLayout() reads layoutDraft.
 let arranging = false;
 let layoutDraft = null;
+let activeLayoutGesture = false;
 let movementFrame = 0;
 try {
     dashboardConfig = readDashboardConfig(window.localStorage);
@@ -731,6 +732,8 @@ function installLayoutPanel(panel) {
     // One internal scrolling body per graph. Header and popover remain outside it.
     if (id !== "kpis") {
         const body = el("div", "widget-scroll-body");
+        body.tabIndex = 0;
+        body.setAttribute("aria-label", label() + " content");
         for (const child of [...panel.children])
             if (child !== header)
                 body.append(child);
@@ -851,6 +854,7 @@ function beginEdgeResize(event, edge, panel, id, direction) {
     const x0 = event.clientX, y0 = event.clientY;
     let next = { ...before };
     panel.classList.add("layout-resizing");
+    activeLayoutGesture = true;
     edge.setPointerCapture(event.pointerId);
     const update = (x, y) => {
         const candidate = resizeGridRectangle(before, id, direction, Math.round((x - x0) / stepX), Math.round((y - y0) / 32), stepX);
@@ -872,6 +876,7 @@ function beginEdgeResize(event, edge, panel, id, direction) {
         if (edge.hasPointerCapture(e.pointerId))
             edge.releasePointerCapture(e.pointerId);
         panel.classList.remove("layout-resizing");
+        activeLayoutGesture = false;
         hideFloatingGridTarget();
     };
     const finish = (e) => {
@@ -909,6 +914,7 @@ function beginPanelDrag(event, surface, panel, id) {
     const stepX = ($("dashboard-grid").getBoundingClientRect().width + 8) / GRID_COLUMNS;
     const x0 = event.clientX, y0 = event.clientY;
     let next = { ...start }, moved = false;
+    activeLayoutGesture = true;
     surface.setPointerCapture(event.pointerId);
     const update = (x, y) => {
         // Reduce drag gain so accidental trackpad/mouse motion cannot jump several
@@ -943,6 +949,7 @@ function beginPanelDrag(event, surface, panel, id) {
             surface.releasePointerCapture(e.pointerId);
         panel.style.transform = "";
         panel.classList.remove("layout-drag-source");
+        activeLayoutGesture = false;
         hideFloatingGridTarget();
     };
     const finish = (e) => {
@@ -982,41 +989,27 @@ function installLayoutEditor() {
     $("layout-edit").addEventListener("click", beginLayoutEdit);
     $("layout-save").addEventListener("click", () => closeLayoutEdit(true));
     $("layout-cancel").addEventListener("click", () => closeLayoutEdit(false));
-    // Route wheel input only when no nested widget can actually scroll in
-    // that direction. Capture avoids scroll-containment rules swallowing it.
-    // Do not override a list with remaining content, zoom, or horizontal input.
+    // All vertical wheel input over widget content belongs to the document.
+    // Internal scrollbars remain available for viewing long lists and plots.
     grid.addEventListener("wheel", (event) => {
-        if (!event.cancelable || event.ctrlKey || event.metaKey || event.shiftKey ||
-            event.deltaY === 0 || Math.abs(event.deltaX) > Math.abs(event.deltaY))
+        if (!event.cancelable || event.defaultPrevented || event.ctrlKey || event.metaKey ||
+            event.shiftKey || event.deltaY === 0 || Math.abs(event.deltaX) > Math.abs(event.deltaY))
             return;
         const node = event.target;
-        if (!(node instanceof Element) || node.closest("select,input,textarea,[role=dialog],.viz-popover-menu"))
+        if (!(node instanceof Element) ||
+            node.closest("select,input,textarea,[role=dialog],.viz-popover-menu"))
             return;
         const body = node.closest(".widget-scroll-body");
         if (!body || !grid.contains(body))
             return;
-        const towardEnd = event.deltaY > 0;
-        let current = node;
-        while (current) {
-            if (current instanceof HTMLElement) {
-                const style = getComputedStyle(current);
-                const hasWheelScroll = /^(auto|scroll|overlay)$/.test(style.overflowY);
-                const maxScroll = Math.max(0, current.scrollHeight - current.clientHeight);
-                const available = towardEnd ? maxScroll - current.scrollTop : current.scrollTop;
-                if (hasWheelScroll && maxScroll > 1 && available > 1)
-                    return;
-            }
-            if (current === body)
-                break;
-            current = current.parentElement;
-        }
+        event.preventDefault();
+        if (activeLayoutGesture)
+            return; // do not move the page during a held drag
         const page = document.scrollingElement;
         if (!page)
             return;
-        event.preventDefault();
         const scale = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? window.innerHeight : 1;
-        // Assigning the scroll root directly avoids the site's smooth-scrolling
-        // rule and the cancelled-wheel + window.scrollBy dead zone in Chrome.
+        // Root CSS uses scroll-behavior:auto so this is immediate, not animated.
         page.scrollTop += event.deltaY * scale;
     }, { passive: false, capture: true });
     refreshArrangeTools();
