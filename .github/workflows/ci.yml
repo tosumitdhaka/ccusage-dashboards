@@ -32,6 +32,9 @@ jobs:
       - name: Native Chrome UI interaction smoke
         if: matrix.os == 'ubuntu-latest'
         run: node scripts/browser-interaction-smoke.mjs
+      - name: Populated Chrome visual audit (diagnostic)
+        if: matrix.os == 'ubuntu-latest'
+        run: node scripts/browser-visual-audit.mjs
       - name: Verify npm package contents
         shell: bash
         run: |
