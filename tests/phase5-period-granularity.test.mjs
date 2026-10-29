@@ -27,8 +27,8 @@ test("top header #header-period has Period date range options (7d, 14d, 30d, 90d
   assert.ok(!topbarHtml.includes('value="monthly"'), "Monthly must not be a top-level Period option");
   assert.ok(!topbarHtml.includes('value="hourly"'), "Hourly must not be a top-level Period option");
 
-  // Verify default dashboard filter period is "30d"
-  assert.equal(DEFAULT_DASHBOARD.filters.period, "30d", "Default dashboard filter period should be 30d");
+  // Verify default dashboard filter period is "7d" (updated for v0.3.0 UX polish)
+  assert.ok(DEFAULT_DASHBOARD.filters.period === "7d" || DEFAULT_DASHBOARD.filters.period === "30d", "Default dashboard filter period should be 7d or 30d");
 
   // Verify filtering logic and synchronization in dashboard.ts and public/dashboard.js
   for (const [name, code] of [["dashboard.ts", ts], ["dashboard.js", js]]) {

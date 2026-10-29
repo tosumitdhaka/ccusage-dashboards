@@ -16,7 +16,7 @@ interface DashboardState {
   section: string; agent: string; model: string; breakdown: string;
   metric: string; sessionMetric: string;
 }
-const state: DashboardState = { report: null, hourly: [], section: "30d", agent: "all", model: "all",
+const state: DashboardState = { report: null, hourly: [], section: "7d", agent: "all", model: "all",
   breakdown: "total", metric: "totalTokens", sessionMetric: "totalTokens" };
 const compact = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 2 });
 const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 });
@@ -86,7 +86,7 @@ let movementFrame=0;
 try { dashboardConfig = readDashboardConfig(window.localStorage); }
 catch { storageWarning = "Saved dashboard preferences are unavailable; defaults are in use."; }
 function applyFilterState(filters: any) {
-  state.section = filters.period || "30d";
+  state.section = filters.period || "7d";
   state.agent = filters.provider || "all";
   state.model = filters.model || "all";
   state.metric = filters.metric || "totalTokens";
@@ -418,6 +418,75 @@ function drawSessionTable(rows: any[]) {
 function filterReportByPeriod(rawReport: any, period: string): any {
   if (!rawReport || typeof rawReport !== "object") return rawReport;
   if (!period || period === "all") return rawReport;
+
+  if (period === "today") {
+    let targetDate = new Date().toISOString().slice(0, 10);
+    if (Array.isArray(rawReport.daily) && rawReport.daily.length > 0) {
+      const dates = rawReport.daily
+        .map((r: any) => r.period ?? r.date)
+        .filter((d: any) => typeof d === "string" && /^\d{4}-\d{2}-\d{2}/.test(d))
+        .map((d: string) => d.slice(0, 10));
+      if (dates.length > 0) {
+        const maxDate = dates.reduce((max: string, cur: string) => cur > max ? cur : max, dates[0]);
+        targetDate = dates.includes(targetDate) ? targetDate : maxDate;
+      }
+    } else if (Array.isArray(rawReport.session) && rawReport.session.length > 0) {
+      const dates = rawReport.session
+        .map((s: any) => s.metadata?.lastActivity ?? s.lastActivity ?? s.period ?? s.date)
+        .filter((d: any) => typeof d === "string" && /^\d{4}-\d{2}-\d{2}/.test(d))
+        .map((d: string) => d.slice(0, 10));
+      if (dates.length > 0) {
+        const maxDate = dates.reduce((max: string, cur: string) => cur > max ? cur : max, dates[0]);
+        targetDate = dates.includes(targetDate) ? targetDate : maxDate;
+      }
+    }
+
+    const filterDailyRow = (r: any) => {
+      const dStr = r.period ?? r.date;
+      if (typeof dStr !== "string") return true;
+      return dStr.slice(0, 10) === targetDate;
+    };
+
+    const filterWeeklyRow = (r: any) => {
+      const p = r.period ?? r.week ?? r.date;
+      if (typeof p !== "string") return true;
+      const weekMatch = p.match(/^(\d{4})-W(\d{1,2})$/);
+      if (weekMatch) {
+        const year = parseInt(weekMatch[1], 10);
+        const week = parseInt(weekMatch[2], 10);
+        const weekStart = new Date(Date.UTC(year, 0, 1 + (week - 1) * 7)).getTime();
+        const weekEnd = new Date(Date.UTC(year, 0, 1 + week * 7)).getTime();
+        const t = new Date(targetDate + "T12:00:00Z").getTime();
+        return t >= weekStart && t <= weekEnd;
+      }
+      return p.slice(0, 10) === targetDate;
+    };
+
+    const filterMonthlyRow = (r: any) => {
+      const p = r.period ?? r.month ?? r.date;
+      if (typeof p !== "string") return true;
+      const mMatch = p.match(/^(\d{4})-(\d{2})$/);
+      if (mMatch) {
+        return targetDate.startsWith(`${mMatch[1]}-${mMatch[2]}`);
+      }
+      return p.slice(0, 10) === targetDate;
+    };
+
+    const filterSessionRow = (s: any) => {
+      const act = s.metadata?.lastActivity ?? s.lastActivity ?? s.period ?? s.date;
+      if (typeof act !== "string") return true;
+      return act.slice(0, 10) === targetDate;
+    };
+
+    return {
+      ...rawReport,
+      daily: Array.isArray(rawReport.daily) ? rawReport.daily.filter(filterDailyRow) : rawReport.daily,
+      weekly: Array.isArray(rawReport.weekly) ? rawReport.weekly.filter(filterWeeklyRow) : rawReport.weekly,
+      monthly: Array.isArray(rawReport.monthly) ? rawReport.monthly.filter(filterMonthlyRow) : rawReport.monthly,
+      session: Array.isArray(rawReport.session) ? rawReport.session.filter(filterSessionRow) : rawReport.session,
+    };
+  }
+
   const days = period === "7d" ? 7 : period === "14d" ? 14 : period === "30d" ? 30 : period === "90d" ? 90 : 30;
 
   let refTime = Date.now();
@@ -490,6 +559,20 @@ function filterReportByPeriod(rawReport: any, period: string): any {
 
 function filterHourlyByPeriod(snapshots: any[], period: string): any[] {
   if (!Array.isArray(snapshots) || !period || period === "all") return snapshots;
+  if (period === "today") {
+    let targetDate = new Date().toISOString().slice(0, 10);
+    const dates = snapshots
+      .map((s) => typeof s?.timestamp === "string" ? s.timestamp.slice(0, 10) : "")
+      .filter((d) => /^\d{4}-\d{2}-\d{2}/.test(d));
+    if (dates.length > 0) {
+      const maxDate = dates.reduce((m, d) => (d > m ? d : m), dates[0]);
+      targetDate = dates.includes(targetDate) ? targetDate : maxDate;
+    }
+    return snapshots.filter((s) => {
+      if (typeof s?.timestamp !== "string") return true;
+      return s.timestamp.slice(0, 10) === targetDate;
+    });
+  }
   const days = period === "7d" ? 7 : period === "14d" ? 14 : period === "30d" ? 30 : period === "90d" ? 90 : 30;
   let refTime = Date.now();
   const times = snapshots
@@ -526,7 +609,7 @@ function render() {
   if (sessionMetricEl) sessionMetricEl.value = state.sessionMetric;
   syncGraphControls();
 
-  const activePeriod = state.section || "30d";
+  const activePeriod = state.section || "7d";
   const filteredReport = filterReportByPeriod(state.report, activePeriod);
   const filteredHourly = filterHourlyByPeriod(state.hourly, activePeriod);
 
@@ -646,7 +729,7 @@ if (headerPeriod) {
   });
 }
 document.querySelectorAll<HTMLElement>(".period").forEach((button) => button.addEventListener("click", () => {
-  state.section = button.dataset.period ?? "30d";
+  state.section = button.dataset.period ?? "7d";
   const headerPeriod = $("header-period") as HTMLSelectElement | null;
   if (headerPeriod) headerPeriod.value = state.section;
   persistFilters(); render();
@@ -920,7 +1003,7 @@ function saveGridPosition(id: string,rect: GridRect,type="resize"){
     requestAnimationFrame(()=>{
       if(!arranging||!state.report)return;
       if(id==="trend"){
-        const activePeriod = state.section || "30d";
+        const activePeriod = state.section || "7d";
         const filteredReport = filterReportByPeriod(state.report, activePeriod);
         const filteredHourly = filterHourlyByPeriod(state.hourly, activePeriod);
         const trendGranularity = dashboardConfig.widgetSettings.trend?.granularity || "daily";
@@ -1342,7 +1425,7 @@ function syncCustomChartNodes(){
       select.value=chart[select.dataset.customField as keyof typeof chart];
   }
 }
-function renderCustomCharts(report = filterReportByPeriod(state.report, state.section || "30d"), hourly = filterHourlyByPeriod(state.hourly, state.section || "30d")){
+function renderCustomCharts(report = filterReportByPeriod(state.report, state.section || "7d"), hourly = filterHourlyByPeriod(state.hourly, state.section || "7d")){
   if (!report) return;
   for(const chart of dashboardConfig.charts){
     const data=buildChart(report,{period:chart.period,agent:state.agent,model:state.model,

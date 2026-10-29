@@ -490,11 +490,37 @@ button:focus-visible,select:focus-visible,.nav-link:focus-visible,input:focus-vi
     flex:initial;min-height:0;max-height:none;overflow:visible;scrollbar-gutter:auto}
 }
 /* Settings and edit affordances remain visible on mouse, touch and keyboard. */
-.dashboard-grid>[data-widget] .viz-menu-trigger,
 .dashboard-grid>[data-widget] .chart-header-controls{
   opacity:1;visibility:visible;pointer-events:auto}
 .chart-header-controls{transition:opacity 130ms ease;}
 .dashboard-grid>[data-widget]:hover .chart-header-controls{opacity:1;pointer-events:auto}
+
+.dashboard-grid>[data-widget] .viz-menu-trigger,
+.dashboard-grid>.panel .viz-menu-trigger,
+.dashboard-grid>.wide-card .viz-menu-trigger {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 130ms ease;
+}
+.dashboard-grid>[data-widget]:hover .viz-menu-trigger,
+.dashboard-grid>[data-widget]:focus-within .viz-menu-trigger,
+.dashboard-grid>[data-widget] .viz-menu-trigger[aria-expanded="true"],
+.dashboard-grid>.panel:hover .viz-menu-trigger,
+.dashboard-grid>.panel:focus-within .viz-menu-trigger,
+.dashboard-grid>.panel .viz-menu-trigger[aria-expanded="true"],
+.dashboard-grid>.wide-card:hover .viz-menu-trigger,
+.dashboard-grid>.wide-card:focus-within .viz-menu-trigger,
+.dashboard-grid>.wide-card .viz-menu-trigger[aria-expanded="true"] {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@media(hover:none){
+  .dashboard-grid>[data-widget] .viz-menu-trigger,
+  .dashboard-grid>[data-widget] .chart-header-controls{
+    opacity:1;visibility:visible;pointer-events:auto;
+  }
+}
 .top-actions{gap:9px;flex-wrap:wrap;justify-content:flex-end}
 .topbar{height:auto;min-height:73px;padding-top:9px;padding-bottom:9px}
 .top-actions .layout-save{padding:9px 13px;font-size:12px;border-radius:8px;min-height:35px}

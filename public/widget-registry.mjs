@@ -24,7 +24,7 @@ export const DEFAULT_DASHBOARD = Object.freeze({
     title: "AI Usage Overview",
     widgets: ["kpis", "trend", "providers", "models", "cache", "guidance", "sessions"],
     filters: {
-        period: "30d", provider: "all", model: "all",
+        period: "7d", provider: "all", model: "all",
         metric: "totalTokens", breakdown: "total", sessionMetric: "totalTokens"
     },
     widgetSettings: {
@@ -160,7 +160,7 @@ export function validateDashboardConfig(config) {
     if (Object.keys(config.filters ?? {}).some((key) => !FILTERS.has(key)))
         throw new Error("Unknown dashboard filter.");
     const filters = { ...DEFAULT_DASHBOARD.filters, ...(config.filters ?? {}) };
-    const VALID_PERIODS = new Set(["7d", "14d", "30d", "90d", "all", "daily", "weekly", "monthly", "hourly"]);
+    const VALID_PERIODS = new Set(["today", "7d", "14d", "30d", "90d", "all", "daily", "weekly", "monthly", "hourly"]);
     if (!VALID_PERIODS.has(filters.period))
         throw new Error("Invalid period filter.");
     if (!Object.hasOwn(METRIC_NAMES, filters.metric))
