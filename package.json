@@ -12,7 +12,7 @@
     "typecheck": "tsc -p tsconfig.client.json --noEmit && tsc -p tsconfig.dashboard.json --noEmit && tsc -p tsconfig.node.json --noEmit",
     "dashboard": "node server.mjs",
     "start": "node server.mjs",
-    "test": "node --test *.test.mjs",
+    "test": "node --test *.test.mjs tests/*.test.mjs",
     "check": "npm run typecheck && npm run build && node --check server.mjs && node --check ccusage-adapter.mjs && node --check snapshots.mjs && node --check public/dashboard.js && node --check public/dashboard-layout.mjs && node --check public/chart-presentation.mjs && node --check bin/ccusage-dashboards.mjs",
     "packcheck": "npm pack --dry-run --json",
     "prepack": "npm run build",

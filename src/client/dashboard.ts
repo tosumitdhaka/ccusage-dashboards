@@ -169,13 +169,53 @@ function availableModels(report: any, agent: string) {
   }
   return [...models].sort();
 }
+function showChartTooltip(event: MouseEvent | PointerEvent, name: string, dateLabel: string, value: number, color: string, metric: string) {
+  let tooltip = $("chart-tooltip");
+  if (!tooltip) {
+    tooltip = el("div", "chart-tooltip");
+    tooltip.id = "chart-tooltip";
+    document.body.append(tooltip);
+  }
+  tooltip.replaceChildren();
+  const header = el("div", "chart-tooltip-header", dateLabel);
+  const body = el("div", "chart-tooltip-body");
+  const swatch = el("span", "chart-tooltip-swatch");
+  swatch.style.background = color;
+  const nameSpan = el("span", "", name + ": ");
+  const valSpan = el("span", "chart-tooltip-value", fmt(value, metric));
+  body.append(swatch, nameSpan, valSpan);
+  tooltip.hidden = false;
+  tooltip.removeAttribute("hidden");
+  tooltip.setAttribute("aria-hidden", "false");
+  positionChartTooltip(event.clientX, event.clientY);
+}
+function positionChartTooltip(x: number, y: number) {
+  const tooltip = $("chart-tooltip");
+  if (!tooltip || tooltip.hidden) return;
+  const clampedX = Math.max(70, Math.min(window.innerWidth - 70, x));
+  tooltip.style.left = `${clampedX}px`;
+  if (y < 60) {
+    tooltip.style.top = `${y + 14}px`;
+    tooltip.style.transform = "translateX(-50%)";
+  } else {
+    tooltip.style.top = `${y - 12}px`;
+    tooltip.style.transform = "translate(-50%, -100%)";
+  }
+}
+function hideChartTooltip() {
+  const tooltip = $("chart-tooltip");
+  if (!tooltip) return;
+  tooltip.hidden = true;
+  tooltip.setAttribute("hidden", "");
+  tooltip.setAttribute("aria-hidden", "true");
+}
 function drawLineChart(data: any, metric: string, options: any = {}) {
   const svg = $(options.svgId ?? "trend-chart");
   const legend = $(options.legendId ?? "trend-legend");
   const activeSection=options.period ?? state.section;
   const activeBreakdown=options.breakdown ?? state.breakdown;
   const invisible=options.hiddenSeries ?? hiddenTrendSeries;
-  svg.replaceChildren(); legend.replaceChildren();
+  svg.replaceChildren(); legend.replaceChildren(); svg.addEventListener("pointerleave", hideChartTooltip);
   // Match the actual CSS viewport. A fixed 920×264 viewBox letterboxed the
   // graph at desktop widths, wasting horizontal space around the plot.
   const W = Math.max(320, Math.round(svg.getBoundingClientRect().width || 920));
@@ -212,7 +252,13 @@ function drawLineChart(data: any, metric: string, options: any = {}) {
     svg.append(label);
     return;
   }
-  const maxValue = Math.max(1e-9, ...data.points.flatMap((p: any) => names.map((name: string) => p.values[name] ?? 0)));
+  let maxValue = 1e-9;
+  for (const p of data.points) {
+    for (const name of names) {
+      const val = p.values[name] ?? 0;
+      if (val > maxValue) maxValue = val;
+    }
+  }
   const ceiling = maxValue * 1.13;
   for (let i = 0; i <= 4; i++) {
     const y = T + PH * i / 4;
@@ -238,7 +284,20 @@ function drawLineChart(data: any, metric: string, options: any = {}) {
       const title = svgEl("title");
       const label = activeSection === "hourly" ? p.label.replace("T", " ") : p.label;
       title.textContent = name + " • " + label + ": " + fmt(p.values[name], metric);
-      circle.append(title); svg.append(circle);
+      circle.style.cursor = "pointer";
+      circle.append(title);
+      circle.addEventListener("pointerenter", (e: PointerEvent) => {
+        circle.setAttribute("r", "5.5");
+        showChartTooltip(e, name, label, p.values[name] ?? 0, color, metric);
+      });
+      circle.addEventListener("pointermove", (e: PointerEvent) => {
+        positionChartTooltip(e.clientX, e.clientY);
+      });
+      circle.addEventListener("pointerleave", () => {
+        circle.setAttribute("r", "3.8");
+        hideChartTooltip();
+      });
+      svg.append(circle);
       if (settings.showLabels && labelledPoints.has(pointIndex)) {
         const text = svgEl("text", {
           x: p.x, y: Math.max(12, p.y - 10 - 14 * (index % 2)),
@@ -264,7 +323,10 @@ function drawBars(id: string, entries: any[], metric: string, emptyMessage: stri
   target.replaceChildren();
   const visible=entries.filter((entry: any)=>!hiddenDimensions.includes(entry.name));
   if (!visible.length) { empty(target, emptyMessage); return; }
-  const max = Math.max(1e-10, ...visible.map((e: any) => e.value));
+  let max = 1e-10;
+  for (const e of visible) {
+    if (e.value > max) max = e.value;
+  }
   visible.slice(0, limit).forEach((item: any) => {
     const group = el("div", "bar-row");
     const label = el("div", "bar-labels");
@@ -282,7 +344,10 @@ function drawSessionGraph(rows: any[]) {
   const target = $("session-bars");
   target.replaceChildren();
   if (!rows.length) { empty(target, "No sessions match these filters."); return; }
-  const max = Math.max(1e-9, ...rows.map((r: any) => r.value));
+  let max = 1e-9;
+  for (const r of rows) {
+    if (r.value > max) max = r.value;
+  }
   rows.forEach((r: any, i: number) => {
     const wrapper = el("div", "session-row");
     wrapper.title = r.agent + " / " + r.session + ": " + fmt(r.value, state.sessionMetric);
@@ -302,15 +367,35 @@ function drawSessionTable(rows: any[]) {
     const tr = el("tr"), td = el("td", "empty-cell", "No sessions match these filters.");
     td.colSpan = 5; tr.append(td); tbody.append(tr); return;
   }
-  const costRows = buildSessions(state.report, { agent: state.agent, model: state.model, metric: "totalCost", limit: 30 });
-  const costs = new Map(costRows.map((r: any) => [r.agent + "\0" + r.session, r.value]));
+  const costs = new Map<string, number>();
+  for (const s of (state.report?.session ?? [])) {
+    if (state.agent !== "all" && s.agent !== state.agent) continue;
+    const sessionKey = (s.agent ?? "unknown") + "\0" + String(s.period ?? s.date ?? s.session ?? "");
+    let cost = 0;
+    if (state.model === "all") {
+      const c = typeof s.totalCost === "number" ? s.totalCost : s.cost;
+      cost = typeof c === "number" && Number.isFinite(c) && c >= 0 ? c : 0;
+    } else {
+      const bds = Array.isArray(s.modelBreakdowns) ? s.modelBreakdowns : [];
+      for (const m of bds) {
+        if (m?.modelName === state.model) {
+          const c = typeof m.cost === "number" ? m.cost : m.totalCost;
+          if (typeof c === "number" && Number.isFinite(c) && c >= 0) cost += c;
+        }
+      }
+    }
+    costs.set(sessionKey, cost);
+  }
   for (const row of rows.slice(0, 10)) {
+    const key = (row.agent ?? "unknown") + "\0" + String(row.session ?? "");
+    const sessionCost = typeof row.totalCost === "number" ? row.totalCost :
+      (typeof row.cost === "number" ? row.cost : costs.get(key) ?? 0);
     const tr = el("tr");
     tr.append(
       el("td", "agent-cell", row.agent),
       el("td", "session-id", row.session),
       el("td", "numeric", fmt(row.value)),
-      el("td", "numeric", state.reportHasCost ? fmt(costs.get(row.agent + "\0" + row.session) ?? 0, "totalCost") : "Unavailable"),
+      el("td", "numeric", state.reportHasCost ? fmt(sessionCost, "totalCost") : "Unavailable"),
       el("td", "subtle", row.lastActivity ? new Date(row.lastActivity).toLocaleString() : "Unknown")
     ); tbody.append(tr);
   }
@@ -406,6 +491,7 @@ function render() {
     notice.hidden = signature === dismissedPricingSignature;
   } else { dismissedPricingSignature = null; notice.hidden = true; }
 }
+let lastLoadedAt = 0;
 async function load() {
   const button = $("refresh");
   button.disabled = true; button.textContent = "↻  Updating…";
@@ -419,6 +505,7 @@ async function load() {
       if (observations.ok) state.hourly = (await observations.json()).observations ?? [];
     } catch { /* Daily/weekly reporting remains usable if hourly history is unavailable. */ }
     updateSelectors();
+    lastLoadedAt = Date.now();
     $("updated").textContent = "Updated " + new Date().toLocaleTimeString();
     render();
   } catch (error) {
@@ -443,6 +530,37 @@ for (const group of ["providers", "models"]) {
   $(prefix + "-limit").addEventListener("change", () => updateGraphSettings(group, { limit: Number($(prefix + "-limit").value) }));
 }
 window.addEventListener("scroll", scheduleNavigationUpdate, { passive: true });
+window.addEventListener("scroll", hideChartTooltip, { passive: true });
+
+for (const dialog of document.querySelectorAll<HTMLDialogElement>("dialog")) {
+  dialog.addEventListener("click", (event) => {
+    const rect = dialog.getBoundingClientRect();
+    const isOutside = (
+      event.clientX < rect.left || event.clientX > rect.right ||
+      event.clientY < rect.top || event.clientY > rect.bottom
+    );
+    if (isOutside) {
+      dialog.close();
+    }
+  });
+}
+
+const navToggle = $("mobile-nav-toggle");
+const sidebar = document.querySelector<HTMLElement>(".sidebar");
+if (navToggle && sidebar) {
+  navToggle.addEventListener("click", () => {
+    const isOpen = sidebar.classList.toggle("is-open");
+    navToggle.setAttribute("aria-expanded", String(isOpen));
+  });
+  for (const link of sidebar.querySelectorAll<HTMLAnchorElement>(".nav-link")) {
+    link.addEventListener("click", () => {
+      if (sidebar.classList.contains("is-open")) {
+        sidebar.classList.remove("is-open");
+        navToggle.setAttribute("aria-expanded", "false");
+      }
+    });
+  }
+}
 
 function populateCustomizeDialog() {
   $("dashboard-title").value = dashboardConfig.title;
@@ -530,7 +648,17 @@ window.addEventListener("resize", () => {
   resizeFrame = requestAnimationFrame(() => { resizeFrame = 0; render(); updateActiveNavigation(); });
 });
 load();
-setInterval(load, 60_000);
+const AUTO_REFRESH_INTERVAL_MS = 60_000;
+setInterval(() => {
+  if (document.visibilityState === "hidden") return;
+  load();
+}, AUTO_REFRESH_INTERVAL_MS);
+
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && Date.now() - lastLoadedAt >= AUTO_REFRESH_INTERVAL_MS) {
+    load();
+  }
+});
 
 
 const interactiveHeaderTarget=(target: any)=>target.closest("button,select,input,label,a,summary,.viz-menu-trigger,.viz-popover-menu");
