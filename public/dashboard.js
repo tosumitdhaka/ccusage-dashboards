@@ -280,7 +280,14 @@ function drawLineChart(data, metric, options = {}) {
         svg.append(label);
         return;
     }
-    const maxValue = Math.max(1e-9, ...data.points.flatMap((p) => names.map((name) => p.values[name] ?? 0)));
+    let maxValue = 1e-9;
+    for (const p of data.points) {
+        for (const name of names) {
+            const val = p.values[name] ?? 0;
+            if (val > maxValue)
+                maxValue = val;
+        }
+    }
     const ceiling = maxValue * 1.13;
     for (let i = 0; i <= 4; i++) {
         const y = T + PH * i / 4;
@@ -350,7 +357,11 @@ function drawBars(id, entries, metric, emptyMessage, limit, kind, hiddenDimensio
         empty(target, emptyMessage);
         return;
     }
-    const max = Math.max(1e-10, ...visible.map((e) => e.value));
+    let max = 1e-10;
+    for (const e of visible) {
+        if (e.value > max)
+            max = e.value;
+    }
     visible.slice(0, limit).forEach((item) => {
         const group = el("div", "bar-row");
         const label = el("div", "bar-labels");
@@ -373,7 +384,11 @@ function drawSessionGraph(rows) {
         empty(target, "No sessions match these filters.");
         return;
     }
-    const max = Math.max(1e-9, ...rows.map((r) => r.value));
+    let max = 1e-9;
+    for (const r of rows) {
+        if (r.value > max)
+            max = r.value;
+    }
     rows.forEach((r, i) => {
         const wrapper = el("div", "session-row");
         wrapper.title = r.agent + " / " + r.session + ": " + fmt(r.value, state.sessionMetric);
@@ -532,6 +547,7 @@ function render() {
         notice.hidden = true;
     }
 }
+let lastLoadedAt = 0;
 async function load() {
     const button = $("refresh");
     button.disabled = true;
@@ -549,6 +565,7 @@ async function load() {
         }
         catch { /* Daily/weekly reporting remains usable if hourly history is unavailable. */ }
         updateSelectors();
+        lastLoadedAt = Date.now();
         $("updated").textContent = "Updated " + new Date().toLocaleTimeString();
         render();
     }
@@ -708,7 +725,17 @@ window.addEventListener("resize", () => {
     resizeFrame = requestAnimationFrame(() => { resizeFrame = 0; render(); updateActiveNavigation(); });
 });
 load();
-setInterval(load, 60_000);
+const AUTO_REFRESH_INTERVAL_MS = 60_000;
+setInterval(() => {
+    if (document.visibilityState === "hidden")
+        return;
+    load();
+}, AUTO_REFRESH_INTERVAL_MS);
+document.addEventListener("visibilitychange", () => {
+    if (!document.hidden && Date.now() - lastLoadedAt >= AUTO_REFRESH_INTERVAL_MS) {
+        load();
+    }
+});
 const interactiveHeaderTarget = target => target.closest("button,select,input,label,a,summary,.viz-menu-trigger,.viz-popover-menu");
 function activeLayout() { return layoutDraft ?? dashboardConfig.layout; }
 function currentPosition(id) { return activeLayout().positions[id]; }
