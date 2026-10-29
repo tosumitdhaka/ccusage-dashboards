@@ -62,10 +62,11 @@ test("period selector is present on .topbar with full synchronization in dashboa
 
   assert.ok(topbarHtml.includes('id="header-period"'), "Missing #header-period select in .topbar");
   assert.ok(topbarHtml.includes('class="period-select header-period-select"'), "Expected .period-select and .header-period-select classes");
-  assert.ok(topbarHtml.includes('value="daily"'), "Missing daily option in #header-period");
-  assert.ok(topbarHtml.includes('value="weekly"'), "Missing weekly option in #header-period");
-  assert.ok(topbarHtml.includes('value="monthly"'), "Missing monthly option in #header-period");
-  assert.ok(topbarHtml.includes('value="hourly"'), "Missing hourly option in #header-period");
+  assert.ok(topbarHtml.includes('value="7d"'), "Missing 7d option in #header-period");
+  assert.ok(topbarHtml.includes('value="14d"'), "Missing 14d option in #header-period");
+  assert.ok(topbarHtml.includes('value="30d"'), "Missing 30d option in #header-period");
+  assert.ok(topbarHtml.includes('value="90d"'), "Missing 90d option in #header-period");
+  assert.ok(topbarHtml.includes('value="all"'), "Missing all option in #header-period");
 
   // Verify event listeners and bidirectional synchronization in TypeScript and compiled JavaScript
   for (const [name, code] of [["dashboard.ts", ts], ["dashboard.js", js]]) {
@@ -81,13 +82,6 @@ test("period selector is present on .topbar with full synchronization in dashboa
       code,
       /headerPeriod\.value\s*=\s*state\.section/,
       `${name} should sync headerPeriod.value in applyFilterState / render`
-    );
-
-    // In-card .period buttons synchronize header-period select
-    assert.match(
-      code,
-      /\.period[\s\S]*?headerPeriod\.value\s*=\s*state\.section/,
-      `${name} should update header-period select when in-card period buttons are clicked`
     );
   }
 });

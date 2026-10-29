@@ -32,7 +32,7 @@
     <main id="overview" class="main">
       <header class="topbar">
         <div class="breadcrumb">Workspace <span>/</span> <strong id="view-name">Overview</strong></div>
-        <div class="top-actions"><div class="topbar-period" role="group" aria-label="Time period grouping"><label for="header-period" class="topbar-period-label">Period</label><select id="header-period" class="period-select header-period-select" aria-label="Select report period"><option value="daily">Daily</option><option value="weekly">Weekly (7d)</option><option value="monthly">Monthly (30d)</option><option value="hourly">Hourly*</option></select></div><span class="local-tag"><span class="signal-dot"></span> Localhost</span><button id="add-graph" class="refresh" type="button" aria-haspopup="dialog">+ New graph</button><button id="layout-edit" class="refresh" type="button" aria-pressed="false" aria-label="Layout locked. Click to edit positions." title="Layout Locked. Click to edit positions.">🔒 Edit Layout</button><button id="layout-save" class="save-button layout-save" type="button" title="Save widget positions to local storage" hidden>✓ Save Layout</button><button id="layout-cancel" class="refresh layout-cancel" type="button" title="Discard layout changes and restore saved positions" hidden>✕ Cancel</button><span id="layout-help" class="layout-compact-hint" hidden role="status">Use a wider screen to drag or resize widgets. Save or cancel to finish editing.</span><button id="customize" class="refresh" type="button" aria-haspopup="dialog">⚙ Customize</button><button id="refresh" class="refresh" type="button">↻ &nbsp; Refresh data</button></div>
+        <div class="top-actions"><div class="topbar-period" role="group" aria-label="Time period grouping"><label for="header-period" class="topbar-period-label">Period</label><select id="header-period" class="period-select header-period-select" aria-label="Select report period"><option value="7d">Last 7 Days</option><option value="14d">Last 14 Days</option><option value="30d" selected>Last 30 Days</option><option value="90d">Last 90 Days</option><option value="all">All Time</option></select></div><span class="local-tag"><span class="signal-dot"></span> Localhost</span><button id="add-graph" class="refresh" type="button" aria-haspopup="dialog">+ New graph</button><button id="layout-edit" class="refresh" type="button" aria-pressed="false" aria-label="Layout locked. Click to edit positions." title="Layout Locked. Click to edit positions.">🔒 Edit Layout</button><button id="layout-save" class="save-button layout-save" type="button" title="Save widget positions to local storage" hidden>✓ Save Layout</button><button id="layout-cancel" class="refresh layout-cancel" type="button" title="Discard layout changes and restore saved positions" hidden>✕ Cancel</button><span id="layout-help" class="layout-compact-hint" hidden role="status">Use a wider screen to drag or resize widgets. Save or cancel to finish editing.</span><button id="refresh" class="refresh" type="button">↻ &nbsp; Refresh data</button></div>
       </header>
       <div class="content">
         <div class="page-title">
@@ -40,18 +40,6 @@
           <div class="updated" id="updated">Awaiting local report</div>
         </div>
         <div id="notice" class="notice" role="status" aria-live="polite">Loading your local ccusage report…</div>
-        <section class="filters" aria-label="Report filters">
-          <div class="time-pills" role="group" aria-label="Time grouping">
-            <button class="period active" data-period="daily" type="button" aria-pressed="true">Daily</button>
-            <button class="period" data-period="weekly" type="button" aria-pressed="false">Weekly</button>
-            <button class="period" data-period="monthly" type="button" aria-pressed="false">Monthly</button>
-            <button class="period" data-period="hourly" type="button" aria-pressed="false" title="Observed differences between dashboard samples, not event timestamps">Hourly*</button>
-          </div>
-          <div class="filters-right">
-            <label class="agent-filter" for="agent">Provider <select id="agent"><option value="all">All providers</option></select></label>
-            <label class="agent-filter" for="model">Model <select id="model"><option value="all">All models</option></select></label>
-          </div>
-        </section>
         <div id="layout-toolbar" class="layout-toolbar-panel" hidden role="region" aria-label="Layout and widget editor">
           <div class="layout-toolbar-header">
             <div class="layout-toolbar-title">
@@ -60,7 +48,11 @@
             </div>
             <div class="layout-toolbar-actions">
               <button id="layout-quick-add" class="refresh" type="button">+ New graph</button>
-              <button id="layout-toolbar-settings" class="refresh" type="button" aria-haspopup="dialog">⚙ Dashboard settings</button>
+              <button id="config-export" class="refresh" type="button">Export JSON</button>
+              <button id="config-import-trigger" class="refresh" type="button">Import JSON</button>
+              <input id="config-import" type="file" accept=".json,application/json" hidden aria-label="Choose dashboard JSON">
+              <button id="layout-toolbar-reset" class="refresh" type="button" title="Reset layout and widgets to default">↺ Reset to default</button>
+              <button id="config-reset" class="refresh" type="button" hidden aria-hidden="true"></button>
               <button id="layout-toolbar-save" class="save-button" type="button" title="Save widget positions to local storage">✓ Save Layout</button>
               <button id="layout-toolbar-cancel" class="refresh layout-cancel" type="button" title="Discard layout changes and restore saved positions">✕ Cancel</button>
             </div>
@@ -74,6 +66,7 @@
               <span class="layout-field-label">Visible widgets (toggle to add/remove)</span>
               <div id="layout-widget-chips" class="layout-widget-chips" role="group" aria-label="Toggle visible widgets"></div>
             </div>
+            <p id="config-status" class="config-status" role="status" aria-live="polite"></p>
           </div>
           <div class="layout-toolbar-footer">
             <span class="layout-tip">💡 Drag widget headers to reposition. Drag borders/corners to resize. Changes apply immediately in the preview.</span>
@@ -92,6 +85,12 @@
             <div class="trend-header-actions">
               <span class="chart-chip" id="trend-period">DAILY</span>
               <div class="chart-header-controls"><div class="trend-controls">
+                    <label for="trend-granularity">Granularity <select id="trend-granularity">
+                      <option value="daily">Daily</option>
+                      <option value="weekly">Weekly</option>
+                      <option value="monthly">Monthly</option>
+                      <option value="hourly">Hourly*</option>
+                    </select></label>
                     <label for="metric">Metric <select id="metric">
                       <option value="totalTokens">Reported tokens</option>
                       <option value="inputTokens">Input tokens</option>
@@ -152,19 +151,12 @@
       </div>
     </main>
   </div>
-    <dialog id="customize-dialog" class="customize-dialog" aria-labelledby="customize-heading">
+    <dialog id="customize-dialog" class="customize-dialog" hidden style="display:none" aria-hidden="true">
       <form id="customize-form">
-        <div class="customize-heading"><div><div class="eyebrow">YOUR WORKSPACE</div><h2 id="customize-heading">Customize dashboard</h2><p>Choose visible panels and save filters on this browser only.</p></div><button id="customize-cancel" type="button" class="customize-dismiss" aria-label="Close customization">×</button></div>
-        <label class="customize-title" for="dashboard-title">View name <input id="dashboard-title" maxlength="80" required autofocus></label>
-        <fieldset id="widget-options" class="widget-options"><legend>Visible widgets</legend></fieldset>
-        <p id="config-status" class="config-status" role="status" aria-live="polite"></p>
-        <div class="customize-actions">
-          <button id="customize-edit-layout" type="button" class="refresh">◫ Edit grid layout</button>
-          <button id="config-export" type="button" class="refresh">Export JSON</button>
-          <button id="config-import-trigger" type="button" class="refresh">Import JSON</button><input id="config-import" type="file" accept=".json,application/json" hidden aria-label="Choose dashboard JSON">
-          <button id="config-reset" type="button" class="refresh">Reset</button>
-          <button type="submit" class="save-button">Save layout</button>
-        </div>
+        <input id="dashboard-title" maxlength="80" autofocus hidden>
+        <fieldset id="widget-options" class="widget-options" hidden></fieldset>
+        <button id="customize-edit-layout" type="button" hidden></button>
+        <button id="customize-cancel" type="button" hidden></button>
       </form>
     </dialog>
     <dialog id="graph-dialog" class="customize-dialog" aria-labelledby="graph-dialog-title">

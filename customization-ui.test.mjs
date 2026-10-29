@@ -8,10 +8,11 @@ test("customize controls and every registered widget have a matching dashboard s
   for (const name of Object.keys(WIDGET_REGISTRY)) {
     assert.ok(html.includes('data-widget="' + name + '"'), "Missing widget panel: " + name);
   }
-  for (const id of ["customize", "customize-dialog", "customize-form", "config-export",
+  for (const id of ["customize-dialog", "customize-form", "config-export",
     "config-import", "config-import-trigger", "config-reset", "widget-options", "dashboard-title", "config-status"]) {
     assert.ok(html.includes('id="' + id + '"'), "Missing customization control: " + id);
   }
+  assert.ok(!html.includes('id="customize"'), "Customize button must be removed from header actions");
   const src = await readFile(new URL("./src/client/dashboard.ts", import.meta.url), "utf8");
   assert.match(src, /readDashboardConfig/);
   assert.match(src, /persistFilters/);

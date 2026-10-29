@@ -7,6 +7,9 @@ export interface GridLayout { widths: Record<string, GridWidth>; positions: Grid
 // Twelve-column snap grid. Persist *only* integers, never arbitrary CSS or scripts.
 export const GRID_COLUMNS=12;
 export const GRID_MAX_ROW=400;
+export const GRID_GAP_PX=8;
+export const GRID_ROW_HEIGHT_PX=24;
+export const GRID_ROW_STEP_PX=32; // 24px row + 8px gap
 export const DEFAULT_WIDTHS: Readonly<Record<string,GridWidth>>=Object.freeze({kpis:"full",trend:"full",providers:"half",models:"half",cache:"half",guidance:"half",sessions:"full"});
 export const DEFAULT_ROWS: Readonly<Record<string,number>>=Object.freeze({kpis:5,trend:15,providers:13,models:13,cache:9,guidance:9,sessions:19});
 const record=(v: unknown): v is Record<string, any>=>v!==null&&typeof v==="object"&&!Array.isArray(v);
@@ -95,9 +98,9 @@ export function relocateGridWidget(positions: GridPositions,id: string,next: Gri
   return Object.fromEntries(Object.keys(positions).map(key=>[key,resolved[key]]));
 }
 export function snapToGrid(clientX: number,clientY: number,rect: {left: number;top: number;width: number},width: number,height: number): GridRect{
-  const stepX=(rect.width+8)/GRID_COLUMNS;
+  const stepX=(rect.width+GRID_GAP_PX)/GRID_COLUMNS;
   const x=Math.max(0,Math.min(GRID_COLUMNS-width,Math.round((clientX-rect.left)/stepX)));
-  const y=Math.max(0,Math.min(GRID_MAX_ROW,Math.round((clientY-rect.top)/32)));
+  const y=Math.max(0,Math.min(GRID_MAX_ROW,Math.round((clientY-rect.top)/GRID_ROW_STEP_PX)));
   return {x,y,w:width,h:height};
 }
 

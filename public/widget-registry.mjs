@@ -24,11 +24,11 @@ export const DEFAULT_DASHBOARD = Object.freeze({
     title: "AI Usage Overview",
     widgets: ["kpis", "trend", "providers", "models", "cache", "guidance", "sessions"],
     filters: {
-        period: "daily", provider: "all", model: "all",
+        period: "30d", provider: "all", model: "all",
         metric: "totalTokens", breakdown: "total", sessionMetric: "totalTokens"
     },
     widgetSettings: {
-        trend: { showLabels: true, maxSeries: 6, hiddenDimensions: [] },
+        trend: { granularity: "daily", showLabels: true, maxSeries: 6, hiddenDimensions: [] },
         providers: { metric: "totalTokens", limit: 12, hiddenDimensions: [] },
         models: { metric: "totalTokens", limit: 12, hiddenDimensions: [] },
         sessions: { hiddenDimensions: [] },
@@ -41,7 +41,7 @@ export const DEFAULT_DASHBOARD = Object.freeze({
 });
 const FIELDS = new Set(["schemaVersion", "id", "title", "widgets", "filters", "widgetSettings", "layout", "charts"]);
 const GRAPH_FIELDS = Object.freeze({
-    trend: new Set(["showLabels", "maxSeries", "hiddenDimensions"]),
+    trend: new Set(["granularity", "showLabels", "maxSeries", "hiddenDimensions"]),
     providers: new Set(["metric", "limit", "hiddenDimensions"]),
     models: new Set(["metric", "limit", "hiddenDimensions"]),
     sessions: new Set(["hiddenDimensions"]),
@@ -77,6 +77,9 @@ function validateWidgetSettings(settings) {
         const options = { ...defaults[name], ...(value ?? {}) };
         options.hiddenDimensions = validateHiddenDimensions(options.hiddenDimensions);
         if (name === "trend") {
+            if (options.granularity !== undefined && !["daily", "weekly", "monthly", "hourly"].includes(options.granularity)) {
+                throw new Error("Invalid trend granularity.");
+            }
             if (typeof options.showLabels !== "boolean")
                 throw new Error("Invalid value labels setting.");
             if (![3, 6, 12].includes(options.maxSeries))
@@ -157,7 +160,8 @@ export function validateDashboardConfig(config) {
     if (Object.keys(config.filters ?? {}).some((key) => !FILTERS.has(key)))
         throw new Error("Unknown dashboard filter.");
     const filters = { ...DEFAULT_DASHBOARD.filters, ...(config.filters ?? {}) };
-    if (!["daily", "weekly", "monthly", "hourly"].includes(filters.period))
+    const VALID_PERIODS = new Set(["7d", "14d", "30d", "90d", "all", "daily", "weekly", "monthly", "hourly"]);
+    if (!VALID_PERIODS.has(filters.period))
         throw new Error("Invalid period filter.");
     if (!Object.hasOwn(METRIC_NAMES, filters.metric))
         throw new Error("Invalid metric filter.");

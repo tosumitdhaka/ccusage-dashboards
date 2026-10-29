@@ -8,7 +8,7 @@ import {
 import { buildChart, buildObservedHourly, buildSessions, chartCatalog } from "./analytics.mjs";
 import { colorForDimension, labelPointIndices } from "./chart-presentation.mjs";
 import type { GridRect, GridPositions, GridLayout } from "./dashboard-layout.mjs";
-import { GRID_COLUMNS, relocateGridWidget, snapToGrid, cacheRowsForWidth, visibleGridOrder, compactVisibleLayout, reflowGridAfterResize } from "./dashboard-layout.mjs";
+import { GRID_COLUMNS, GRID_MAX_ROW, GRID_GAP_PX, GRID_ROW_STEP_PX, relocateGridWidget, snapToGrid, cacheRowsForWidth, visibleGridOrder, compactVisibleLayout, reflowGridAfterResize } from "./dashboard-layout.mjs";
 
 const $ = (id: string): any => document.getElementById(id);
 interface DashboardState {
@@ -16,7 +16,7 @@ interface DashboardState {
   section: string; agent: string; model: string; breakdown: string;
   metric: string; sessionMetric: string;
 }
-const state: DashboardState = { report: null, hourly: [], section: "daily", agent: "all", model: "all",
+const state: DashboardState = { report: null, hourly: [], section: "30d", agent: "all", model: "all",
   breakdown: "total", metric: "totalTokens", sessionMetric: "totalTokens" };
 const compact = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 2 });
 const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 });
@@ -24,12 +24,20 @@ const hiddenTrendSeries = new Set<string>();
 let dismissedPricingSignature: string|null = null;
 function syncGraphControls() {
   const { trend, providers, models } = dashboardConfig.widgetSettings;
-  $("trend-show-labels").checked = trend.showLabels;
-  $("trend-series-limit").value = String(trend.maxSeries);
-  $("provider-metric").value = providers.metric;
-  $("provider-limit").value = String(providers.limit);
-  $("model-metric").value = models.metric;
-  $("model-limit").value = String(models.limit);
+  const trendGranularity = $("trend-granularity") as HTMLSelectElement | null;
+  if (trendGranularity) trendGranularity.value = trend.granularity || "daily";
+  const trendLabels = $("trend-show-labels") as HTMLInputElement | null;
+  if (trendLabels) trendLabels.checked = trend.showLabels;
+  const trendLimit = $("trend-series-limit") as HTMLSelectElement | null;
+  if (trendLimit) trendLimit.value = String(trend.maxSeries);
+  const providerMetric = $("provider-metric") as HTMLSelectElement | null;
+  if (providerMetric) providerMetric.value = providers.metric;
+  const providerLimit = $("provider-limit") as HTMLSelectElement | null;
+  if (providerLimit) providerLimit.value = String(providers.limit);
+  const modelMetric = $("model-metric") as HTMLSelectElement | null;
+  if (modelMetric) modelMetric.value = models.metric;
+  const modelLimit = $("model-limit") as HTMLSelectElement | null;
+  if (modelLimit) modelLimit.value = String(models.limit);
 }
 function updateGraphSettings(group: string, patch: Record<string, any>) {
   persistDashboardConfig({
@@ -78,15 +86,18 @@ let movementFrame=0;
 try { dashboardConfig = readDashboardConfig(window.localStorage); }
 catch { storageWarning = "Saved dashboard preferences are unavailable; defaults are in use."; }
 function applyFilterState(filters: any) {
-  state.section = filters.period;
-  state.agent = filters.provider;
-  state.model = filters.model;
-  state.metric = filters.metric;
-  state.breakdown = filters.breakdown;
-  state.sessionMetric = filters.sessionMetric;
-  $("metric").value = state.metric;
-  $("breakdown").value = state.breakdown;
-  $("session-metric").value = state.sessionMetric;
+  state.section = filters.period || "30d";
+  state.agent = filters.provider || "all";
+  state.model = filters.model || "all";
+  state.metric = filters.metric || "totalTokens";
+  state.breakdown = filters.breakdown || "total";
+  state.sessionMetric = filters.sessionMetric || "totalTokens";
+  const metricEl = $("metric") as HTMLSelectElement | null;
+  if (metricEl) metricEl.value = state.metric;
+  const breakdownEl = $("breakdown") as HTMLSelectElement | null;
+  if (breakdownEl) breakdownEl.value = state.breakdown;
+  const sessionMetricEl = $("session-metric") as HTMLSelectElement | null;
+  if (sessionMetricEl) sessionMetricEl.value = state.sessionMetric;
   const headerPeriod = $("header-period") as HTMLSelectElement | null;
   if (headerPeriod) headerPeriod.value = state.section;
   syncGraphControls();
@@ -404,26 +415,131 @@ function drawSessionTable(rows: any[]) {
     ); tbody.append(tr);
   }
 }
+function filterReportByPeriod(rawReport: any, period: string): any {
+  if (!rawReport || typeof rawReport !== "object") return rawReport;
+  if (!period || period === "all") return rawReport;
+  const days = period === "7d" ? 7 : period === "14d" ? 14 : period === "30d" ? 30 : period === "90d" ? 90 : 30;
+
+  let refTime = Date.now();
+  if (Array.isArray(rawReport.daily) && rawReport.daily.length > 0) {
+    const dates = rawReport.daily
+      .map((r: any) => r.period ?? r.date)
+      .filter((d: any) => typeof d === "string" && /^\d{4}-\d{2}-\d{2}/.test(d))
+      .map((d: string) => new Date(d + "T23:59:59Z").getTime())
+      .filter((t: number) => !isNaN(t));
+    if (dates.length > 0) {
+      const maxDate = Math.max(...dates);
+      if (refTime - maxDate > 14 * 86400 * 1000) {
+        refTime = maxDate;
+      }
+    }
+  }
+
+  const cutoffTime = refTime - days * 24 * 60 * 60 * 1000;
+
+  const filterDailyRow = (r: any) => {
+    const dStr = r.period ?? r.date;
+    if (typeof dStr !== "string") return true;
+    const t = new Date(dStr + (dStr.length === 10 ? "T12:00:00Z" : "")).getTime();
+    return isNaN(t) || t >= cutoffTime;
+  };
+
+  const filterWeeklyRow = (r: any) => {
+    const p = r.period ?? r.week ?? r.date;
+    if (typeof p !== "string") return true;
+    const weekMatch = p.match(/^(\d{4})-W(\d{1,2})$/);
+    if (weekMatch) {
+      const year = parseInt(weekMatch[1], 10);
+      const week = parseInt(weekMatch[2], 10);
+      const weekEnd = new Date(Date.UTC(year, 0, 1 + week * 7)).getTime();
+      return weekEnd >= cutoffTime;
+    }
+    const t = new Date(p + (p.length === 10 ? "T12:00:00Z" : "")).getTime();
+    return isNaN(t) || t >= cutoffTime;
+  };
+
+  const filterMonthlyRow = (r: any) => {
+    const p = r.period ?? r.month ?? r.date;
+    if (typeof p !== "string") return true;
+    const mMatch = p.match(/^(\d{4})-(\d{2})$/);
+    if (mMatch) {
+      const year = parseInt(mMatch[1], 10);
+      const month = parseInt(mMatch[2], 10);
+      const monthEnd = new Date(Date.UTC(year, month, 0, 23, 59, 59)).getTime();
+      return monthEnd >= cutoffTime;
+    }
+    const t = new Date(p).getTime();
+    return isNaN(t) || t >= cutoffTime;
+  };
+
+  const filterSessionRow = (s: any) => {
+    const act = s.metadata?.lastActivity ?? s.lastActivity ?? s.period ?? s.date;
+    if (typeof act !== "string") return true;
+    const t = new Date(act).getTime();
+    return isNaN(t) || t >= cutoffTime;
+  };
+
+  return {
+    ...rawReport,
+    daily: Array.isArray(rawReport.daily) ? rawReport.daily.filter(filterDailyRow) : rawReport.daily,
+    weekly: Array.isArray(rawReport.weekly) ? rawReport.weekly.filter(filterWeeklyRow) : rawReport.weekly,
+    monthly: Array.isArray(rawReport.monthly) ? rawReport.monthly.filter(filterMonthlyRow) : rawReport.monthly,
+    session: Array.isArray(rawReport.session) ? rawReport.session.filter(filterSessionRow) : rawReport.session,
+  };
+}
+
+function filterHourlyByPeriod(snapshots: any[], period: string): any[] {
+  if (!Array.isArray(snapshots) || !period || period === "all") return snapshots;
+  const days = period === "7d" ? 7 : period === "14d" ? 14 : period === "30d" ? 30 : period === "90d" ? 90 : 30;
+  let refTime = Date.now();
+  const times = snapshots
+    .map((s) => typeof s?.timestamp === "string" ? new Date(s.timestamp).getTime() : NaN)
+    .filter((t) => !isNaN(t));
+  if (times.length > 0) {
+    const maxTime = Math.max(...times);
+    if (refTime - maxTime > 14 * 86400 * 1000) refTime = maxTime;
+  }
+  const cutoffTime = refTime - days * 24 * 60 * 60 * 1000;
+  return snapshots.filter((s) => {
+    const t = typeof s?.timestamp === "string" ? new Date(s.timestamp).getTime() : NaN;
+    return isNaN(t) || t >= cutoffTime;
+  });
+}
+
 function updateSelectors() {
   const catalog = chartCatalog(state.report);
-  state.agent = choices($("agent"), catalog.agents, "All providers", state.agent);
-  state.model = choices($("model"), availableModels(state.report, state.agent), "All models", state.model);
+  const agentEl = $("agent") as HTMLSelectElement | null;
+  if (agentEl) state.agent = choices(agentEl, catalog.agents, "All providers", state.agent);
+  else state.agent = "all";
+  const modelEl = $("model") as HTMLSelectElement | null;
+  if (modelEl) state.model = choices(modelEl, availableModels(state.report, state.agent), "All models", state.model);
+  else state.model = "all";
 }
 function render() {
   if (!state.report) return;
   showWidgetSelection();
-  $("metric").value = state.metric;
-  $("breakdown").value = state.breakdown;
-  $("session-metric").value = state.sessionMetric;
+  const metricEl = $("metric") as HTMLSelectElement | null;
+  if (metricEl) metricEl.value = state.metric;
+  const breakdownEl = $("breakdown") as HTMLSelectElement | null;
+  if (breakdownEl) breakdownEl.value = state.breakdown;
+  const sessionMetricEl = $("session-metric") as HTMLSelectElement | null;
+  if (sessionMetricEl) sessionMetricEl.value = state.sessionMetric;
   syncGraphControls();
-  const period = state.section === "hourly" ? "daily" : state.section;
-  const view = buildView(state.report, { section: period, agent: state.agent });
-  const current = { period, agent: state.agent, model: state.model };
+
+  const activePeriod = state.section || "30d";
+  const filteredReport = filterReportByPeriod(state.report, activePeriod);
+  const filteredHourly = filterHourlyByPeriod(state.hourly, activePeriod);
+
+  const trendGranularity = dashboardConfig.widgetSettings.trend?.granularity || "daily";
+  const trendPeriodKey = trendGranularity === "hourly" ? "daily" : trendGranularity;
+
+  const view = buildView(filteredReport, { section: "daily", agent: state.agent });
+  const current = { period: "daily", agent: state.agent, model: state.model };
   // Source and model totals are not necessarily additive to the upstream total.
   const metrics = ["totalTokens", "inputTokens", "outputTokens", "cacheReadTokens", "cacheCreationTokens"];
-  const vals = Object.fromEntries(metrics.map((m) => [m, buildChart(state.report, { ...current, metric: m }).total]));
-  const cost = buildChart(state.report, { ...current, metric: "totalCost" }).total;
-  const hasCost = (state.report[period] ?? []).some((r: any) => typeof r.totalCost === "number");
+  const vals = Object.fromEntries(metrics.map((m) => [m, buildChart(filteredReport, { ...current, metric: m }).total]));
+  const cost = buildChart(filteredReport, { ...current, metric: "totalCost" }).total;
+  const hasCost = (filteredReport.daily ?? []).some((r: any) => typeof r.totalCost === "number");
   state.reportHasCost = hasCost;
   $("stat-tokens").textContent = fmt(vals.totalTokens);
   $("stat-input").textContent = fmt(vals.inputTokens);
@@ -445,39 +561,40 @@ function render() {
   [...document.querySelectorAll<HTMLElement>('[data-widget="kpis"] .kpi')].forEach((node,index)=>{
     node.hidden=kpiHidden.has(["Reported tokens","Fresh input","Generated output","API-equivalent cost"][index]);
   });
-  $("trend-period").textContent = state.section.toUpperCase();
+  const trendChip = $("trend-period");
+  if (trendChip) trendChip.textContent = trendGranularity.toUpperCase();
   const headerPeriod = $("header-period") as HTMLSelectElement | null;
-  if (headerPeriod) headerPeriod.value = state.section;
+  if (headerPeriod) headerPeriod.value = activePeriod;
   $("chart-heading").textContent = (state.metric === "totalCost" ? "Estimated cost" : "Token consumption") + " over time";
   document.querySelectorAll<HTMLElement>(".period").forEach((button) => {
     const active = button.dataset.period === state.section;
     button.classList.toggle("active", active); button.setAttribute("aria-pressed", String(active));
   });
-  const filters = { ...current, breakdown: state.breakdown, metric: state.metric };
-  const chart = state.section === "hourly"
-    ? buildObservedHourly(state.hourly, filters)
-    : buildChart(state.report, filters);
+  const filters = { ...current, period: trendPeriodKey, breakdown: state.breakdown, metric: state.metric };
+  const chart = trendGranularity === "hourly"
+    ? buildObservedHourly(filteredHourly, filters)
+    : buildChart(filteredReport, filters);
   drawLineChart(chart, state.metric);
   const notes = [];
-  if (state.section === "hourly") notes.push("Hourly is observed deltas between dashboard refreshes (UTC hour), not exact event-time usage. Starts only after two changed readings; gaps reflect missing observation periods. Price refreshes can alter observed cost deltas.");
+  if (trendGranularity === "hourly") notes.push("Hourly is observed deltas between dashboard refreshes (UTC hour), not exact event-time usage. Starts only after two changed readings; gaps reflect missing observation periods. Price refreshes can alter observed cost deltas.");
   if (("isModelCategorySum" in chart && chart.isModelCategorySum) || state.model !== "all" && state.metric === "totalTokens") notes.push("Per-model totals sum token categories and may differ from upstream reported totals.");
   if (chart.series.length > dashboardConfig.widgetSettings.trend.maxSeries) notes.push("Chart draws the top " + dashboardConfig.widgetSettings.trend.maxSeries + " series; increase the series limit or filter the view.");
   if (dashboardConfig.widgetSettings.trend.showLabels && chart.points.length > 12) notes.push("Value labels are sampled to avoid collisions; point tooltips retain every value.");
   if (state.metric === "totalCost") notes.push("API-equivalent estimated cost, not subscription billing. Unknown model prices can understate totals.");
   $("trend-note").textContent = notes.join(" ");
-  $("chart-explainer").textContent = state.section === "hourly" ? "Changes observed by this running dashboard; UTC hours" : METRIC_NAMES[state.metric] + " by " + ( ({ daily: "day", weekly: "week", monthly: "month" } as Record<string, string>)[state.section]);
+  $("chart-explainer").textContent = trendGranularity === "hourly" ? "Changes observed by this running dashboard; UTC hours" : METRIC_NAMES[state.metric] + " by " + ( ({ daily: "day", weekly: "week", monthly: "month" } as Record<string, string>)[trendGranularity] || "period");
   const providerSettings = dashboardConfig.widgetSettings.providers;
   const modelSettings = dashboardConfig.widgetSettings.models;
-  const providerGraph = buildChart(state.report, { ...current, metric: providerSettings.metric, breakdown: "provider" });
-  const modelGraph = buildChart(state.report, { ...current, metric: modelSettings.metric, breakdown: "model" });
+  const providerGraph = buildChart(filteredReport, { ...current, period: "daily", metric: providerSettings.metric, breakdown: "provider" });
+  const modelGraph = buildChart(filteredReport, { ...current, period: "daily", metric: modelSettings.metric, breakdown: "model" });
   drawBars("provider-bars", providerGraph.series, providerSettings.metric, "No provider breakdown available.", providerSettings.limit, "provider", providerSettings.hiddenDimensions);
   drawBars("model-bars", modelGraph.series, modelSettings.metric, "No model breakdown available.", modelSettings.limit, "model", modelSettings.hiddenDimensions);
   $("provider-summary").textContent = "Ranked by " + METRIC_NAMES[providerSettings.metric].toLowerCase();
   $("model-summary").textContent = "Ranked by " + METRIC_NAMES[modelSettings.metric].toLowerCase();
-  const sessions = buildSessions(state.report, { agent: state.agent, model: state.model, metric: state.sessionMetric });
+  const sessions = buildSessions(filteredReport, { agent: state.agent, model: state.model, metric: state.sessionMetric });
   drawSessionGraph(sessions.filter((s: any)=>!dashboardConfig.widgetSettings.sessions.hiddenDimensions.includes(s.agent)));
-  drawSessionTable(buildSessions(state.report, { agent: state.agent, model: state.model, metric: "totalTokens", limit: 30 }).filter((s: any)=>!dashboardConfig.widgetSettings.sessions.hiddenDimensions.includes(s.agent)).slice(0,10));
-  renderCustomCharts();
+  drawSessionTable(buildSessions(filteredReport, { agent: state.agent, model: state.model, metric: "totalTokens", limit: 30 }).filter((s: any)=>!dashboardConfig.widgetSettings.sessions.hiddenDimensions.includes(s.agent)).slice(0,10));
+  renderCustomCharts(filteredReport, filteredHourly);
   const warnings = state.model === "all" ? view.missingPricing : view.missingPricing.filter((m) => m === state.model);
   const notice = $("notice");
   if (warnings.length) {
@@ -529,22 +646,37 @@ if (headerPeriod) {
   });
 }
 document.querySelectorAll<HTMLElement>(".period").forEach((button) => button.addEventListener("click", () => {
-  state.section = button.dataset.period ?? "daily";
+  state.section = button.dataset.period ?? "30d";
   const headerPeriod = $("header-period") as HTMLSelectElement | null;
   if (headerPeriod) headerPeriod.value = state.section;
   persistFilters(); render();
 }));
-$("agent").addEventListener("change", () => { state.agent = $("agent").value; updateSelectors(); persistFilters(); render(); });
-$("model").addEventListener("change", () => { state.model = $("model").value; persistFilters(); render(); });
-$("metric").addEventListener("change", () => { state.metric = $("metric").value; persistFilters(); render(); });
-$("breakdown").addEventListener("change", () => { state.breakdown = $("breakdown").value; persistFilters(); render(); });
-$("session-metric").addEventListener("change", () => { state.sessionMetric = $("session-metric").value; persistFilters(); render(); });
-$("trend-show-labels").addEventListener("change", () => updateGraphSettings("trend", { showLabels: $("trend-show-labels").checked }));
-$("trend-series-limit").addEventListener("change", () => updateGraphSettings("trend", { maxSeries: Number($("trend-series-limit").value) }));
+const agentEl = $("agent") as HTMLSelectElement | null;
+if (agentEl) agentEl.addEventListener("change", () => { state.agent = agentEl.value; updateSelectors(); persistFilters(); render(); });
+const modelEl = $("model") as HTMLSelectElement | null;
+if (modelEl) modelEl.addEventListener("change", () => { state.model = modelEl.value; persistFilters(); render(); });
+const metricEl = $("metric") as HTMLSelectElement | null;
+if (metricEl) metricEl.addEventListener("change", () => { state.metric = metricEl.value; persistFilters(); render(); });
+const breakdownEl = $("breakdown") as HTMLSelectElement | null;
+if (breakdownEl) breakdownEl.addEventListener("change", () => { state.breakdown = breakdownEl.value; persistFilters(); render(); });
+const sessionMetricEl = $("session-metric") as HTMLSelectElement | null;
+if (sessionMetricEl) sessionMetricEl.addEventListener("change", () => { state.sessionMetric = sessionMetricEl.value; persistFilters(); render(); });
+const trendGranularitySelect = $("trend-granularity") as HTMLSelectElement | null;
+if (trendGranularitySelect) {
+  trendGranularitySelect.addEventListener("change", () => {
+    updateGraphSettings("trend", { granularity: trendGranularitySelect.value });
+  });
+}
+const trendShowLabels = $("trend-show-labels") as HTMLInputElement | null;
+if (trendShowLabels) trendShowLabels.addEventListener("change", () => updateGraphSettings("trend", { showLabels: trendShowLabels.checked }));
+const trendSeriesLimit = $("trend-series-limit") as HTMLSelectElement | null;
+if (trendSeriesLimit) trendSeriesLimit.addEventListener("change", () => updateGraphSettings("trend", { maxSeries: Number(trendSeriesLimit.value) }));
 for (const group of ["providers", "models"]) {
   const prefix = group === "providers" ? "provider" : "model";
-  $(prefix + "-metric").addEventListener("change", () => updateGraphSettings(group, { metric: $(prefix + "-metric").value }));
-  $(prefix + "-limit").addEventListener("change", () => updateGraphSettings(group, { limit: Number($(prefix + "-limit").value) }));
+  const mSelect = $(prefix + "-metric") as HTMLSelectElement | null;
+  if (mSelect) mSelect.addEventListener("change", () => updateGraphSettings(group, { metric: mSelect.value }));
+  const lSelect = $(prefix + "-limit") as HTMLSelectElement | null;
+  if (lSelect) lSelect.addEventListener("change", () => updateGraphSettings(group, { limit: Number(lSelect.value) }));
 }
 window.addEventListener("scroll", scheduleNavigationUpdate, { passive: true });
 window.addEventListener("scroll", hideChartTooltip, { passive: true });
@@ -580,79 +712,116 @@ if (navToggle && sidebar) {
 }
 
 function populateCustomizeDialog() {
-  $("dashboard-title").value = dashboardConfig.title;
-  $("config-status").textContent = storageWarning;
+  const dashTitle = $("dashboard-title") as HTMLInputElement | null;
+  if (dashTitle) dashTitle.value = dashboardConfig.title;
+  const cfgStatus = $("config-status");
+  if (cfgStatus) cfgStatus.textContent = storageWarning;
   const group = $("widget-options");
-  group.replaceChildren();
-  const options=[...Object.entries(WIDGET_REGISTRY),...dashboardConfig.charts.map((chart: any)=>[chart.id,{title:chart.title}])];
-  for (const [key, widget] of options) {
-    const label = el("label", "widget-option");
-    const input = el("input");
-    input.type = "checkbox"; input.value = key;
-    input.checked = dashboardConfig.widgets.includes(key);
-    label.append(input, document.createTextNode(widget.title));
-    group.append(label);
+  if (group) {
+    group.replaceChildren();
+    const options=[...Object.entries(WIDGET_REGISTRY),...dashboardConfig.charts.map((chart: any)=>[chart.id,{title:chart.title}])];
+    for (const [key, widget] of options) {
+      const label = el("label", "widget-option");
+      const input = el("input");
+      input.type = "checkbox"; input.value = key;
+      input.checked = dashboardConfig.widgets.includes(key);
+      label.append(input, document.createTextNode(widget.title));
+      group.append(label);
+    }
   }
 }
-$("customize").addEventListener("click", () => {
-  populateCustomizeDialog();
-  $("customize-dialog").showModal();
-});
-$("customize-cancel").addEventListener("click", () => $("customize-dialog").close());
-$("customize-form").addEventListener("submit", (event: any) => {
-  event.preventDefault();
-  try {
-    const checked = new Set([...$("widget-options").querySelectorAll("input:checked")].map(input=>input.value));
-    const widgets = [...dashboardConfig.widgets.filter((id: string)=>checked.has(id)),
-      ...[...checked].filter(id=>!dashboardConfig.widgets.includes(id))];
-    const title = $("dashboard-title").value.trim();
-    const sameVisibility=widgets.length===dashboardConfig.widgets.length&&
-      widgets.every(id=>dashboardConfig.widgets.includes(id));
-    const layout=sameVisibility?dashboardConfig.layout:layoutAfterVisibilityChange(widgets);
-    persistDashboardConfig(configWithCurrentFilters({ ...dashboardConfig, title, widgets, layout }));
-    $("customize-dialog").close();
-    if (state.report) render();
-  } catch (error) {
-    $("config-status").textContent = error instanceof Error ? error.message : "Invalid dashboard preferences.";
-  }
-});
-$("config-reset").addEventListener("click", () => {
-  try {
-    const defaults = resetDashboardConfig(window.localStorage);
-    replaceDashboardConfig(defaults, false);
-    storageWarning = "";
+const customizeBtn = $("customize");
+if (customizeBtn) {
+  customizeBtn.addEventListener("click", () => {
     populateCustomizeDialog();
-  } catch (error) {
-    $("config-status").textContent = error instanceof Error ? error.message : "Unable to reset preferences.";
-  }
-});
-$("config-export").addEventListener("click", () => {
-  try {
-    const json = stringifyDashboardConfig(configWithCurrentFilters());
-    const blob = new Blob([json], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const anchor = el("a");
-    anchor.href = url; anchor.download = "ccusage-dashboard-view.json";
-    document.body.append(anchor); anchor.click(); anchor.remove();
-    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-    $("config-status").textContent = "Exported view settings only; no usage reports or credentials.";
-  } catch (error) { $("config-status").textContent = error instanceof Error ? error.message : String(error); }
-});
-$("config-import-trigger").addEventListener("click", () => $("config-import").click());
-$("config-import").addEventListener("change", async (event: any) => {
-  const file = event.target.files?.[0];
-  event.target.value = "";
-  if (!file) return;
-  try {
-    if (file.size > MAX_DASHBOARD_JSON_LENGTH) throw new Error("Dashboard JSON exceeds 16 KiB.");
-    const imported = parseDashboardJSON(await file.text());
-    replaceDashboardConfig(imported);
-    populateCustomizeDialog();
-    $("config-status").textContent = storageWarning || "View imported. Filters and visible widgets updated.";
-  } catch (error) {
-    $("config-status").textContent = error instanceof Error ? error.message : "Unable to import dashboard JSON.";
-  }
-});
+    const dialog = $("customize-dialog") as HTMLDialogElement | null;
+    if (dialog && typeof dialog.showModal === "function") dialog.showModal();
+  });
+}
+const customizeCancel = $("customize-cancel");
+if (customizeCancel) {
+  customizeCancel.addEventListener("click", () => {
+    const dialog = $("customize-dialog") as HTMLDialogElement | null;
+    if (dialog && typeof dialog.close === "function") dialog.close();
+  });
+}
+const customizeForm = $("customize-form");
+if (customizeForm) {
+  customizeForm.addEventListener("submit", (event: any) => {
+    event.preventDefault();
+    try {
+      const optionsEl = $("widget-options");
+      const checked = optionsEl ? new Set([...optionsEl.querySelectorAll("input:checked")].map((input: any)=>input.value)) : new Set(dashboardConfig.widgets);
+      const widgets = [...dashboardConfig.widgets.filter((id: string)=>checked.has(id)),
+        ...[...checked].filter(id=>!dashboardConfig.widgets.includes(id))];
+      const titleInput = $("dashboard-title") as HTMLInputElement | null;
+      const title = (titleInput ? titleInput.value : dashboardConfig.title).trim();
+      const sameVisibility=widgets.length===dashboardConfig.widgets.length&&
+        widgets.every(id=>dashboardConfig.widgets.includes(id));
+      const layout=sameVisibility?dashboardConfig.layout:layoutAfterVisibilityChange(widgets);
+      persistDashboardConfig(configWithCurrentFilters({ ...dashboardConfig, title, widgets, layout }));
+      const dialog = $("customize-dialog") as HTMLDialogElement | null;
+      if (dialog && typeof dialog.close === "function") dialog.close();
+      if (state.report) render();
+    } catch (error) {
+      const statusEl = $("config-status");
+      if (statusEl) statusEl.textContent = error instanceof Error ? error.message : "Invalid dashboard preferences.";
+    }
+  });
+}
+const configReset = $("config-reset");
+if (configReset) {
+  configReset.addEventListener("click", () => {
+    try {
+      const defaults = resetDashboardConfig(window.localStorage);
+      replaceDashboardConfig(defaults, false);
+      storageWarning = "";
+      populateCustomizeDialog();
+    } catch (error) {
+      const statusEl = $("config-status");
+      if (statusEl) statusEl.textContent = error instanceof Error ? error.message : "Unable to reset preferences.";
+    }
+  });
+}
+const configExport = $("config-export");
+if (configExport) {
+  configExport.addEventListener("click", () => {
+    try {
+      const json = stringifyDashboardConfig(configWithCurrentFilters());
+      const blob = new Blob([json], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const anchor = el("a");
+      anchor.href = url; anchor.download = "ccusage-dashboard-view.json";
+      document.body.append(anchor); anchor.click(); anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      const statusEl = $("config-status");
+      if (statusEl) statusEl.textContent = "Exported view settings only; no usage reports or credentials.";
+    } catch (error) { const statusEl = $("config-status"); if (statusEl) statusEl.textContent = error instanceof Error ? error.message : String(error); }
+  });
+}
+const configImportTrigger = $("config-import-trigger");
+const configImportInput = $("config-import") as HTMLInputElement | null;
+if (configImportTrigger && configImportInput) {
+  configImportTrigger.addEventListener("click", () => configImportInput.click());
+}
+if (configImportInput) {
+  configImportInput.addEventListener("change", async (event: any) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    try {
+      if (file.size > MAX_DASHBOARD_JSON_LENGTH) throw new Error("Dashboard JSON exceeds 16 KiB.");
+      const imported = parseDashboardJSON(await file.text());
+      replaceDashboardConfig(imported);
+      populateCustomizeDialog();
+      const statusEl = $("config-status");
+      if (statusEl) statusEl.textContent = storageWarning || "View imported. Filters and visible widgets updated.";
+    } catch (error) {
+      const statusEl = $("config-status");
+      if (statusEl) statusEl.textContent = error instanceof Error ? error.message : "Unable to import dashboard JSON.";
+    }
+  });
+}
 
 $("refresh").addEventListener("click", load);
 // A viewport resize changes both SVG dimensions and label spacing. Recompute
@@ -723,7 +892,7 @@ function refreshArrangeTools(){
   $("layout-cancel").textContent="✕ Cancel";
   $("layout-cancel").title="Discard layout changes and restore saved positions";
   $("add-graph").disabled=arranging;
-  $("customize").disabled=false;
+  if ($("customize")) $("customize").disabled=false;
   const toolbar=$("layout-toolbar");
   if(toolbar)toolbar.hidden=!arranging;
   for(const panel of grid.querySelectorAll("[data-widget]")){
@@ -751,11 +920,15 @@ function saveGridPosition(id: string,rect: GridRect,type="resize"){
     requestAnimationFrame(()=>{
       if(!arranging||!state.report)return;
       if(id==="trend"){
-        const period=state.section==="hourly"?"daily":state.section;
-        const filters={period,agent:state.agent,model:state.model,
+        const activePeriod = state.section || "30d";
+        const filteredReport = filterReportByPeriod(state.report, activePeriod);
+        const filteredHourly = filterHourlyByPeriod(state.hourly, activePeriod);
+        const trendGranularity = dashboardConfig.widgetSettings.trend?.granularity || "daily";
+        const periodKey = trendGranularity === "hourly" ? "daily" : trendGranularity;
+        const filters={period: periodKey,agent:state.agent,model:state.model,
           breakdown:state.breakdown,metric:state.metric};
-        const chart=state.section==="hourly"?
-          buildObservedHourly(state.hourly,filters):buildChart(state.report,filters);
+        const chart=trendGranularity==="hourly"?
+          buildObservedHourly(filteredHourly,filters):buildChart(filteredReport,filters);
         drawLineChart(chart,state.metric);
       }else renderCustomCharts();
     });
@@ -914,13 +1087,13 @@ function createPointerFrame(update: (clientX:number,clientY:number)=>void){
 // scroll anchoring nor peer relayout can amplify a pointer gesture.
 function showFloatingGridTarget(rect: GridRect,stepX:number,valid=true){
   const preview=$("grid-drop-preview");
-  const sizeX=Math.max(12,rect.w*stepX-8);
-  const sizeY=Math.max(16,rect.h*32-8);
+  const sizeX=Math.max(12,rect.w*stepX-GRID_GAP_PX);
+  const sizeY=Math.max(16,rect.h*GRID_ROW_STEP_PX-GRID_GAP_PX);
   preview.hidden=false;
   preview.classList.toggle("layout-invalid-target",!valid);
   preview.style.width=sizeX+"px";
   preview.style.height=sizeY+"px";
-  preview.style.transform="translate3d("+(rect.x*stepX)+"px,"+(rect.y*32)+"px,0)";
+  preview.style.transform="translate3d("+(rect.x*stepX)+"px,"+(rect.y*GRID_ROW_STEP_PX)+"px,0)";
 }
 function hideFloatingGridTarget(){
   const preview=$("grid-drop-preview");
@@ -995,7 +1168,7 @@ function beginPanelDrag(event: PointerEvent,surface: HTMLElement,panel: HTMLElem
     // even when the dragged item was previously moved by the user.
     const candidate={...start,
       x:Math.max(0,Math.min(GRID_COLUMNS-start.w,start.x+Math.round(dx/stepX))),
-      y:Math.max(0,Math.min(999-start.h,start.y+Math.round(dy/32)))};
+      y:Math.max(0,Math.min(GRID_MAX_ROW-start.h,start.y+Math.round(dy/32)))};
     panel.classList.add("layout-drag-source");
     panel.style.transform="translate3d("+dx+"px,"+dy+"px,0)";
     if(candidate.x===next.x&&candidate.y===next.y)return;
@@ -1049,6 +1222,26 @@ function installLayoutEditor(){
   if(toolbarSave)toolbarSave.addEventListener("click",()=>closeLayoutEdit(true));
   const toolbarCancel=$("layout-toolbar-cancel");
   if(toolbarCancel)toolbarCancel.addEventListener("click",()=>closeLayoutEdit(false));
+  const toolbarReset=$("layout-toolbar-reset");
+  if(toolbarReset){
+    toolbarReset.addEventListener("click",()=>{
+      const defaults = resetDashboardConfig(window.localStorage);
+      layoutDraft = {
+        widths: { ...defaults.layout.widths },
+        positions: Object.fromEntries(Object.entries(defaults.layout.positions).map(([id, r]) => [id, { ...r }]))
+      };
+      layoutDraftWidgets = [...defaults.widgets];
+      layoutDraftTitle = defaults.title;
+      populateLayoutToolbar();
+      applyGridPreview(layoutDraft.positions);
+      for (const panel of $("dashboard-grid").querySelectorAll("[data-widget]")) {
+        const wid = panel.dataset.widget;
+        panel.hidden = !layoutDraftWidgets.includes(wid);
+      }
+      const statusEl = $("config-status");
+      if (statusEl) statusEl.textContent = "Layout and widgets reset to default settings.";
+    });
+  }
   const titleInput=$("layout-title-input") as HTMLInputElement|null;
   if(titleInput)titleInput.addEventListener("input",()=>{layoutDraftTitle=titleInput.value;});
   const quickAdd=$("layout-quick-add");
@@ -1149,9 +1342,10 @@ function syncCustomChartNodes(){
       select.value=chart[select.dataset.customField as keyof typeof chart];
   }
 }
-function renderCustomCharts(){
+function renderCustomCharts(report = filterReportByPeriod(state.report, state.section || "30d"), hourly = filterHourlyByPeriod(state.hourly, state.section || "30d")){
+  if (!report) return;
   for(const chart of dashboardConfig.charts){
-    const data=buildChart(state.report,{period:chart.period,agent:state.agent,model:state.model,
+    const data=buildChart(report,{period:chart.period,agent:state.agent,model:state.model,
       metric:chart.metric,breakdown:chart.breakdown});
     const bars=$("custom-bars-"+chart.id),plot=$("custom-svg-"+chart.id).parentElement,
       legend=$("custom-legend-"+chart.id);
