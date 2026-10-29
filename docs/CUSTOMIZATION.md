@@ -69,7 +69,7 @@ metric. Settings apply immediately and persist in the browser's active view.
 The controls use native expandable buttons for keyboard accessibility and remain
 available on narrow screens. They are independent of the global **Customize** dialog.
 
-## v0.3 development preview
+## v0.3 Grid customization and custom graphs
 
 Click **Unlock layout** to drag widget headers onto a 12-column snap grid, move
 with ↑/↓ buttons or resize height and width with the ↘ corner grip. The

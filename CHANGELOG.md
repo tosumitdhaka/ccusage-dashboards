@@ -1,13 +1,20 @@
 # Changelog
 
-## v0.3.0 — Layout and custom graphs (development, unreleased)
+## v0.3.0 — TypeScript Foundation, Customizable Grid & Responsive UI
 
-- Inline graph header filters instead of extra Adjust-menu clicks.
-- Responsive Input/cache metric cards: four across when wide, two or one across when narrow, with adaptive default height.
-- Snap-aligned 12-column widget grid with free-position header dragging, two-axis corner resizing, collision resolution, and ↑/↓ accessible move controls.
-- Lock/unlock layout, advanced visualization editing through ⋮, and individual provider/model/category visibility settings.
-- Create up to four validated line/bar graphs from existing local ccusage metrics; no imported-code execution or CSV parsing.
-- Older dashboard exports migrate to default layout and empty custom graphs.
+- **TypeScript Foundation:** Authoritative source migrated to strict TypeScript across client (`src/client/`) and Node backend/CLI (`src/node/`) with zero production runtime dependencies.
+- **Persistent Header & Period Range:** Sticky navigation bar (`.topbar`) with backdrop blur and global Period date range selector (`Today`, `Last 7 Days` [default], `Last 14 Days`, `Last 30 Days`, `Last 90 Days`, `All Time`).
+- **High-Density 12-Column Grid:** Snap-aligned 12-column desktop grid with compact 8px gutters, free-position header dragging, real-time drop ghost preview, and automated collision resolution.
+- **8-Edge & Corner Resizing:** Interactive 8-zone resizing with live bounding outline preview and atomic commit on release.
+- **Unified Layout Customization Toolbar:** In-place dashboard title editing, live toggleable widget chips (KPIs, Trend, Providers, Models, Cache, Notes, Sessions), layout lock/unlock, layout reset, and validated JSON export/import.
+- **Per-Widget Granularity:** Granularity controls (`Daily`, `Weekly`, `Monthly`, `Hourly`) embedded directly in widget headers, independent of the global calendar range.
+- **Instant Touch-Enabled Floating Tooltips:** Dynamic HTML tooltips on SVG trend charts with instant touch and hover tracking.
+- **Accessible Mobile Navigation Drawer:** Responsive breakpoint (`<= 740px`) with mobile slide-out drawer navigation, dedicated toggle button, and touch-friendly vertical card stacking.
+- **WCAG 2.1 AA Accessibility:** High-contrast palette (> 6.7:1), explicit `:focus-visible` focus indicators, accessible table semantics, and dialog backdrop dismissal.
+- **Visibility-Aware Background Polling:** Smart telemetry polling pauses when browser tab is inactive (`document.hidden`) and resumes on focus.
+- **Safe Iterative Reductions:** Iterative reduction routines eliminate V8 engine call stack limits on high-volume historical logs.
+- **Custom Graph Builder:** Create up to four local, sandboxed line or ranked bar charts from `ccusage` report metrics.
+- **Responsive Input & Cache Cards:** Adaptive card layouts expanding to four columns when wide and consolidating to two or one column when narrow.
 
 ## v0.2.1 — Reproducible npm release publication
 

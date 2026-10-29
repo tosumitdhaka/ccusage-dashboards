@@ -63,6 +63,6 @@ blanket exception is used.
 - Preserve the dashboard storage key and versioned JSON schema.
 - Keep report data and snapshots on the local machine; no telemetry.
 - Preserve installed package behavior, offline mode and tests.
-- Draft PR #11 remains dependent on stabilizing/merging UI PR #10.
+- TypeScript foundation merged and stabilized with complete UI customization.
 - Manual browser acceptance remains required: CSS layout, drag/resize,
   scrollbars, Save/Cancel and actual local ccusage reports.

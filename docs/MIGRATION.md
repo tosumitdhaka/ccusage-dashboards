@@ -8,7 +8,7 @@ The previous implementation lived in the `apps/dashboard/` folder of `tosumitdha
 - The official npm package `ccusage@20.0.26` now provides the CLI and platform-native optional dependencies.
 - Removed `runtime.mjs` private npm bootstrap and all Rust/monorepo release machinery. Native binaries are managed by npm/Bun during `install`.
 - Existing chart UI, read-only server endpoints, caching, privacy and observed-hour local history are preserved.
-- Custom dashboard **schema/registry** is introduced; editing/persisting layouts through the browser is future work.
+- Custom dashboard **schema/registry** with drag-and-drop grid layout editing, 8-zone resizing, and validated browser persistence.
 
 ## Migrate existing Windows installation
 
