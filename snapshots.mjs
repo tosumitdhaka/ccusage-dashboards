@@ -2,7 +2,7 @@
 // telemetry: successive cumulative daily reports yield observed differences.
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 const FIELDS = ["inputTokens", "outputTokens", "cacheCreationTokens", "cacheReadTokens", "totalTokens", "totalCost"];
 const pick = (row) => {
     const out = {};
@@ -71,9 +71,9 @@ export function createSnapshotStore({ file = join(homedir(), ".ccusage-dashboard
                     await writeFile(temp, JSON.stringify(next), { mode: 0o600 });
                     await rename(temp, file);
                 }
-                finally {
-                    // Best-effort temporary cleanup is omitted: on Windows rename
-                    // consumes the temporary file and a failed write should propagate.
+                catch (error) {
+                    await unlink(temp).catch(() => { });
+                    throw error;
                 }
                 cache = next;
             });

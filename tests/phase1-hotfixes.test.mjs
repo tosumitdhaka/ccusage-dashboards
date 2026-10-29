@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFile, mkdtemp, rm, readdir, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createSnapshotStore } from "../src/node/snapshots.mts";
+import { createSnapshotStore } from "../snapshots.mjs";
 
 test("public/styles.css has balanced braces and properly closed chart-header-controls rule", async () => {
   const css = await readFile(new URL("../public/styles.css", import.meta.url), "utf8");
