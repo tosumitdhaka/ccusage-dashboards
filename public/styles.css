@@ -474,7 +474,8 @@ button:focus-visible,input:focus-visible,.import-button:focus-within{outline:2px
 .dashboard-grid>[data-widget] .viz-menu-trigger,
 .dashboard-grid>[data-widget] .chart-header-controls{
   opacity:0;pointer-events:none;
-  transition:opacity 130ms ease
+  transition:opacity 130ms ease;
+}
 .dashboard-grid>[data-widget]:hover .viz-menu-trigger,
 .dashboard-grid>[data-widget]:focus-within .viz-menu-trigger,
 .dashboard-grid>[data-widget] .viz-menu-trigger[aria-expanded="true"],

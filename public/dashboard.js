@@ -341,11 +341,34 @@ function drawSessionTable(rows) {
         tbody.append(tr);
         return;
     }
-    const costRows = buildSessions(state.report, { agent: state.agent, model: state.model, metric: "totalCost", limit: 30 });
-    const costs = new Map(costRows.map((r) => [r.agent + "\0" + r.session, r.value]));
+    const costs = new Map();
+    for (const s of (state.report?.session ?? [])) {
+        if (state.agent !== "all" && s.agent !== state.agent)
+            continue;
+        const sessionKey = (s.agent ?? "unknown") + "\0" + String(s.period ?? s.date ?? s.session ?? "");
+        let cost = 0;
+        if (state.model === "all") {
+            const c = typeof s.totalCost === "number" ? s.totalCost : s.cost;
+            cost = typeof c === "number" && Number.isFinite(c) && c >= 0 ? c : 0;
+        }
+        else {
+            const bds = Array.isArray(s.modelBreakdowns) ? s.modelBreakdowns : [];
+            for (const m of bds) {
+                if (m?.modelName === state.model) {
+                    const c = typeof m.cost === "number" ? m.cost : m.totalCost;
+                    if (typeof c === "number" && Number.isFinite(c) && c >= 0)
+                        cost += c;
+                }
+            }
+        }
+        costs.set(sessionKey, cost);
+    }
     for (const row of rows.slice(0, 10)) {
+        const key = (row.agent ?? "unknown") + "\0" + String(row.session ?? "");
+        const sessionCost = typeof row.totalCost === "number" ? row.totalCost :
+            (typeof row.cost === "number" ? row.cost : costs.get(key) ?? 0);
         const tr = el("tr");
-        tr.append(el("td", "agent-cell", row.agent), el("td", "session-id", row.session), el("td", "numeric", fmt(row.value)), el("td", "numeric", state.reportHasCost ? fmt(costs.get(row.agent + "\0" + row.session) ?? 0, "totalCost") : "Unavailable"), el("td", "subtle", row.lastActivity ? new Date(row.lastActivity).toLocaleString() : "Unknown"));
+        tr.append(el("td", "agent-cell", row.agent), el("td", "session-id", row.session), el("td", "numeric", fmt(row.value)), el("td", "numeric", state.reportHasCost ? fmt(sessionCost, "totalCost") : "Unavailable"), el("td", "subtle", row.lastActivity ? new Date(row.lastActivity).toLocaleString() : "Unknown"));
         tbody.append(tr);
     }
 }
