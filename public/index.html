@@ -11,9 +11,12 @@
 <body>
   <div class="shell">
     <aside class="sidebar" aria-label="Dashboard navigation">
-      <a href="#overview" class="identity"><span class="identity-mark">◈</span><span>CC<span class="identity-muted">usage</span><small>OBSERVATORY</small></span></a>
+      <div class="sidebar-header">
+        <a href="#overview" class="identity"><span class="identity-mark">◈</span><span>CC<span class="identity-muted">usage</span><small>OBSERVATORY</small></span></a>
+        <button id="mobile-nav-toggle" class="mobile-nav-toggle" aria-expanded="false" aria-controls="sidebar-nav" aria-label="Toggle navigation menu">☰</button>
+      </div>
       <div class="nav-caption">WORKSPACE</div>
-      <nav>
+      <nav id="sidebar-nav">
         <a class="nav-link active" href="#overview"><span>◫</span> Overview</a>
         <a class="nav-link" href="#trend"><span>⌁</span> Usage trends</a>
         <a class="nav-link" href="#providers"><span>▤</span> Providers</a>
@@ -115,7 +118,7 @@
           </div>
           <div id="session-bars" class="session-bars"></div>
           <p class="footnote">Each bar represents a whole session, not an event-time progression within it. Model-filtered bars show only available per-model categories.</p>
-          <div class="table-wrap"><table><thead><tr><th>Agent</th><th>Session</th><th>Reported tokens</th><th>API-equivalent</th><th>Last activity</th></tr></thead><tbody id="sessions-body"><tr><td colspan="5">Loading…</td></tr></tbody></table></div>
+          <div class="table-wrap" tabindex="0" role="region" aria-label="Recent session activity table"><table><thead><tr><th scope="col">Agent</th><th scope="col">Session</th><th scope="col">Reported tokens</th><th scope="col">API-equivalent</th><th scope="col">Last activity</th></tr></thead><tbody id="sessions-body"><tr><td colspan="5">Loading…</td></tr></tbody></table></div>
         </section>
         </div>
         <footer>CCUSAGE / OBSERVATORY MVP <span>Local-first · Read-only · Powered by ccusage JSON</span></footer>
@@ -125,7 +128,7 @@
     <dialog id="customize-dialog" class="customize-dialog" aria-labelledby="customize-heading">
       <form id="customize-form">
         <div class="customize-heading"><div><div class="eyebrow">YOUR WORKSPACE</div><h2 id="customize-heading">Customize dashboard</h2><p>Choose visible panels and save filters on this browser only.</p></div><button id="customize-cancel" type="button" class="customize-dismiss" aria-label="Close customization">×</button></div>
-        <label class="customize-title" for="dashboard-title">View name <input id="dashboard-title" maxlength="80" required></label>
+        <label class="customize-title" for="dashboard-title">View name <input id="dashboard-title" maxlength="80" required autofocus></label>
         <fieldset id="widget-options" class="widget-options"><legend>Visible widgets</legend></fieldset>
         <p id="config-status" class="config-status" role="status" aria-live="polite"></p>
         <div class="customize-actions">
@@ -141,7 +144,7 @@
         <div class="customize-heading"><div><div class="eyebrow">CUSTOM / LOCAL DATA</div><h2 id="graph-dialog-title">Create a graph</h2><p>Visualize an existing ccusage metric. No scripts, expressions or file uploads.</p></div>
           <button id="graph-cancel" type="button" class="customize-dismiss" aria-label="Close graph builder">×</button></div>
         <div class="graph-builder-fields">
-          <label>Graph name <input id="graph-title" maxlength="80" required value="My usage graph"></label>
+          <label>Graph name <input id="graph-title" maxlength="80" required value="My usage graph" autofocus></label>
           <label>Visualization <select id="graph-visual"><option value="line">Time-series line</option><option value="bars">Ranked bars</option></select></label>
           <label>Metric <select id="graph-metric"><option value="totalTokens">Reported tokens</option><option value="inputTokens">Input tokens</option><option value="outputTokens">Output tokens</option><option value="cacheReadTokens">Cache reads</option><option value="cacheCreationTokens">Cache writes</option><option value="totalCost">Estimated API cost ($)</option></select></label>
           <label>Group by <select id="graph-group"><option value="total">Total</option><option value="provider">Provider</option><option value="model">Model</option></select></label>
@@ -169,5 +172,6 @@
         </div>
       </form>
     </dialog>
+    <div id="chart-tooltip" class="chart-tooltip" role="tooltip" aria-hidden="true" hidden></div>
 </body>
 </html>

@@ -162,13 +162,53 @@ function availableModels(report, agent) {
   }
   return [...models].sort();
 }
+function showChartTooltip(event: MouseEvent | PointerEvent, name: string, dateLabel: string, value: number, color: string, metric: string) {
+  let tooltip = $("chart-tooltip");
+  if (!tooltip) {
+    tooltip = el("div", "chart-tooltip");
+    tooltip.id = "chart-tooltip";
+    document.body.append(tooltip);
+  }
+  tooltip.replaceChildren();
+  const header = el("div", "chart-tooltip-header", dateLabel);
+  const body = el("div", "chart-tooltip-body");
+  const swatch = el("span", "chart-tooltip-swatch");
+  swatch.style.background = color;
+  const nameSpan = el("span", "", name + ": ");
+  const valSpan = el("span", "chart-tooltip-value", fmt(value, metric));
+  body.append(swatch, nameSpan, valSpan);
+  tooltip.hidden = false;
+  tooltip.removeAttribute("hidden");
+  tooltip.setAttribute("aria-hidden", "false");
+  positionChartTooltip(event.clientX, event.clientY);
+}
+function positionChartTooltip(x: number, y: number) {
+  const tooltip = $("chart-tooltip");
+  if (!tooltip || tooltip.hidden) return;
+  const clampedX = Math.max(70, Math.min(window.innerWidth - 70, x));
+  tooltip.style.left = `${clampedX}px`;
+  if (y < 60) {
+    tooltip.style.top = `${y + 14}px`;
+    tooltip.style.transform = "translateX(-50%)";
+  } else {
+    tooltip.style.top = `${y - 12}px`;
+    tooltip.style.transform = "translate(-50%, -100%)";
+  }
+}
+function hideChartTooltip() {
+  const tooltip = $("chart-tooltip");
+  if (!tooltip) return;
+  tooltip.hidden = true;
+  tooltip.setAttribute("hidden", "");
+  tooltip.setAttribute("aria-hidden", "true");
+}
 function drawLineChart(data: any, metric: string, options: any = {}) {
   const svg = $(options.svgId ?? "trend-chart");
   const legend = $(options.legendId ?? "trend-legend");
   const activeSection=options.period ?? state.section;
   const activeBreakdown=options.breakdown ?? state.breakdown;
   const invisible=options.hiddenSeries ?? hiddenTrendSeries;
-  svg.replaceChildren(); legend.replaceChildren();
+  svg.replaceChildren(); legend.replaceChildren(); svg.addEventListener("pointerleave", hideChartTooltip);
   // Match the actual CSS viewport. A fixed 920×264 viewBox letterboxed the
   // graph at desktop widths, wasting horizontal space around the plot.
   const W = Math.max(320, Math.round(svg.getBoundingClientRect().width || 920));
@@ -231,7 +271,20 @@ function drawLineChart(data: any, metric: string, options: any = {}) {
       const title = svgEl("title");
       const label = activeSection === "hourly" ? p.label.replace("T", " ") : p.label;
       title.textContent = name + " • " + label + ": " + fmt(p.values[name], metric);
-      circle.append(title); svg.append(circle);
+      circle.style.cursor = "pointer";
+      circle.append(title);
+      circle.addEventListener("pointerenter", (e: PointerEvent) => {
+        circle.setAttribute("r", "5.5");
+        showChartTooltip(e, name, label, p.values[name] ?? 0, color, metric);
+      });
+      circle.addEventListener("pointermove", (e: PointerEvent) => {
+        positionChartTooltip(e.clientX, e.clientY);
+      });
+      circle.addEventListener("pointerleave", () => {
+        circle.setAttribute("r", "3.8");
+        hideChartTooltip();
+      });
+      svg.append(circle);
       if (settings.showLabels && labelledPoints.has(pointIndex)) {
         const text = svgEl("text", {
           x: p.x, y: Math.max(12, p.y - 10 - 14 * (index % 2)),
@@ -456,6 +509,37 @@ for (const group of ["providers", "models"]) {
   $(prefix + "-limit").addEventListener("change", () => updateGraphSettings(group, { limit: Number($(prefix + "-limit").value) }));
 }
 window.addEventListener("scroll", scheduleNavigationUpdate, { passive: true });
+window.addEventListener("scroll", hideChartTooltip, { passive: true });
+
+for (const dialog of document.querySelectorAll<HTMLDialogElement>("dialog")) {
+  dialog.addEventListener("click", (event) => {
+    const rect = dialog.getBoundingClientRect();
+    const isOutside = (
+      event.clientX < rect.left || event.clientX > rect.right ||
+      event.clientY < rect.top || event.clientY > rect.bottom
+    );
+    if (isOutside) {
+      dialog.close();
+    }
+  });
+}
+
+const navToggle = $("mobile-nav-toggle");
+const sidebar = document.querySelector<HTMLElement>(".sidebar");
+if (navToggle && sidebar) {
+  navToggle.addEventListener("click", () => {
+    const isOpen = sidebar.classList.toggle("is-open");
+    navToggle.setAttribute("aria-expanded", String(isOpen));
+  });
+  for (const link of sidebar.querySelectorAll<HTMLAnchorElement>(".nav-link")) {
+    link.addEventListener("click", () => {
+      if (sidebar.classList.contains("is-open")) {
+        sidebar.classList.remove("is-open");
+        navToggle.setAttribute("aria-expanded", "false");
+      }
+    });
+  }
+}
 
 function populateCustomizeDialog() {
   $("dashboard-title").value = dashboardConfig.title;
