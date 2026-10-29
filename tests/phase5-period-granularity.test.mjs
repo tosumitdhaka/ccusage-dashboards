@@ -58,7 +58,7 @@ test("secondary filter bar with global granularity pills and provider/model filt
   }
 });
 
-test("customize button is removed from .topbar header and merged into #layout-toolbar", async () => {
+test("customize button is present on .topbar header and layout toolbar provides editing tools", async () => {
   const html = await readFile(new URL("../public/index.html", import.meta.url), "utf8");
   const ts = await readFile(new URL("../src/client/dashboard.ts", import.meta.url), "utf8");
   const js = await readFile(new URL("../public/dashboard.js", import.meta.url), "utf8");
@@ -67,9 +67,9 @@ test("customize button is removed from .topbar header and merged into #layout-to
   assert.ok(topbarMatch, "Expected .topbar header in public/index.html");
   const topbarHtml = topbarMatch[1];
 
-  // Customize button must NOT be in the topbar actions
-  assert.ok(!topbarHtml.includes('id="customize"'), "Customize button must be removed from .topbar");
-  assert.ok(!topbarHtml.includes("⚙ Customize"), "Customize button text must be removed from .topbar");
+  // Customize button must be in the topbar actions
+  assert.ok(topbarHtml.includes('id="customize"'), "Customize button must be present in .topbar");
+  assert.ok(topbarHtml.includes("⚙ Customize"), "Customize button text must be present in .topbar");
 
   // #layout-toolbar provides all layout & customization configuration
   assert.ok(html.includes('id="layout-toolbar"'), "Missing #layout-toolbar");

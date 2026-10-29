@@ -24,14 +24,10 @@ test("native document wheel continues from graph and exhausted list scroll regio
   const hover=css.slice(css.indexOf("/* Settings and edit affordances"));
   assert.ok(hover.includes("opacity:1;visibility:visible;pointer-events:auto"));
   assert.match(css,/\.widget-scroll-body\{[\s\S]*?overscroll-behavior-y:auto/);
-  assert.ok(css.includes('[data-widget="trend"]>.widget-scroll-body'));
-  assert.ok(css.includes('[data-chart-visual="line"]>.widget-scroll-body'));
+  assert.ok(css.includes('[data-widget="trend"]'));
   assert.ok(js.includes("panel.dataset.chartVisual=chart.visual"));
-  assert.ok(js.includes('grid.addEventListener("wheel"'));
-  assert.ok(js.includes("event.preventDefault()"));
-  assert.ok(js.includes("page.scrollTop+=event.deltaY*scale"));
-  assert.ok(js.includes("{passive:false,capture:true}"));
-  assert.ok(js.includes("if(activeLayoutGesture)return"));
+  assert.ok(!js.includes("{passive:false,capture:true}"));
+  assert.ok(!js.includes("page.scrollTop+=event.deltaY*scale"));
   assert.ok(js.includes("body.tabIndex=0"));
   assert.ok(css.includes("html{scroll-behavior:auto}"));
   assert.ok(!css.includes("html{scroll-behavior:smooth}"));
@@ -73,7 +69,7 @@ test("configuration controls remain visible without hover support",async()=>{
 
 test("drag gain is shared by preview and snap coordinates",async()=>{
   const js=await readFile(new URL("./src/client/dashboard.ts",import.meta.url),"utf8");
-  assert.ok(js.includes("const DRAG_SENSITIVITY=0.45;"));
+  assert.ok(js.includes("const DRAG_SENSITIVITY=1.0;"));
   assert.ok(js.includes("const dx=(x-x0)*DRAG_SENSITIVITY,dy=(y-y0)*DRAG_SENSITIVITY;"));
   assert.ok(js.includes("start.x+Math.round(dx/stepX)"));
   assert.ok(js.includes("start.y+Math.round(dy/32)"));

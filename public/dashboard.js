@@ -82,6 +82,7 @@ let arranging = false;
 let layoutDraft = null;
 let layoutDraftWidgets = null;
 let layoutDraftTitle = null;
+let layoutDraftCharts = null;
 let activeLayoutGesture = false;
 let movementFrame = 0;
 try {
@@ -267,8 +268,10 @@ function drawLineChart(data, metric, options = {}) {
     svg.addEventListener("pointerleave", hideChartTooltip);
     // Match the actual CSS viewport. A fixed 920×264 viewBox letterboxed the
     // graph at desktop widths, wasting horizontal space around the plot.
-    const W = Math.max(320, Math.round(svg.getBoundingClientRect().width || 920));
-    const H = Math.max(300, Math.round(svg.getBoundingClientRect().height || 360));
+    const container = svg.parentElement;
+    const containerRect = container ? container.getBoundingClientRect() : null;
+    const W = Math.max(320, Math.round(svg.getBoundingClientRect().width || containerRect?.width || 920));
+    const H = Math.max(260, Math.round(containerRect?.height || svg.getBoundingClientRect().height || 360));
     svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
     const L = 78, T = 40, R = 18, B = 48, PW = W - L - R, PH = H - T - B;
     const groupKind = activeBreakdown === "model" ? "model" : "provider";
@@ -1101,6 +1104,15 @@ function refreshArrangeTools() {
         const header = panel.querySelector(":scope > .section-header");
         if (header)
             header.draggable = false;
+        const dragSurface = header ?? (panel.dataset.widget === "kpis" ? panel : null);
+        if (dragSurface) {
+            dragSurface.tabIndex = arranging && gridMode && !panel.hidden ? 0 : -1;
+            dragSurface.setAttribute("role", arranging ? "button" : dragSurface.getAttribute("role") || "");
+            if (arranging)
+                dragSurface.setAttribute("aria-label", "Nudge " + (WIDGET_REGISTRY[panel.dataset.widget]?.title ?? panel.dataset.widget) + " position with arrow keys");
+            else
+                dragSurface.removeAttribute("aria-label");
+        }
         for (const edge of panel.querySelectorAll(".layout-resize-edge")) {
             edge.hidden = !arranging || !gridMode || panel.hidden;
             edge.tabIndex = arranging && gridMode && !panel.hidden ? 0 : -1;
@@ -1199,6 +1211,7 @@ function beginLayoutEdit() {
             .map(([id, r]) => [id, { ...r }])) };
     layoutDraftWidgets = [...dashboardConfig.widgets];
     layoutDraftTitle = dashboardConfig.title;
+    layoutDraftCharts = [...dashboardConfig.charts.map((c) => ({ ...c }))];
     arranging = true;
     populateLayoutToolbar();
     refreshArrangeTools();
@@ -1213,17 +1226,22 @@ function closeLayoutEdit(save) {
     const result = layoutDraft;
     const nextWidgets = layoutDraftWidgets;
     const nextTitle = layoutDraftTitle;
+    const nextCharts = layoutDraftCharts;
     layoutDraft = null;
     layoutDraftWidgets = null;
     layoutDraftTitle = null;
+    layoutDraftCharts = null;
     arranging = false;
     if (save && result) {
         const title = (nextTitle && nextTitle.trim()) ? nextTitle.trim() : dashboardConfig.title;
         const widgets = nextWidgets ?? dashboardConfig.widgets;
-        persistDashboardConfig({ ...dashboardConfig, title, widgets, layout: result });
+        const charts = nextCharts ?? dashboardConfig.charts;
+        persistDashboardConfig({ ...dashboardConfig, title, widgets, charts, layout: result });
     }
     else {
+        syncCustomChartNodes(dashboardConfig.charts);
         showWidgetSelection();
+        applyGridPreview(dashboardConfig.layout.positions);
     }
     refreshArrangeTools();
     if (state.report)
@@ -1249,8 +1267,30 @@ function installLayoutPanel(panel) {
         panel.append(body);
     }
     const dragSurface = header ?? (id === "kpis" ? panel : null);
-    if (dragSurface)
+    if (dragSurface) {
         dragSurface.addEventListener("pointerdown", (event) => beginPanelDrag(event, dragSurface, panel, id));
+        dragSurface.addEventListener("keydown", (event) => {
+            if (!arranging || !["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key))
+                return;
+            if (event.target instanceof HTMLElement && event.target !== dragSurface &&
+                event.target.closest("select,input,button,a,textarea"))
+                return;
+            event.preventDefault();
+            const before = currentPosition(id);
+            if (!before)
+                return;
+            const dx = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
+            const dy = event.key === "ArrowDown" ? 1 : event.key === "ArrowUp" ? -1 : 0;
+            const next = {
+                ...before,
+                x: Math.max(0, Math.min(GRID_COLUMNS - before.w, before.x + dx)),
+                y: Math.max(0, Math.min(GRID_MAX_ROW - before.h, before.y + dy))
+            };
+            if (next.x !== before.x || next.y !== before.y) {
+                saveGridPosition(id, next, "drag");
+            }
+        });
+    }
     for (const direction of ["n", "s", "e", "w", "ne", "nw", "se", "sw"]) {
         const edge = el("span", "layout-resize-edge edge-" + direction);
         edge.hidden = true;
@@ -1411,7 +1451,7 @@ function beginEdgeResize(event, edge, panel, id, direction) {
     edge.addEventListener("pointerup", finish);
     edge.addEventListener("pointercancel", cancel);
 }
-const DRAG_SENSITIVITY = 0.45;
+const DRAG_SENSITIVITY = 1.0;
 function beginPanelDrag(event, surface, panel, id) {
     if (!arranging || event.button !== 0 || interactiveHeaderTarget(event.target) ||
         getComputedStyle($("dashboard-grid")).display !== "grid")
@@ -1507,13 +1547,15 @@ function installLayoutEditor() {
     const toolbarReset = $("layout-toolbar-reset");
     if (toolbarReset) {
         toolbarReset.addEventListener("click", () => {
-            const defaults = resetDashboardConfig(window.localStorage);
+            const defaults = validateDashboardConfig(DEFAULT_DASHBOARD);
             layoutDraft = {
                 widths: { ...defaults.layout.widths },
                 positions: Object.fromEntries(Object.entries(defaults.layout.positions).map(([id, r]) => [id, { ...r }]))
             };
             layoutDraftWidgets = [...defaults.widgets];
             layoutDraftTitle = defaults.title;
+            layoutDraftCharts = [...defaults.charts.map((c) => ({ ...c }))];
+            syncCustomChartNodes(layoutDraftCharts);
             populateLayoutToolbar();
             applyGridPreview(layoutDraft.positions);
             for (const panel of $("dashboard-grid").querySelectorAll("[data-widget]")) {
@@ -1547,29 +1589,6 @@ function installLayoutEditor() {
             $("customize-dialog").close();
             beginLayoutEdit();
         });
-    // All vertical wheel input over widget content belongs to the document.
-    // Internal scrollbars remain available for viewing long lists and plots.
-    grid.addEventListener("wheel", (event) => {
-        if (!event.cancelable || event.defaultPrevented || event.ctrlKey || event.metaKey ||
-            event.shiftKey || event.deltaY === 0 || Math.abs(event.deltaX) > Math.abs(event.deltaY))
-            return;
-        const node = event.target;
-        if (!(node instanceof Element) ||
-            node.closest("select,input,textarea,[role=dialog],.viz-popover-menu"))
-            return;
-        const body = node.closest(".widget-scroll-body");
-        if (!body || !grid.contains(body))
-            return;
-        event.preventDefault();
-        if (activeLayoutGesture)
-            return; // do not move the page during a held drag
-        const page = document.scrollingElement;
-        if (!page)
-            return;
-        const scale = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? window.innerHeight : 1;
-        // Root CSS uses scroll-behavior:auto so this is immediate, not animated.
-        page.scrollTop += event.deltaY * scale;
-    }, { passive: false, capture: true });
     refreshArrangeTools();
 }
 installLayoutEditor();
@@ -1617,13 +1636,13 @@ function createCustomPanel(chart) {
     card.append(header, bars, plot, legend, note);
     return card;
 }
-function syncCustomChartNodes() {
+function syncCustomChartNodes(charts = (arranging && layoutDraftCharts ? layoutDraftCharts : dashboardConfig.charts)) {
     const grid = $("dashboard-grid");
-    const configs = new Map(dashboardConfig.charts.map((c) => [c.id, c]));
+    const configs = new Map(charts.map((c) => [c.id, c]));
     for (const card of grid.querySelectorAll(".custom-chart-card"))
         if (!configs.has(card.dataset.widget))
             card.remove();
-    for (const chart of dashboardConfig.charts) {
+    for (const chart of charts) {
         let card = $(chart.id);
         if (!card) {
             card = createCustomPanel(chart);
@@ -1636,10 +1655,10 @@ function syncCustomChartNodes() {
             select.value = chart[select.dataset.customField];
     }
 }
-function renderCustomCharts(report = filterReportByPeriod(state.report, state.section || "7d"), hourly = filterHourlyByPeriod(state.hourly, state.section || "7d")) {
+function renderCustomCharts(report = filterReportByPeriod(state.report, state.section || "7d"), hourly = filterHourlyByPeriod(state.hourly, state.section || "7d"), charts = (arranging && layoutDraftCharts ? layoutDraftCharts : dashboardConfig.charts)) {
     if (!report)
         return;
-    for (const chart of dashboardConfig.charts) {
+    for (const chart of charts) {
         const data = buildChart(report, { period: chart.period, agent: state.agent, model: state.model,
             metric: chart.metric, breakdown: chart.breakdown });
         const bars = $("custom-bars-" + chart.id), plot = $("custom-svg-" + chart.id).parentElement, legend = $("custom-legend-" + chart.id);
@@ -1681,25 +1700,41 @@ function setupCustomGraphBuilder() {
     $("graph-form").addEventListener("submit", (event) => {
         event.preventDefault();
         try {
-            if (dashboardConfig.charts.length >= 4)
+            const currentCharts = (arranging && layoutDraftCharts) ? layoutDraftCharts : dashboardConfig.charts;
+            if (currentCharts.length >= 4)
                 throw Error("Maximum four user-defined graphs.");
             let i = 1;
-            while (dashboardConfig.charts.some((c) => c.id === "custom-" + i))
+            while (currentCharts.some((c) => c.id === "custom-" + i))
                 i++;
             const chart = {
                 id: "custom-" + i, title: $("graph-title").value.trim(),
                 visual: $("graph-visual").value, metric: $("graph-metric").value,
-                breakdown: $("graph-group").value, period: $("graph-period").value
+                breakdown: $("graph-group").value, period: $("graph-period").value,
+                hiddenDimensions: []
             };
-            persistDashboardConfig({ ...dashboardConfig,
-                charts: [...dashboardConfig.charts, chart],
-                widgets: [...dashboardConfig.widgets, chart.id],
-                layout: { widths: { ...dashboardConfig.layout.widths, [chart.id]: "half" },
-                    positions: { ...dashboardConfig.layout.positions } }
-            });
-            if (state.report)
-                render();
-            refreshArrangeTools();
+            if (arranging && layoutDraft && layoutDraftWidgets && layoutDraftCharts) {
+                layoutDraftCharts.push(chart);
+                layoutDraftWidgets.push(chart.id);
+                layoutDraft.widths[chart.id] = "half";
+                const gridWidth = $("dashboard-grid").getBoundingClientRect().width || 1200;
+                layoutDraft.positions = compactVisibleLayout(layoutDraft.positions, layoutDraftWidgets, gridWidth);
+                syncCustomChartNodes(layoutDraftCharts);
+                populateLayoutToolbar();
+                applyGridPreview(layoutDraft.positions);
+                if (state.report)
+                    renderCustomCharts(undefined, undefined, layoutDraftCharts);
+            }
+            else {
+                persistDashboardConfig({ ...dashboardConfig,
+                    charts: [...dashboardConfig.charts, chart],
+                    widgets: [...dashboardConfig.widgets, chart.id],
+                    layout: { widths: { ...dashboardConfig.layout.widths, [chart.id]: "half" },
+                        positions: { ...dashboardConfig.layout.positions } }
+                });
+                if (state.report)
+                    render();
+                refreshArrangeTools();
+            }
             $("graph-dialog").close();
         }
         catch (error) {

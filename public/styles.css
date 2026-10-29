@@ -533,10 +533,16 @@ button:focus-visible,select:focus-visible,.nav-link:focus-visible,input:focus-vi
 /* Only enable the layout editor when the twelve-column snap grid is active. */
 @media(max-width:1100px){.top-actions #layout-edit:disabled{cursor:not-allowed;opacity:.56}}
 
-/* Let the document receive wheel input over plotted graphs. Inner scroll is
- * retained only for genuinely long lists/tables, with native boundary chaining. */
+/* Eliminate trend widget internal scrollbars while retaining native boundary scrolling.
+ * Inner scroll is retained only for explicit list containers like models and sessions. */
+.dashboard-grid>[data-widget="trend"],
+#trend,
 .dashboard-grid>[data-widget="trend"]>.widget-scroll-body,
-.dashboard-grid>.custom-chart-card[data-chart-visual="line"]>.widget-scroll-body{
+#trend .chart-container{
+  overflow:hidden;overflow-y:hidden;scrollbar-gutter:auto}
+.dashboard-grid>[data-widget="models"]>.widget-scroll-body,
+.dashboard-grid>[data-widget="sessions"]>.widget-scroll-body,
+.dashboard-grid>[data-widget="providers"]>.widget-scroll-body{
   overflow-y:auto;overscroll-behavior-y:auto}
 .dashboard-grid .widget-scroll-body,
 .dashboard-grid .widget-scroll-body .table-wrap{
@@ -557,6 +563,8 @@ button:focus-visible,select:focus-visible,.nav-link:focus-visible,input:focus-vi
 
 .dashboard-grid .section-header>.viz-menu-trigger{
   flex:0 0 auto;order:10}
+.customize-trigger{background:var(--color-bg-elevated);border:1px solid #334359;color:var(--color-text-primary);font-size:12px;padding:9px 14px;border-radius:var(--radius-sm);cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-weight:700;transition:var(--transition-fast)}
+.customize-trigger:hover{border-color:#5bc7b1}
 .top-actions #customize{visibility:visible;opacity:1;display:inline-flex}
 /* No inner scroll chaining barrier, including legacy graph/list selectors. */
 .dashboard-grid .widget-scroll-body,

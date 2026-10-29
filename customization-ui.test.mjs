@@ -12,7 +12,7 @@ test("customize controls and every registered widget have a matching dashboard s
     "config-import", "config-import-trigger", "config-reset", "widget-options", "dashboard-title", "config-status"]) {
     assert.ok(html.includes('id="' + id + '"'), "Missing customization control: " + id);
   }
-  assert.ok(!html.includes('id="customize"'), "Customize button must be removed from header actions");
+  assert.ok(html.includes('id="customize"'), "Customize button must be present in header actions");
   const src = await readFile(new URL("./src/client/dashboard.ts", import.meta.url), "utf8");
   assert.match(src, /readDashboardConfig/);
   assert.match(src, /persistFilters/);

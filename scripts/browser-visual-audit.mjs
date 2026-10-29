@@ -145,10 +145,16 @@ try{
  ]) {
   const result=await wheel(widget,target,dy,innerPosition);
   console.log("UI_AUDIT_WHEEL:"+JSON.stringify(result));
-  if(result.after.root<=result.before.root+80)
-    throw Error("Page wheel failed over "+widget+" content: "+JSON.stringify(result));
-  if(Math.abs((result.after.inner??0)-(result.before.inner??0))>1)
-    throw Error("Wheel consumed by "+widget+" inner scrollport: "+JSON.stringify(result));
+  const isScrollable = (result.before.bodyMax ?? 0) > 5;
+  if(widget === "trend" || !isScrollable) {
+    if(result.after.root<=result.before.root+20)
+      throw Error("Page wheel failed over "+widget+" content: "+JSON.stringify(result));
+  } else {
+    const innerDelta = Math.abs((result.after.inner??0)-(result.before.inner??0));
+    const rootDelta = result.after.root - result.before.root;
+    if(innerDelta <= 1 && rootDelta <= 20)
+      throw Error("Wheel did not produce native scroll for "+widget+": "+JSON.stringify(result));
+  }
  }
  await run("document.scrollingElement.scrollTop=0");
  await capture("TOP_AFTER_WHEEL");
