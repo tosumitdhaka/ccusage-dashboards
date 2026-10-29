@@ -32,7 +32,7 @@
     <main id="overview" class="main">
       <header class="topbar">
         <div class="breadcrumb">Workspace <span>/</span> <strong id="view-name">Overview</strong></div>
-        <div class="top-actions"><span class="local-tag"><span class="signal-dot"></span> Localhost</span><button id="add-graph" class="refresh" type="button" aria-haspopup="dialog">+ New graph</button><button id="layout-edit" class="refresh" type="button" aria-pressed="false" aria-label="Layout locked. Click to edit positions.">🔒 Layout Locked</button><button id="layout-save" class="save-button layout-save" type="button" hidden>✓ Save layout</button><button id="layout-cancel" class="refresh layout-cancel" type="button" hidden>Cancel</button><span id="layout-help" class="layout-compact-hint" hidden role="status">Use a wider screen to drag or resize widgets. Save or cancel to finish editing.</span><button id="customize" class="refresh" type="button" aria-haspopup="dialog">⚙ Customize</button><button id="refresh" class="refresh" type="button">↻ &nbsp; Refresh data</button></div>
+        <div class="top-actions"><div class="topbar-period" role="group" aria-label="Time period grouping"><label for="header-period" class="topbar-period-label">Period</label><select id="header-period" class="period-select header-period-select" aria-label="Select report period"><option value="daily">Daily</option><option value="weekly">Weekly (7d)</option><option value="monthly">Monthly (30d)</option><option value="hourly">Hourly*</option></select></div><span class="local-tag"><span class="signal-dot"></span> Localhost</span><button id="add-graph" class="refresh" type="button" aria-haspopup="dialog">+ New graph</button><button id="layout-edit" class="refresh" type="button" aria-pressed="false" aria-label="Layout locked. Click to edit positions." title="Layout Locked. Click to edit positions.">🔒 Edit Layout</button><button id="layout-save" class="save-button layout-save" type="button" title="Save widget positions to local storage" hidden>✓ Save Layout</button><button id="layout-cancel" class="refresh layout-cancel" type="button" title="Discard layout changes and restore saved positions" hidden>✕ Cancel</button><span id="layout-help" class="layout-compact-hint" hidden role="status">Use a wider screen to drag or resize widgets. Save or cancel to finish editing.</span><button id="customize" class="refresh" type="button" aria-haspopup="dialog">⚙ Customize</button><button id="refresh" class="refresh" type="button">↻ &nbsp; Refresh data</button></div>
       </header>
       <div class="content">
         <div class="page-title">
@@ -52,6 +52,33 @@
             <label class="agent-filter" for="model">Model <select id="model"><option value="all">All models</option></select></label>
           </div>
         </section>
+        <div id="layout-toolbar" class="layout-toolbar-panel" hidden role="region" aria-label="Layout and widget editor">
+          <div class="layout-toolbar-header">
+            <div class="layout-toolbar-title">
+              <div class="eyebrow">WORKSPACE / EDIT MODE</div>
+              <h3>Edit Dashboard Layout</h3>
+            </div>
+            <div class="layout-toolbar-actions">
+              <button id="layout-quick-add" class="refresh" type="button">+ New graph</button>
+              <button id="layout-toolbar-settings" class="refresh" type="button" aria-haspopup="dialog">⚙ Dashboard settings</button>
+              <button id="layout-toolbar-save" class="save-button" type="button" title="Save widget positions to local storage">✓ Save Layout</button>
+              <button id="layout-toolbar-cancel" class="refresh layout-cancel" type="button" title="Discard layout changes and restore saved positions">✕ Cancel</button>
+            </div>
+          </div>
+          <div class="layout-toolbar-body">
+            <div class="layout-field-group">
+              <label for="layout-title-input" class="layout-field-label">View name</label>
+              <input id="layout-title-input" class="layout-title-input" maxlength="80" placeholder="Dashboard title">
+            </div>
+            <div class="layout-widgets-section">
+              <span class="layout-field-label">Visible widgets (toggle to add/remove)</span>
+              <div id="layout-widget-chips" class="layout-widget-chips" role="group" aria-label="Toggle visible widgets"></div>
+            </div>
+          </div>
+          <div class="layout-toolbar-footer">
+            <span class="layout-tip">💡 Drag widget headers to reposition. Drag borders/corners to resize. Changes apply immediately in the preview.</span>
+          </div>
+        </div>
         <div id="dashboard-grid" class="dashboard-grid" aria-label="Dashboard widgets">
         <section class="kpis" data-widget="kpis" aria-label="Usage summary">
           <article class="kpi"><div class="kpi-label">Reported tokens <span class="kpi-icon">⌁</span></div><strong id="stat-tokens">—</strong><p>Total reported across selected periods</p></article>
@@ -132,6 +159,7 @@
         <fieldset id="widget-options" class="widget-options"><legend>Visible widgets</legend></fieldset>
         <p id="config-status" class="config-status" role="status" aria-live="polite"></p>
         <div class="customize-actions">
+          <button id="customize-edit-layout" type="button" class="refresh">◫ Edit grid layout</button>
           <button id="config-export" type="button" class="refresh">Export JSON</button>
           <button id="config-import-trigger" type="button" class="refresh">Import JSON</button><input id="config-import" type="file" accept=".json,application/json" hidden aria-label="Choose dashboard JSON">
           <button id="config-reset" type="button" class="refresh">Reset</button>

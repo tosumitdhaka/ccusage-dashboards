@@ -71,6 +71,8 @@ let storageWarning = "";
 // Initialize edit-session state first: activeLayout() reads layoutDraft.
 let arranging=false;
 let layoutDraft: GridLayout|null=null;
+let layoutDraftWidgets: string[]|null=null;
+let layoutDraftTitle: string|null=null;
 let activeLayoutGesture=false;
 let movementFrame=0;
 try { dashboardConfig = readDashboardConfig(window.localStorage); }
@@ -85,6 +87,8 @@ function applyFilterState(filters: any) {
   $("metric").value = state.metric;
   $("breakdown").value = state.breakdown;
   $("session-metric").value = state.sessionMetric;
+  const headerPeriod = $("header-period") as HTMLSelectElement | null;
+  if (headerPeriod) headerPeriod.value = state.section;
   syncGraphControls();
 }
 function configWithCurrentFilters(config = dashboardConfig) {
@@ -442,6 +446,8 @@ function render() {
     node.hidden=kpiHidden.has(["Reported tokens","Fresh input","Generated output","API-equivalent cost"][index]);
   });
   $("trend-period").textContent = state.section.toUpperCase();
+  const headerPeriod = $("header-period") as HTMLSelectElement | null;
+  if (headerPeriod) headerPeriod.value = state.section;
   $("chart-heading").textContent = (state.metric === "totalCost" ? "Estimated cost" : "Token consumption") + " over time";
   document.querySelectorAll<HTMLElement>(".period").forEach((button) => {
     const active = button.dataset.period === state.section;
@@ -514,8 +520,19 @@ async function load() {
     notice.textContent = (error instanceof Error ? error.message : "Failed to load report") + " Inspect the dashboard server terminal.";
   } finally { button.disabled = false; button.textContent = "↻  Refresh data"; }
 }
+const headerPeriod = $("header-period") as HTMLSelectElement | null;
+if (headerPeriod) {
+  headerPeriod.addEventListener("change", () => {
+    state.section = headerPeriod.value;
+    persistFilters();
+    render();
+  });
+}
 document.querySelectorAll<HTMLElement>(".period").forEach((button) => button.addEventListener("click", () => {
-  state.section = button.dataset.period ?? "daily"; persistFilters(); render();
+  state.section = button.dataset.period ?? "daily";
+  const headerPeriod = $("header-period") as HTMLSelectElement | null;
+  if (headerPeriod) headerPeriod.value = state.section;
+  persistFilters(); render();
 }));
 $("agent").addEventListener("change", () => { state.agent = $("agent").value; updateSelectors(); persistFilters(); render(); });
 $("model").addEventListener("change", () => { state.model = $("model").value; persistFilters(); render(); });
@@ -691,17 +708,24 @@ function refreshArrangeTools(){
   const grid=$("dashboard-grid"),gridMode=getComputedStyle(grid).display==="grid";
   $("layout-help").hidden=!arranging||gridMode;
   grid.classList.toggle("is-arranging",arranging);
-  $("layout-edit").textContent=arranging?"🔓 Layout Unlocked":"🔒 Layout Locked";
+  $("layout-edit").textContent=arranging?"🔓 Layout Unlocked":"🔒 Edit Layout";
   $("layout-edit").disabled=arranging||!gridMode;
+  $("layout-edit").hidden=arranging;
   $("layout-edit").title=arranging?"Save or cancel to finish editing.":
     gridMode?"Unlock to move and resize widgets.":"Grid editing requires a screen wider than 1100px.";
   $("layout-edit").setAttribute("aria-pressed",String(arranging));
   $("layout-edit").setAttribute("aria-label",arranging?
     "Layout unlocked. Save or cancel changes.":"Layout locked. Click to edit positions.");
   $("layout-save").hidden=!arranging;
+  $("layout-save").textContent="✓ Save Layout";
+  $("layout-save").title="Save widget positions to local storage";
   $("layout-cancel").hidden=!arranging;
+  $("layout-cancel").textContent="✕ Cancel";
+  $("layout-cancel").title="Discard layout changes and restore saved positions";
   $("add-graph").disabled=arranging;
-  $("customize").disabled=arranging;
+  $("customize").disabled=false;
+  const toolbar=$("layout-toolbar");
+  if(toolbar)toolbar.hidden=!arranging;
   for(const panel of grid.querySelectorAll("[data-widget]")){
     const header=panel.querySelector(":scope > .section-header") as HTMLElement | null;
     if(header)header.draggable=false;
@@ -739,12 +763,54 @@ function saveGridPosition(id: string,rect: GridRect,type="resize"){
   // Preserve the viewer's scroll position without animating the viewport.
   if(Math.abs(window.scrollY-scroll)>1)window.scrollTo({top:scroll,behavior:"instant"});
 }
+function populateLayoutToolbar(){
+  const titleInput=$("layout-title-input") as HTMLInputElement|null;
+  if(titleInput)titleInput.value=layoutDraftTitle??dashboardConfig.title;
+  const chipsContainer=$("layout-widget-chips");
+  if(!chipsContainer)return;
+  chipsContainer.replaceChildren();
+  const activeSet=new Set(layoutDraftWidgets??dashboardConfig.widgets);
+  const options=[...Object.entries(WIDGET_REGISTRY),...dashboardConfig.charts.map((c: any)=>[c.id,{title:c.title}])];
+  for(const [key,widget] of options){
+    const chip=el("label","layout-widget-chip"+(activeSet.has(key)?" is-active":""));
+    const cb=el("input");
+    cb.type="checkbox";
+    cb.value=key;
+    cb.checked=activeSet.has(key);
+    cb.addEventListener("change",()=>toggleLayoutWidget(key,cb.checked));
+    chip.append(cb,document.createTextNode(widget.title));
+    chipsContainer.append(chip);
+  }
+}
+function toggleLayoutWidget(id: string,enable: boolean){
+  if(!arranging||!layoutDraft)return;
+  let widgets=[...(layoutDraftWidgets??dashboardConfig.widgets)];
+  if(enable){
+    if(!widgets.includes(id))widgets.push(id);
+  }else{
+    if(widgets.length<=1){populateLayoutToolbar();return;}
+    widgets=widgets.filter(w=>w!==id);
+  }
+  layoutDraftWidgets=widgets;
+  const gridWidth=$("dashboard-grid").getBoundingClientRect().width||1200;
+  const packed=compactVisibleLayout(layoutDraft.positions,widgets,gridWidth);
+  layoutDraft.positions=packed;
+  applyGridPreview(packed);
+  for(const panel of $("dashboard-grid").querySelectorAll("[data-widget]")){
+    const wid=panel.dataset.widget;
+    panel.hidden=!widgets.includes(wid);
+  }
+  populateLayoutToolbar();
+}
 function beginLayoutEdit(){
   if(arranging)return;
   layoutDraft={widths:{...dashboardConfig.layout.widths},
     positions:Object.fromEntries(Object.entries(dashboardConfig.layout.positions)
       .map(([id,r])=>[id,{...r}]))};
+  layoutDraftWidgets=[...dashboardConfig.widgets];
+  layoutDraftTitle=dashboardConfig.title;
   arranging=true;
+  populateLayoutToolbar();
   refreshArrangeTools();
 }
 function closeLayoutEdit(save: boolean){
@@ -753,9 +819,19 @@ function closeLayoutEdit(save: boolean){
   movementFrame=0;
   hideFloatingGridTarget();
   const result=layoutDraft;
-  layoutDraft=null;arranging=false;
-  if(save&&result)persistDashboardConfig({...dashboardConfig,layout:result});
-  else showWidgetSelection();
+  const nextWidgets=layoutDraftWidgets;
+  const nextTitle=layoutDraftTitle;
+  layoutDraft=null;
+  layoutDraftWidgets=null;
+  layoutDraftTitle=null;
+  arranging=false;
+  if(save&&result){
+    const title=(nextTitle&&nextTitle.trim())?nextTitle.trim():dashboardConfig.title;
+    const widgets=nextWidgets??dashboardConfig.widgets;
+    persistDashboardConfig({...dashboardConfig,title,widgets,layout:result});
+  }else{
+    showWidgetSelection();
+  }
   refreshArrangeTools();
   if(state.report)render();
 }
@@ -969,6 +1045,28 @@ function installLayoutEditor(){
   $("layout-edit").addEventListener("click",beginLayoutEdit);
   $("layout-save").addEventListener("click",()=>closeLayoutEdit(true));
   $("layout-cancel").addEventListener("click",()=>closeLayoutEdit(false));
+  const toolbarSave=$("layout-toolbar-save");
+  if(toolbarSave)toolbarSave.addEventListener("click",()=>closeLayoutEdit(true));
+  const toolbarCancel=$("layout-toolbar-cancel");
+  if(toolbarCancel)toolbarCancel.addEventListener("click",()=>closeLayoutEdit(false));
+  const titleInput=$("layout-title-input") as HTMLInputElement|null;
+  if(titleInput)titleInput.addEventListener("input",()=>{layoutDraftTitle=titleInput.value;});
+  const quickAdd=$("layout-quick-add");
+  if(quickAdd)quickAdd.addEventListener("click",()=>{
+    rememberViewport();
+    $("graph-status").textContent="";
+    $("graph-dialog").showModal();
+  });
+  const toolbarSettings=$("layout-toolbar-settings");
+  if(toolbarSettings)toolbarSettings.addEventListener("click",()=>{
+    populateCustomizeDialog();
+    $("customize-dialog").showModal();
+  });
+  const customizeEditLayout=$("customize-edit-layout");
+  if(customizeEditLayout)customizeEditLayout.addEventListener("click",()=>{
+    $("customize-dialog").close();
+    beginLayoutEdit();
+  });
   // All vertical wheel input over widget content belongs to the document.
   // Internal scrollbars remain available for viewing long lists and plots.
   grid.addEventListener("wheel",(event: WheelEvent)=>{

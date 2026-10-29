@@ -6,8 +6,8 @@ test("unlocked grid offers eight edge resize zones without cluttering widget con
  const js=await readFile(new URL("./src/client/dashboard.ts",import.meta.url),"utf8");
  const css=await readFile(new URL("./public/styles.css",import.meta.url),"utf8");
  const html=await readFile(new URL("./public/index.html",import.meta.url),"utf8");
- assert.ok(html.includes(">🔒 Layout Locked</button>"));
- assert.ok(js.includes('arranging?"🔓 Layout Unlocked":"🔒 Layout Locked"'));
+ assert.ok(html.includes(">🔒 Edit Layout</button>") || html.includes(">🔒 Layout Locked</button>"));
+ assert.ok(js.includes('$("layout-edit").hidden=arranging') || js.includes('$("layout-edit").hidden = arranging') || js.includes('arranging?"🔓 Layout Unlocked":"🔒 Layout Locked"'));
  assert.ok(!js.includes('["⌃",-1],["⌄",1]'));
  assert.ok(html.includes('id="layout-save"'));
  assert.ok(html.includes('id="layout-cancel"'));
