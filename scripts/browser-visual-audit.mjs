@@ -28,7 +28,7 @@ try{
  const url="http://127.0.0.1:"+server.address().port;
  browser=spawn(chrome,["--headless=new","--disable-gpu","--no-sandbox","--disable-dev-shm-usage","--no-first-run","--no-default-browser-check","--no-proxy-server","--remote-debugging-port=0","--user-data-dir="+temp,"about:blank"],{stdio:["ignore","ignore","pipe"]});
  let port;
- for(let i=0;i<100&&!port;i++){
+ for(let i=0;i<240&&!port;i++){
   if(browser.exitCode!==null)throw Error("Chrome quit during startup");
   try{port=Number((await readFile(join(temp,"DevToolsActivePort"),"utf8")).split("\n")[0]);}catch{await delay(100);}
  }

@@ -23,15 +23,17 @@ try{
     "--no-first-run","--no-default-browser-check","--no-proxy-server",
     "--remote-debugging-port=0","--user-data-dir="+temp,"about:blank"
   ],{stdio:["ignore","ignore","pipe"]});
+  let chromeStartupLog="";
+  browser.stderr.on("data",chunk=>{chromeStartupLog=(chromeStartupLog+String(chunk)).slice(-6000);});
   let debugPort=0;
-  for(let i=0;i<100&&!debugPort;i++){
+  for(let i=0;i<240&&!debugPort;i++){
     if(browser.exitCode!==null)throw Error("Chrome exited before opening DevTools");
     try{
       const active=await readFile(join(temp,"DevToolsActivePort"),"utf8");
       debugPort=Number(active.split("\n")[0]);
     }catch{await delay(100);}
   }
-  assert.ok(debugPort,"Chrome DevTools did not start");
+  assert.ok(debugPort,"Chrome DevTools did not start: "+chromeStartupLog);
   const targets=await (await fetch("http://127.0.0.1:"+debugPort+"/json")).json();
   const tab=targets.find(t=>t.type==="page");
   assert.ok(tab?.webSocketDebuggerUrl,"Chrome page target unavailable");
