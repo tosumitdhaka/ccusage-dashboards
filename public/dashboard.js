@@ -1255,6 +1255,8 @@ function closeLayoutEdit(save) {
     refreshArrangeTools();
     if (state.report)
         render();
+    // The Save/Cancel controls disappear after committing; restore keyboard focus.
+    $("layout-edit").focus({ preventScroll: true });
 }
 function installLayoutPanel(panel) {
     if (panel.dataset.layoutInstalled === "true")
@@ -1596,6 +1598,12 @@ function installLayoutEditor() {
             $("customize-dialog").close();
             beginLayoutEdit();
         });
+    document.addEventListener("keydown", (event) => {
+        if (event.key !== "Escape" || !arranging || document.querySelector("dialog[open]"))
+            return;
+        event.preventDefault();
+        closeLayoutEdit(false);
+    });
     refreshArrangeTools();
 }
 installLayoutEditor();

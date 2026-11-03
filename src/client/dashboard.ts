@@ -1128,6 +1128,8 @@ function closeLayoutEdit(save: boolean){
   }
   refreshArrangeTools();
   if(state.report)render();
+  // The Save/Cancel controls disappear after committing; restore keyboard focus.
+  ($("layout-edit") as HTMLButtonElement).focus({preventScroll:true});
 }
 function installLayoutPanel(panel: HTMLElement){
   if(panel.dataset.layoutInstalled==="true")return;
@@ -1401,6 +1403,11 @@ function installLayoutEditor(){
   if(customizeEditLayout)customizeEditLayout.addEventListener("click",()=>{
     $("customize-dialog").close();
     beginLayoutEdit();
+  });
+  document.addEventListener("keydown",(event: KeyboardEvent)=>{
+    if(event.key!=="Escape"||!arranging||document.querySelector("dialog[open]"))return;
+    event.preventDefault();
+    closeLayoutEdit(false);
   });
   refreshArrangeTools();
 }
