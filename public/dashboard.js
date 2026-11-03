@@ -807,26 +807,47 @@ function render() {
     }
 }
 let lastLoadedAt = 0;
+let lastReportPayload = null;
+let lastHourlyPayload = null;
+let loadInFlight = false;
 async function load() {
+    if (loadInFlight)
+        return;
+    loadInFlight = true;
     const button = $("refresh");
     button.disabled = true;
     button.textContent = "↻  Updating…";
     try {
         const response = await fetch("/api/usage", { cache: "no-store" });
-        const report = await response.json();
+        const reportPayload = await response.text();
+        const report = JSON.parse(reportPayload);
         if (!response.ok)
             throw new Error(report.error || "Usage unavailable");
-        state.report = report;
+        const changed = state.report === null || reportPayload !== lastReportPayload;
+        if (changed)
+            state.report = report;
+        let hourlyChanged = false;
+        let hourlyPayload = null;
         try {
             const observations = await fetch("/api/hourly", { cache: "no-store" });
-            if (observations.ok)
-                state.hourly = (await observations.json()).observations ?? [];
+            if (observations.ok) {
+                hourlyPayload = await observations.text();
+                hourlyChanged = hourlyPayload !== lastHourlyPayload;
+                if (hourlyChanged)
+                    state.hourly = JSON.parse(hourlyPayload).observations ?? [];
+            }
         }
         catch { /* Daily/weekly reporting remains usable if hourly history is unavailable. */ }
-        updateSelectors();
+        if (changed)
+            updateSelectors();
         lastLoadedAt = Date.now();
         $("updated").textContent = "Updated " + new Date().toLocaleTimeString();
-        render();
+        // Preserve focus, chart nodes, and scroll position when fetched bytes are unchanged.
+        if (changed || hourlyChanged)
+            render();
+        lastReportPayload = reportPayload;
+        if (hourlyPayload !== null)
+            lastHourlyPayload = hourlyPayload;
     }
     catch (error) {
         const notice = $("notice");
@@ -837,6 +858,7 @@ async function load() {
     finally {
         button.disabled = false;
         button.textContent = "↻  Refresh data";
+        loadInFlight = false;
     }
 }
 const breakdownEl = $("breakdown");
