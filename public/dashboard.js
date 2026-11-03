@@ -4,6 +4,8 @@ import { METRIC_NAMES, DEFAULT_DASHBOARD, WIDGET_REGISTRY, validateDashboardConf
 import { MAX_DASHBOARD_JSON_LENGTH, readDashboardConfig, saveDashboardConfig, resetDashboardConfig, parseDashboardJSON, stringifyDashboardConfig } from "./dashboard-config.mjs";
 import { buildChart, buildObservedHourly, buildSessions, chartCatalog } from "./analytics.mjs";
 import { colorForDimension, labelPointIndices } from "./chart-presentation.mjs";
+import { workspaceStore } from "./workspace-state.mjs";
+import { bindWorkspaceFilterController } from "./filter-controller.mjs";
 import { GRID_COLUMNS, GRID_MAX_ROW, GRID_GAP_PX, GRID_ROW_STEP_PX, relocateGridWidget, cacheRowsForWidth, visibleGridOrder, compactVisibleLayout, reflowGridAfterResize } from "./dashboard-layout.mjs";
 const $ = (id) => document.getElementById(id);
 const state = { report: null, hourly: [], section: "7d", agent: "all", model: "all",
@@ -91,11 +93,26 @@ try {
 catch {
     storageWarning = "Saved dashboard preferences are unavailable; defaults are in use.";
 }
+function syncDashboardStateFromWorkspace(workspace = workspaceStore.getState()) {
+    state.section = workspace.filters.period;
+    state.agent = workspace.filters.providers[0] ?? "all";
+    state.model = workspace.filters.models[0] ?? "all";
+    state.metric = workspace.filters.metric || "totalTokens";
+    document.documentElement.dataset.density = workspace.density;
+}
 function applyFilterState(filters) {
-    state.section = filters.period || "7d";
-    state.agent = filters.provider || "all";
-    state.model = filters.model || "all";
-    state.metric = filters.metric || "totalTokens";
+    workspaceStore.hydrate({
+        filters: {
+            period: filters.period || "7d",
+            providers: filters.provider && filters.provider !== "all" ? [filters.provider] : [],
+            models: filters.model && filters.model !== "all" ? [filters.model] : [],
+            agents: [],
+            sessions: [],
+            metric: filters.metric || "totalTokens"
+        },
+        density: document.documentElement.dataset.density === "compact" ? "compact" : "comfortable"
+    }, "dashboard-hydrate");
+    syncDashboardStateFromWorkspace();
     state.breakdown = filters.breakdown || "total";
     state.sessionMetric = filters.sessionMetric || "totalTokens";
     const metricEl = $("metric");
@@ -109,7 +126,7 @@ function applyFilterState(filters) {
         sessionMetricEl.value = state.sessionMetric;
     const headerPeriod = $("header-period");
     if (headerPeriod)
-        headerPeriod.value = state.section;
+        headerPeriod.value = ["14d", "all"].includes(state.section) ? state.section : "";
     syncGraphControls();
 }
 function configWithCurrentFilters(config = dashboardConfig) {
@@ -167,6 +184,19 @@ function replaceDashboardConfig(config, persist = true) {
 }
 applyFilterState(dashboardConfig.filters);
 showWidgetSelection();
+bindWorkspaceFilterController(workspaceStore);
+workspaceStore.subscribe((workspace, previous, meta) => {
+    syncDashboardStateFromWorkspace(workspace);
+    if (meta.source === "dashboard-hydrate")
+        return;
+    const providerChanged = workspace.filters.providers[0] !== previous.filters.providers[0];
+    const modelChanged = workspace.filters.models[0] !== previous.filters.models[0];
+    if (state.report && (providerChanged || modelChanged))
+        updateSelectors();
+    persistDashboardConfig(configWithCurrentFilters());
+    if (state.report)
+        render();
+});
 const fmt = (n, metric = "totalTokens") => metric === "totalCost" ? money.format(n ?? 0) : compact.format(n ?? 0);
 function el(tag, cls = "", text) {
     const node = document.createElement(tag);
@@ -650,13 +680,18 @@ function updateSelectors() {
     const agentEl = $("agent");
     if (agentEl)
         state.agent = choices(agentEl, catalog.agents, "All providers", state.agent);
-    else
+    else if (state.agent !== "all" && !catalog.agents.includes(state.agent))
         state.agent = "all";
+    const available = availableModels(state.report, state.agent);
     const modelEl = $("model");
     if (modelEl)
-        state.model = choices(modelEl, availableModels(state.report, state.agent), "All models", state.model);
-    else
+        state.model = choices(modelEl, available, "All models", state.model);
+    else if (state.model !== "all" && !available.includes(state.model))
         state.model = "all";
+    workspaceStore.hydrate({ filters: {
+            providers: state.agent === "all" ? [] : [state.agent],
+            models: state.model === "all" ? [] : [state.model]
+        } }, "dashboard-hydrate");
 }
 function render() {
     if (!state.report)
@@ -710,7 +745,7 @@ function render() {
         trendChip.textContent = trendGranularity.toUpperCase();
     const headerPeriod = $("header-period");
     if (headerPeriod)
-        headerPeriod.value = activePeriod;
+        headerPeriod.value = ["14d", "all"].includes(activePeriod) ? activePeriod : "";
     $("chart-heading").textContent = (state.metric === "totalCost" ? "Estimated cost" : "Token consumption") + " over time";
     document.querySelectorAll(".period").forEach((button) => {
         const active = button.dataset.period === state.section;
@@ -805,31 +840,6 @@ async function load() {
         button.textContent = "↻  Refresh data";
     }
 }
-const headerPeriod = $("header-period");
-if (headerPeriod) {
-    headerPeriod.addEventListener("change", () => {
-        state.section = headerPeriod.value;
-        persistFilters();
-        render();
-    });
-}
-document.querySelectorAll(".period").forEach((button) => button.addEventListener("click", () => {
-    state.section = button.dataset.period ?? "7d";
-    const headerPeriod = $("header-period");
-    if (headerPeriod)
-        headerPeriod.value = state.section;
-    persistFilters();
-    render();
-}));
-const agentEl = $("agent");
-if (agentEl)
-    agentEl.addEventListener("change", () => { state.agent = agentEl.value; updateSelectors(); persistFilters(); render(); });
-const modelEl = $("model");
-if (modelEl)
-    modelEl.addEventListener("change", () => { state.model = modelEl.value; persistFilters(); render(); });
-const metricEl = $("metric");
-if (metricEl)
-    metricEl.addEventListener("change", () => { state.metric = metricEl.value; persistFilters(); render(); });
 const breakdownEl = $("breakdown");
 if (breakdownEl)
     breakdownEl.addEventListener("change", () => { state.breakdown = breakdownEl.value; persistFilters(); render(); });
@@ -1986,6 +1996,7 @@ $("visual-editor-form").addEventListener("submit", (event) => {
         else if (id === "trend") {
             state.metric = draft.metric;
             state.breakdown = draft.breakdown;
+            workspaceStore.hydrate({ filters: { metric: state.metric } }, "dashboard-hydrate");
             persistDashboardConfig(configWithCurrentFilters({ ...dashboardConfig, widgetSettings: {
                     ...dashboardConfig.widgetSettings, trend: {
                         showLabels: draft.showLabels, maxSeries: draft.maxSeries, hiddenDimensions: draft.hiddenDimensions
