@@ -202,6 +202,43 @@ try{
  await run('document.querySelector("#layout-cancel").click()');
  const state=await run(`(()=>({menu:document.querySelector('[data-widget="models"] .viz-menu-trigger')?.getBoundingClientRect().toJSON(),buttonText:document.querySelector('#customize')?.textContent,scrollTop:document.scrollingElement.scrollTop}))()`);
  console.log("UI_AUDIT_STATE:"+JSON.stringify(state));
+ // Functional Phase 6 browser acceptance: preset affects only the unsaved draft.
+ const presetResult=await run(`(()=>{
+   const visible=()=>[...document.querySelectorAll('#dashboard-grid [data-widget]')]
+     .filter(el=>!el.hidden).map(el=>el.dataset.widget);
+   const before=visible();
+   document.querySelector('#layout-edit').click();
+   document.querySelector('#layout-preset').value='sessions';
+   document.querySelector('#layout-preset-apply').click();
+   const preview=visible();
+   const title=document.querySelector('#layout-title-input').value;
+   const explanation=document.querySelector('#layout-preset-status').textContent;
+   document.querySelector('#layout-cancel').click();
+   const restored=visible();
+   return {before,preview,title,explanation,restored};
+ })()`);
+ console.log("UI_AUDIT_PRESET:"+JSON.stringify(presetResult));
+ if(presetResult.title!=="Agent Session Debugger"||
+    !presetResult.preview.includes("sessions")||presetResult.preview.includes("trend")||
+    JSON.stringify(presetResult.before)!==JSON.stringify(presetResult.restored))
+   throw Error("Workspace preset preview/cancel was not transactional: "+JSON.stringify(presetResult));
+ // Preview uses the actual populated synthetic report and updates when form changes.
+ const builder=await run(`(()=>{
+   document.querySelector('#add-graph').click();
+   const preset=document.querySelector('#graph-preset');
+   preset.value='model-cost';preset.dispatchEvent(new Event('change',{bubbles:true}));
+   const svg=document.querySelector('#graph-preview-plot');
+   const bars=svg.querySelectorAll('rect').length;
+   const caption=document.querySelector('#graph-preview-caption').textContent;
+   const visual=document.querySelector('#graph-visual');
+   visual.value='line';visual.dispatchEvent(new Event('change',{bubbles:true}));
+   const lines=svg.querySelectorAll('path').length;
+   document.querySelector('#graph-cancel').click();
+   return {bars,lines,caption};
+ })()`);
+ console.log("UI_AUDIT_GRAPH_PREVIEW:"+JSON.stringify(builder));
+ if(builder.bars<1||builder.lines<1||!builder.caption.includes("observed"))
+   throw Error("Graph preview did not derive real report values: "+JSON.stringify(builder));
  // Phase 9 regression gate: inspect all target widths and supported themes.
  // Real Chromium computes the layout; these are geometry/overflow checks, not
  // substitutes for independent screenshot or WCAG contrast inspection.
