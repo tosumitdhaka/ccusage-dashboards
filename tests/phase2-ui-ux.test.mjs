@@ -67,55 +67,40 @@ test("dialog backdrop dismiss listener is wired in dashboard.ts and public/dashb
   }
 });
 
+
 test("mobile navigation drawer toggle button and drawer styling are wired", async () => {
   const html = await readFile(new URL("../public/index.html", import.meta.url), "utf8");
   const css = await readFile(new URL("../public/styles.css", import.meta.url), "utf8");
   const ts = await readFile(new URL("../src/client/dashboard.ts", import.meta.url), "utf8");
   const js = await readFile(new URL("../public/dashboard.js", import.meta.url), "utf8");
 
-  // HTML attributes
-  assert.match(
-    html,
-    /<button id="mobile-nav-toggle" class="mobile-nav-toggle" aria-expanded="false" aria-controls="sidebar-nav" aria-label="Toggle navigation menu">/,
-    "Expected mobile nav toggle button with accessibility attributes"
-  );
-  assert.ok(html.includes('<nav id="sidebar-nav">'), "Expected nav to have id='sidebar-nav'");
+  assert.match(html, /<button id="mobile-nav-toggle" class="mobile-nav-toggle"[^>]*aria-expanded="false"[^>]*aria-controls="workspace-sidebar"[^>]*aria-label="Open navigation"[^>]*>/);
+  assert.match(html, /<aside id="workspace-sidebar" class="sidebar"/);
+  assert.ok(css.includes("@media (max-width:767px)"), "Expected v0.4 mobile breakpoint");
+  assert.ok(css.includes(".sidebar.is-open{transform:translateX(0)}"), "Expected off-canvas drawer open state");
 
-  // CSS responsive rules
-  assert.match(css, /\.mobile-nav-toggle\s*\{\s*display:\s*none\s*\}/, "Mobile nav toggle should be hidden on desktop");
-  assert.match(css, /@media\(max-width:\s*740px\)/, "Expected mobile breakpoint media query");
-  assert.match(css, /\.sidebar\.is-open nav\s*\{\s*display:\s*grid/, "Expected nav to be revealed when .sidebar.is-open");
-
-  // Client controller event wiring
   for (const code of [ts, js]) {
     assert.match(code, /mobile-nav-toggle/, "Expected mobile-nav-toggle element lookup");
-    assert.match(code, /aria-expanded/, "Expected aria-expanded attribute update on toggle");
+    assert.match(code, /aria-expanded/, "Expected aria-expanded update");
     assert.match(code, /classList\.(?:toggle|remove)\(["']is-open["']\)/, "Expected is-open class toggling");
   }
 });
 
-test("interactive chart tooltip container and hover listeners are wired", async () => {
-  const html = await readFile(new URL("../public/index.html", import.meta.url), "utf8");
+test("synchronized chart interaction engine owns tooltip, crosshair, hover and keyboard wiring", async () => {
   const css = await readFile(new URL("../public/styles.css", import.meta.url), "utf8");
-  const ts = await readFile(new URL("../src/client/dashboard.ts", import.meta.url), "utf8");
-  const js = await readFile(new URL("../public/dashboard.js", import.meta.url), "utf8");
+  const ts = await readFile(new URL("../src/client/chart-interaction.mts", import.meta.url), "utf8");
+  const js = await readFile(new URL("../public/chart-interaction.mjs", import.meta.url), "utf8");
 
-  // HTML container
-  assert.match(
-    html,
-    /<div id="chart-tooltip" class="chart-tooltip" role="tooltip" aria-hidden="true" hidden><\/div>/,
-    "Expected #chart-tooltip container in index.html"
-  );
+  assert.ok(css.includes(".chart-crosshair"), "Expected synchronized vertical crosshair styling");
+  assert.ok(css.includes(".chart-tooltip-series"), "Expected shared all-series tooltip styling");
+  assert.ok(css.includes(".chart-series-line.is-dimmed"), "Expected hover emphasis styling");
 
-  // CSS styling
-  assert.match(css, /\.chart-tooltip\s*\{[^}]*background:\s*#162538/, "Expected tooltip background #162538");
-  assert.match(css, /\.chart-tooltip\s*\{[^}]*border:\s*1px solid #2a3a50/, "Expected tooltip border #2a3a50");
-  assert.match(css, /\.chart-tooltip\s*\{[^}]*pointer-events:\s*none/, "Expected pointer-events: none on tooltip");
-
-  // Controller interaction wiring
   for (const code of [ts, js]) {
-    assert.match(code, /showChartTooltip/, "Expected showChartTooltip handler in controller");
-    assert.match(code, /pointerenter/, "Expected pointerenter listener on chart points");
-    assert.match(code, /pointerleave/, "Expected pointerleave listener to hide tooltip");
+    assert.match(code, /ensureTooltip/, "Interaction module should own a shared tooltip");
+    assert.match(code, /requestAnimationFrame/, "Pointer crosshair updates must be RAF batched");
+    assert.match(code, /pointermove[^\n]*passive:\s*true/s, "Pointer movement must remain passive");
+    assert.match(code, /pointerenter/, "Expected series hover emphasis wiring");
+    assert.match(code, /ArrowLeft/, "Expected keyboard point navigation");
+    assert.match(code, /ArrowUp/, "Expected keyboard series navigation");
   }
 });

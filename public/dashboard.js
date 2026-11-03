@@ -568,12 +568,8 @@ function filterReportByPeriod(rawReport, period) {
             .filter((d) => typeof d === "string" && /^\d{4}-\d{2}-\d{2}/.test(d))
             .map((d) => new Date(d + "T23:59:59Z").getTime())
             .filter((t) => !isNaN(t));
-        if (dates.length > 0) {
-            const maxDate = Math.max(...dates);
-            if (refTime - maxDate > 14 * 86400 * 1000) {
-                refTime = maxDate;
-            }
-        }
+        if (dates.length > 0)
+            refTime = Math.max(...dates);
     }
     const cutoffTime = refTime - days * 24 * 60 * 60 * 1000;
     const filterDailyRow = (r) => {
@@ -649,11 +645,8 @@ function filterHourlyByPeriod(snapshots, period) {
     const times = snapshots
         .map((s) => typeof s?.timestamp === "string" ? new Date(s.timestamp).getTime() : NaN)
         .filter((t) => !isNaN(t));
-    if (times.length > 0) {
-        const maxTime = Math.max(...times);
-        if (refTime - maxTime > 14 * 86400 * 1000)
-            refTime = maxTime;
-    }
+    if (times.length > 0)
+        refTime = Math.max(...times);
     const cutoffTime = refTime - days * 24 * 60 * 60 * 1000;
     return snapshots.filter((s) => {
         const t = typeof s?.timestamp === "string" ? new Date(s.timestamp).getTime() : NaN;
