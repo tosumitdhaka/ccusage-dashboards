@@ -45,13 +45,13 @@ test("customize button is present on .topbar header and layout toolbar provides 
   const ts = await readFile(new URL("../src/client/dashboard.ts", import.meta.url), "utf8");
   const js = await readFile(new URL("../public/dashboard.js", import.meta.url), "utf8");
 
-  const topbarMatch = html.match(/<header class="[^"]*\\btopbar\\b[^"]*">([\\s\\S]*?)<\\/header>/);
+  const topbarMatch = html.match(/<header class="[^"]*\btopbar\b[^"]*">([\s\S]*?)<\/header>/);
   assert.ok(topbarMatch, "Expected .topbar header in public/index.html");
   const topbarHtml = topbarMatch[1];
 
   // Customize button must be in the topbar actions
   assert.ok(topbarHtml.includes('id="customize"'), "Customize button must be present in .topbar");
-  assert.match(topbarHtml, /⚙[\\s\\S]*Customize/, "Customize button text must be present in .topbar");
+  assert.match(topbarHtml, /⚙[\s\S]*Customize/, "Customize button text must be present in .topbar");
 
   // #layout-toolbar provides all layout & customization configuration
   assert.ok(html.includes('id="layout-toolbar"'), "Missing #layout-toolbar");

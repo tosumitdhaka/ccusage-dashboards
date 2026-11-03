@@ -111,7 +111,7 @@ test("layout editing controls streamline locked and unlocked button states", asy
 
   // HTML has the locked button labelled '🔒 Edit Layout'
   assert.ok(
-    /id="layout-edit"[\\s\\S]*?🔒[\\s\\S]*?Edit Layout[\\s\\S]*?<\\/button>/.test(html),
+    /id="layout-edit"[\s\S]*?🔒[\s\S]*?Edit Layout[\s\S]*?<\/button>/.test(html),
     "Expected #layout-edit button text to be '🔒 Edit Layout'"
   );
   assert.ok(

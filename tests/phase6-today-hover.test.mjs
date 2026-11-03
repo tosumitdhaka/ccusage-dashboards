@@ -18,7 +18,7 @@ test("segmented period control includes Today and defaults to 7D while schema ac
   assert.ok(topbarHtml.includes('value="all"'), "Missing all-time custom period");
 
   assert.equal(DEFAULT_DASHBOARD.filters.period, "7d");
-  assert.match(tsRegistry, /export type PeriodRange\s*=\s*"today"/);
+  assert.match(tsRegistry, /export type PeriodRange[\s\S]*?"today"/, "PeriodRange must include today");
   assert.equal(validateDashboardConfig({
     ...DEFAULT_DASHBOARD,
     filters: { ...DEFAULT_DASHBOARD.filters, period: "today" }
