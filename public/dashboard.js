@@ -1754,7 +1754,65 @@ function renderCustomCharts(report = filterReportByPeriod(state.report, state.se
         $("custom-note-" + chart.id).textContent = issues.join(" ");
     }
 }
+function updateGraphBuilderPreview() {
+    const plot = $("graph-preview-plot");
+    const caption = $("graph-preview-caption");
+    plot.replaceChildren();
+    if (!state.report) {
+        caption.textContent = "No local usage report available for preview.";
+        return;
+    }
+    const metric = $("graph-metric").value;
+    const period = $("graph-period").value;
+    const breakdown = $("graph-group").value;
+    const visual = $("graph-visual").value;
+    const report = filterReportByPeriod(state.report, state.section || "7d");
+    const chart = buildChart(report, { period, metric, breakdown, agent: state.agent, model: state.model });
+    const samples = visual === "bars"
+        ? chart.series.slice(0, 8).map((entry) => ({ name: entry.name, value: entry.value }))
+        : chart.points.slice(-24).map((point) => ({
+            name: point.label, value: Object.values(point.values).reduce((sum, v) => sum + (Number.isFinite(v) ? v : 0), 0)
+        }));
+    if (!samples.length) {
+        caption.textContent = "No matching local records for the current preview settings.";
+        return;
+    }
+    const max = Math.max(1, ...samples.map((item) => item.value));
+    const color = "var(--accent-primary)";
+    const make = (tag, attrs) => {
+        const node = document.createElementNS("http://www.w3.org/2000/svg", tag);
+        for (const [key, value] of Object.entries(attrs))
+            node.setAttribute(key, value);
+        plot.append(node);
+        return node;
+    };
+    if (visual === "bars") {
+        const step = 490 / samples.length;
+        samples.forEach((item, i) => {
+            const height = 90 * item.value / max;
+            const bar = make("rect", { x: String(6 + i * step), y: String(104 - height),
+                width: String(Math.max(4, step - 8)), height: String(Math.max(0, height)), rx: "3", fill: color });
+            const title = document.createElementNS("http://www.w3.org/2000/svg", "title");
+            title.textContent = item.name + ": " + fmt(item.value, metric);
+            bar.append(title);
+        });
+    }
+    else {
+        const coords = samples.map((item, i) => ({
+            x: 6 + i * 488 / Math.max(1, samples.length - 1), y: 104 - 90 * item.value / max
+        }));
+        const path = coords.map((item, i) => (i ? "L" : "M") + item.x + " " + item.y).join(" ");
+        make("path", { d: path, fill: "none", stroke: color, "stroke-width": "3", "stroke-linejoin": "round" });
+        for (const point of coords)
+            make("circle", { cx: String(point.x), cy: String(point.y), r: "2.5", fill: color });
+    }
+    caption.textContent = samples.length + " observed " + (visual === "bars" ? "dimensions" : "time points") +
+        " · " + fmt(chart.total, metric) + " total · " + period + " · " + breakdown;
+}
 function setupCustomGraphBuilder() {
+    for (const id of ["graph-visual", "graph-metric", "graph-group", "graph-period"]) {
+        $(id).addEventListener("change", updateGraphBuilderPreview);
+    }
     $("graph-preset").addEventListener("change", () => {
         const id = $("graph-preset").value;
         if (!id)
@@ -1765,11 +1823,13 @@ function setupCustomGraphBuilder() {
         $("graph-metric").value = preset.metric;
         $("graph-group").value = preset.breakdown;
         $("graph-period").value = preset.period;
+        updateGraphBuilderPreview();
     });
     $("add-graph").addEventListener("click", () => {
         rememberViewport();
         $("graph-status").textContent = "";
         $("graph-dialog").showModal();
+        updateGraphBuilderPreview();
     });
     $("graph-cancel").addEventListener("click", () => $("graph-dialog").close());
     $("graph-form").addEventListener("submit", (event) => {

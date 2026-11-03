@@ -238,6 +238,11 @@
           <label>Group by <select id="graph-group"><option value="total">Total</option><option value="provider">Provider</option><option value="model">Model</option></select></label>
           <label>Period <select id="graph-period"><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option></select></label>
         </div>
+        <section id="graph-preview" class="graph-preview" role="region" aria-label="Live graph preview">
+          <h3>Live preview <small>Local report only</small></h3>
+          <p id="graph-preview-caption" aria-live="polite">Open the builder to inspect your selected metric.</p>
+          <svg id="graph-preview-plot" viewBox="0 0 500 120" role="img" aria-label="Preview of selected graph"></svg>
+        </section>
         <p class="config-status" id="graph-status" role="status" aria-live="polite"></p>
         <div class="customize-actions"><button type="submit" class="save-button">Create graph</button></div>
       </form>
