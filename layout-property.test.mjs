@@ -52,3 +52,20 @@ test("invalid targets and exhausted grid fail without mutating the original stat
   assert.throws(()=>validateLayout({positions:{kpis:{x:0,y:0,w:12,h:5},trend:{x:0,y:0,w:12,h:9}}}),/Overlapping/);
   assert.deepEqual(before,baseline);
 });
+
+test("collision chains fail closed when the bounded grid cannot fit another panel",()=>{
+  const dense=Object.fromEntries(Array.from({length:9},(_,i)=>[
+    "custom-"+i,{x:0,y:i*48,w:12,h:48}
+  ]));
+  const snapshot=structuredClone(dense);
+  assert.throws(()=>relocateGridWidget(dense,"custom-0",{x:0,y:48,w:12,h:48}),/Not enough grid space/);
+  assert.deepEqual(dense,snapshot);
+});
+test("deterministic compaction remains valid across narrow and wide measured grids",()=>{
+  const visible=["kpis","trend","providers","models","cache"];
+  for(const width of [390,768,1024,1280,1440,1920]){
+    const result=compactVisibleLayout(baseline,visible,width);
+    valid(result);
+    assert.deepEqual(result,compactVisibleLayout(baseline,visible,width));
+  }
+});
