@@ -1634,6 +1634,7 @@ function installLayoutEditor() {
             rememberViewport();
             $("graph-status").textContent = "";
             $("graph-dialog").showModal();
+            updateGraphBuilderPreview();
         });
     const toolbarSettings = $("layout-toolbar-settings");
     if (toolbarSettings)
@@ -1829,7 +1830,6 @@ function setupCustomGraphBuilder() {
         rememberViewport();
         $("graph-status").textContent = "";
         $("graph-dialog").showModal();
-        updateGraphBuilderPreview();
     });
     $("graph-cancel").addEventListener("click", () => $("graph-dialog").close());
     $("graph-form").addEventListener("submit", (event) => {
