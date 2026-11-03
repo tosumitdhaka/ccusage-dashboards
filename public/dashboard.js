@@ -1341,8 +1341,10 @@ function installLayoutPanel(panel) {
             const dx = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
             const dy = event.key === "ArrowDown" ? 1 : event.key === "ArrowUp" ? -1 : 0;
             const next = resizeGridRectangle(before, id, direction, dx, dy);
-            if (["x", "y", "w", "h"].some(k => before[k] !== next[k]))
+            if (["x", "y", "w", "h"].some(k => before[k] !== next[k])) {
                 saveGridPosition(id, next);
+                $("layout-announcement").textContent = label() + " resized to " + next.w + " columns by " + next.h + " rows";
+            }
         });
     }
 }

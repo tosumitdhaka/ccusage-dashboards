@@ -125,6 +125,35 @@ try{
   const providerScroll=await wheelAt("providers");
 
   await evaluate('document.querySelector("#layout-edit").click()');
+  // Actual sequential keyboard traversal: resize edges become Tab-reachable
+  // only while editing. ArrowDown changes the draft geometry and announces it.
+  const keyboardStart = await evaluate(`(()=>{
+    const header=document.querySelector('[data-widget="providers"] .section-header');
+    header.focus();
+    const edges=[...document.querySelectorAll('[data-widget="providers"] .layout-resize-edge')];
+    return {headerFocused:document.activeElement===header,
+      edges:edges.map(e=>({tabIndex:e.tabIndex,hidden:e.hidden,role:e.getAttribute('role')}))};
+  })()`);
+  assert.ok(keyboardStart.headerFocused && keyboardStart.edges.length===8 &&
+    keyboardStart.edges.every(e=>e.tabIndex===0&&!e.hidden&&e.role==="button"),
+    "Layout resize handles must be keyboard reachable in edit mode: "+JSON.stringify(keyboardStart));
+  let focusedEdge="";
+  for(let i=0;i<45&&!focusedEdge;i++){
+    await send("Input.dispatchKeyEvent",{type:"keyDown",key:"Tab",code:"Tab",windowsVirtualKeyCode:9,nativeVirtualKeyCode:9});
+    await send("Input.dispatchKeyEvent",{type:"keyUp",key:"Tab",code:"Tab",windowsVirtualKeyCode:9,nativeVirtualKeyCode:9});
+    focusedEdge=await evaluate(`document.activeElement?.matches('[data-widget="providers"] .layout-resize-edge') ? document.activeElement.className : ""`);
+  }
+  assert.ok(focusedEdge,"Tab navigation never reached a keyboard resize handle");
+  const keyboardBefore=await evaluate(`document.querySelector('[data-widget="providers"]').style.gridRow`);
+  await send("Input.dispatchKeyEvent",{type:"keyDown",key:"ArrowDown",code:"ArrowDown",windowsVirtualKeyCode:40,nativeVirtualKeyCode:40});
+  await send("Input.dispatchKeyEvent",{type:"keyUp",key:"ArrowDown",code:"ArrowDown",windowsVirtualKeyCode:40,nativeVirtualKeyCode:40});
+  const keyboardAfter=await evaluate(`({
+    row:document.querySelector('[data-widget="providers"]').style.gridRow,
+    announcement:document.querySelector('#layout-announcement')?.textContent
+  })`);
+  assert.ok(keyboardAfter.announcement?.includes("resized") &&
+    (keyboardAfter.row!==keyboardBefore || focusedEdge.includes("edge-w") || focusedEdge.includes("edge-e")),
+    "Keyboard resize must announce its result: "+JSON.stringify({focusedEdge,keyboardBefore,keyboardAfter}));
   const dragStart=await evaluate(`(()=>{
     const kicker=document.querySelector('[data-widget="providers"] .section-kicker');
     kicker.scrollIntoView({block:"center",behavior:"instant"});
