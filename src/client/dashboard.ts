@@ -5,10 +5,16 @@ import {
   MAX_DASHBOARD_JSON_LENGTH, readDashboardConfig, saveDashboardConfig,
   resetDashboardConfig, parseDashboardJSON, stringifyDashboardConfig
 } from "./dashboard-config.mjs";
-import { buildChart, buildObservedHourly, buildSessions, chartCatalog } from "./analytics.mjs";
+import { buildChart, buildObservedHourly, buildPeriodComparison, buildSessions, chartCatalog, metricDelta, type ComparisonPolarity } from "./analytics.mjs";
 import { colorForDimension, labelPointIndices } from "./chart-presentation.mjs";
+import { bindLineChartInteraction, clearLineChartInteraction, hideActiveChartInteraction } from "./chart-interaction.mjs";
+import { formatMetric, formatPercentage } from "./formatting.mjs";
+import { workspaceStore, type WorkspaceState } from "./workspace-state.mjs";
+import { bindWorkspaceFilterController } from "./filter-controller.mjs";
+import { getGraphPreset } from "./widget-presets.mjs";
+import { applyDashboardLayoutPreset } from "./dashboard-presets.mjs";
 import type { GridRect, GridPositions, GridLayout } from "./dashboard-layout.mjs";
-import { GRID_COLUMNS, GRID_MAX_ROW, GRID_GAP_PX, GRID_ROW_STEP_PX, relocateGridWidget, snapToGrid, cacheRowsForWidth, visibleGridOrder, compactVisibleLayout, reflowGridAfterResize } from "./dashboard-layout.mjs";
+import { GRID_COLUMNS, GRID_MAX_ROW, GRID_GAP_PX, GRID_ROW_STEP_PX, relocateGridWidget, snapToGrid, cacheRowsForWidth, visibleGridOrder, compactVisibleLayout, reflowGridAfterResize, pointerToGridDelta } from "./dashboard-layout.mjs";
 
 const $ = (id: string): any => document.getElementById(id);
 interface DashboardState {
@@ -18,8 +24,6 @@ interface DashboardState {
 }
 const state: DashboardState = { report: null, hourly: [], section: "7d", agent: "all", model: "all",
   breakdown: "total", metric: "totalTokens", sessionMetric: "totalTokens" };
-const compact = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 2 });
-const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 });
 const hiddenTrendSeries = new Set<string>();
 let dismissedPricingSignature: string|null = null;
 function syncGraphControls() {
@@ -86,11 +90,26 @@ let activeLayoutGesture=false;
 let movementFrame=0;
 try { dashboardConfig = readDashboardConfig(window.localStorage); }
 catch { storageWarning = "Saved dashboard preferences are unavailable; defaults are in use."; }
+function syncDashboardStateFromWorkspace(workspace: WorkspaceState = workspaceStore.getState()) {
+  state.section = workspace.filters.period;
+  state.agent = workspace.filters.providers[0] ?? "all";
+  state.model = workspace.filters.models[0] ?? "all";
+  state.metric = workspace.filters.metric || "totalTokens";
+  document.documentElement.dataset.density = workspace.density;
+}
 function applyFilterState(filters: any) {
-  state.section = filters.period || "7d";
-  state.agent = filters.provider || "all";
-  state.model = filters.model || "all";
-  state.metric = filters.metric || "totalTokens";
+  workspaceStore.hydrate({
+    filters: {
+      period: filters.period || "7d",
+      providers: filters.provider && filters.provider !== "all" ? [filters.provider] : [],
+      models: filters.model && filters.model !== "all" ? [filters.model] : [],
+      agents: [],
+      sessions: [],
+      metric: filters.metric || "totalTokens"
+    },
+    density: document.documentElement.dataset.density === "compact" ? "compact" : "comfortable"
+  }, "dashboard-hydrate");
+  syncDashboardStateFromWorkspace();
   state.breakdown = filters.breakdown || "total";
   state.sessionMetric = filters.sessionMetric || "totalTokens";
   const metricEl = $("metric") as HTMLSelectElement | null;
@@ -100,7 +119,7 @@ function applyFilterState(filters: any) {
   const sessionMetricEl = $("session-metric") as HTMLSelectElement | null;
   if (sessionMetricEl) sessionMetricEl.value = state.sessionMetric;
   const headerPeriod = $("header-period") as HTMLSelectElement | null;
-  if (headerPeriod) headerPeriod.value = state.section;
+  if (headerPeriod) headerPeriod.value = ["14d", "all"].includes(state.section) ? state.section : "";
   syncGraphControls();
 }
 function configWithCurrentFilters(config = dashboardConfig) {
@@ -147,7 +166,17 @@ function replaceDashboardConfig(config: any, persist = true) {
 }
 applyFilterState(dashboardConfig.filters);
 showWidgetSelection();
-const fmt = (n: any, metric = "totalTokens") => metric === "totalCost" ? money.format(n ?? 0) : compact.format(n ?? 0);
+bindWorkspaceFilterController(workspaceStore);
+workspaceStore.subscribe((workspace, previous, meta) => {
+  syncDashboardStateFromWorkspace(workspace);
+  if (meta.source === "dashboard-hydrate") return;
+  const providerChanged = workspace.filters.providers[0] !== previous.filters.providers[0];
+  const modelChanged = workspace.filters.models[0] !== previous.filters.models[0];
+  if (state.report && (providerChanged || modelChanged)) updateSelectors();
+  persistDashboardConfig(configWithCurrentFilters());
+  if (state.report) render();
+});
+const fmt = formatMetric;
 function el(tag: string, cls: string = "", text?: string): any {
   const node = document.createElement(tag);
   if (cls) node.className = cls;
@@ -160,6 +189,32 @@ function svgEl(tag: string, attrs: Record<string,any> = {}): any {
   return node;
 }
 function empty(target: any, msg: string) { target.replaceChildren(el("p", "empty", msg)); }
+function renderKpiDelta(
+  id: string,
+  current: number,
+  previous: number,
+  label: string,
+  available: boolean,
+  metric = "totalTokens",
+  polarity: ComparisonPolarity = "neutral"
+) {
+  const node = $(id) as HTMLElement | null;
+  if (!node) return;
+  if (!available) {
+    node.hidden = true;
+    node.textContent = "";
+    node.className = "kpi-delta neutral";
+    node.removeAttribute("title");
+    return;
+  }
+  const delta = metricDelta(current, previous, polarity);
+  const arrow = delta.direction === "up" ? "↑" : delta.direction === "down" ? "↓" : "→";
+  const amount = delta.ratio === null ? "New" : formatPercentage(Math.abs(delta.ratio));
+  node.textContent = `${arrow} ${amount} ${label}`;
+  node.className = "kpi-delta " + delta.sentiment;
+  node.hidden = false;
+  node.title = `Previous period: ${fmt(previous, metric)}`;
+}
 function choices(select: HTMLSelectElement, names: string[], allLabel: string, desired = select.value) {
   const selected = desired;
   select.replaceChildren();
@@ -185,55 +240,14 @@ function availableModels(report: any, agent: string) {
   }
   return [...models].sort();
 }
-function showChartTooltip(event: MouseEvent | PointerEvent, name: string, dateLabel: string, value: number, color: string, metric: string) {
-  let tooltip = $("chart-tooltip");
-  if (!tooltip) {
-    tooltip = el("div", "chart-tooltip");
-    tooltip.id = "chart-tooltip";
-    document.body.append(tooltip);
-  }
-  tooltip.replaceChildren();
-  const header = el("div", "chart-tooltip-header", dateLabel);
-  const body = el("div", "chart-tooltip-body");
-  const swatch = el("span", "chart-tooltip-swatch");
-  swatch.style.background = color;
-  const nameSpan = el("span", "", name + ": ");
-  const valSpan = el("span", "chart-tooltip-value", fmt(value, metric));
-  body.append(swatch, nameSpan, valSpan);
-  tooltip.hidden = false;
-  tooltip.removeAttribute("hidden");
-  tooltip.setAttribute("aria-hidden", "false");
-  positionChartTooltip(event.clientX, event.clientY);
-}
-function positionChartTooltip(x: number, y: number) {
-  const tooltip = $("chart-tooltip");
-  if (!tooltip || tooltip.hidden) return;
-  const clampedX = Math.max(70, Math.min(window.innerWidth - 70, x));
-  tooltip.style.left = `${clampedX}px`;
-  if (y < 60) {
-    tooltip.style.top = `${y + 14}px`;
-    tooltip.style.transform = "translateX(-50%)";
-  } else {
-    tooltip.style.top = `${y - 12}px`;
-    tooltip.style.transform = "translate(-50%, -100%)";
-  }
-}
-function hideChartTooltip() {
-  const tooltip = $("chart-tooltip");
-  if (!tooltip) return;
-  tooltip.hidden = true;
-  tooltip.setAttribute("hidden", "");
-  tooltip.setAttribute("aria-hidden", "true");
-}
 function drawLineChart(data: any, metric: string, options: any = {}) {
-  const svg = $(options.svgId ?? "trend-chart");
+  const svg = $(options.svgId ?? "trend-chart") as SVGSVGElement;
   const legend = $(options.legendId ?? "trend-legend");
   const activeSection=options.period ?? state.section;
   const activeBreakdown=options.breakdown ?? state.breakdown;
   const invisible=options.hiddenSeries ?? hiddenTrendSeries;
-  svg.replaceChildren(); legend.replaceChildren(); svg.addEventListener("pointerleave", hideChartTooltip);
-  // Match the actual CSS viewport. A fixed 920×264 viewBox letterboxed the
-  // graph at desktop widths, wasting horizontal space around the plot.
+  clearLineChartInteraction(svg);
+  svg.replaceChildren(); legend.replaceChildren();
   const container = svg.parentElement;
   const containerRect = container ? container.getBoundingClientRect() : null;
   const W = Math.max(320, Math.round(svg.getBoundingClientRect().width || containerRect?.width || 920));
@@ -263,7 +277,7 @@ function drawLineChart(data: any, metric: string, options: any = {}) {
   });
   const names = shown.filter((s: any) => !invisible.has(s.name)).map((s: any) => s.name);
   if (!names.length || !data.points.length) {
-    const label = svgEl("text", { x: W / 2, y: H / 2, fill: "#92a0b8", "text-anchor": "middle", "font-size": 15 });
+    const label = svgEl("text", { x: W / 2, y: H / 2, class: "chart-empty-label", "text-anchor": "middle", "font-size": 15 });
     label.textContent = activeSection === "hourly"
       ? "No observed hourly changes yet — two different snapshots are needed"
       : "No usage records for this selection";
@@ -280,48 +294,43 @@ function drawLineChart(data: any, metric: string, options: any = {}) {
   const ceiling = maxValue * 1.13;
   for (let i = 0; i <= 4; i++) {
     const y = T + PH * i / 4;
-    svg.append(svgEl("line", { x1: L, y1: y, x2: W - R, y2: y, stroke: "#29384a", "stroke-dasharray": "4 5" }));
-    const text = svgEl("text", { x: L - 9, y: y + 4, "text-anchor": "end", fill: "#8494a9", "font-size": 12 });
+    svg.append(svgEl("line", { x1: L, y1: y, x2: W - R, y2: y, class: "chart-grid-line" }));
+    const text = svgEl("text", { x: L - 9, y: y + 4, "text-anchor": "end", class: "chart-axis-label", "font-size": 12 });
     text.textContent = fmt(ceiling * (1 - i / 4), metric); svg.append(text);
   }
   const coords = data.points.map((point: any, i: number) => ({
     ...point, x: L + (data.points.length === 1 ? PW / 2 : i * PW / (data.points.length - 1))
   }));
   const labelledPoints = new Set(labelPointIndices(coords.length, 12));
+  const interactionSeries: Array<{name:string;color:string;points:Array<{y:number;value:number}>}> = [];
   for (const [index, name] of names.entries()) {
     const coordsSeries = coords.map((point: any) => ({
       ...point, y: T + PH * (1 - Math.max(0, point.values[name] ?? 0) / ceiling)
     }));
     const color = colorForDimension(name, groupKind);
+    interactionSeries.push({
+      name,
+      color,
+      points: coordsSeries.map((point: any) => ({ y: point.y, value: point.values[name] ?? 0 }))
+    });
     const path = coordsSeries.map((p: any, i: number) => (i ? "L" : "M") + p.x + " " + p.y).join(" ");
-    svg.append(svgEl("path", { d: path, fill: "none", stroke: color,
-      "stroke-width": 3, "stroke-linejoin": "round", "stroke-linecap": "round" }));
+    const pathNode = svgEl("path", { d: path, fill: "none", stroke: color,
+      "stroke-width": 3, "stroke-linejoin": "round", "stroke-linecap": "round",
+      class: "chart-series-line", "data-series-name": name });
+    svg.append(pathNode);
     coordsSeries.forEach((p: any, pointIndex: number) => {
       const circle = svgEl("circle", { cx: p.x, cy: p.y, r: 3.8,
-        fill: color, stroke: "#111927", "stroke-width": 1.5 });
+        fill: color, class: "chart-point", "data-series-name": name, "aria-hidden": "true" });
       const title = svgEl("title");
       const label = activeSection === "hourly" ? p.label.replace("T", " ") : p.label;
       title.textContent = name + " • " + label + ": " + fmt(p.values[name], metric);
-      circle.style.cursor = "pointer";
       circle.append(title);
-      circle.addEventListener("pointerenter", (e: PointerEvent) => {
-        circle.setAttribute("r", "5.5");
-        showChartTooltip(e, name, label, p.values[name] ?? 0, color, metric);
-      });
-      circle.addEventListener("pointermove", (e: PointerEvent) => {
-        positionChartTooltip(e.clientX, e.clientY);
-      });
-      circle.addEventListener("pointerleave", () => {
-        circle.setAttribute("r", "3.8");
-        hideChartTooltip();
-      });
       svg.append(circle);
       if (settings.showLabels && labelledPoints.has(pointIndex)) {
         const text = svgEl("text", {
           x: p.x, y: Math.max(12, p.y - 10 - 14 * (index % 2)),
-          fill: color, "font-size": 11,
-          "text-anchor": pointIndex === 0 ? "start" : pointIndex === coords.length - 1 ? "end" : "middle",
-          "paint-order": "stroke", stroke: "#101827", "stroke-width": 3
+          fill: color, "font-size": 11, class: "chart-value-label",
+          "text-anchor": pointIndex === 0 ? "start" : pointIndex === coords.length - 1 ? "end" : "middle"
         });
         text.textContent = fmt(p.values[name], metric);
         svg.append(text);
@@ -331,9 +340,17 @@ function drawLineChart(data: any, metric: string, options: any = {}) {
   const step = Math.max(1, Math.ceil(coords.length / Math.max(2, Math.floor(PW / 120))));
   coords.forEach((p: any, i: number) => {
     if (i % step !== 0 && i !== coords.length - 1) return;
-    const label = svgEl("text", { x: p.x, y: H - 15, "text-anchor": "middle", fill: "#8799ac", "font-size": 12 });
+    const label = svgEl("text", { x: p.x, y: H - 15, "text-anchor": "middle", class: "chart-axis-label", "font-size": 12 });
     label.textContent = activeSection === "hourly" ? p.label.slice(5, 13).replace("T", " ") : p.label;
     svg.append(label);
+  });
+  bindLineChartInteraction(svg, {
+    metric,
+    points: coords.map((point: any) => ({
+      x: point.x,
+      label: activeSection === "hourly" ? point.label.replace("T", " ") : point.label
+    })),
+    series: interactionSeries
   });
 }
 function drawBars(id: string, entries: any[], metric: string, emptyMessage: string, limit: number, kind: string, hiddenDimensions: string[]=[]) {
@@ -346,7 +363,15 @@ function drawBars(id: string, entries: any[], metric: string, emptyMessage: stri
     if (e.value > max) max = e.value;
   }
   visible.slice(0, limit).forEach((item: any) => {
-    const group = el("div", "bar-row");
+    const filterable = kind === "provider" || kind === "model";
+    const group = el(filterable ? "button" : "div", "bar-row" + (filterable ? " bar-filter-row" : ""));
+    if (filterable) {
+      group.type = "button";
+      group.setAttribute("aria-label", "Filter workspace by " + kind + " " + item.name);
+      group.addEventListener("click", () => {
+        workspaceStore.setFilters(kind === "provider" ? { providers: [item.name] } : { models: [item.name] }, "distribution-chart");
+      });
+    }
     const label = el("div", "bar-labels");
     const name = el("span", "bar-name", item.name);
     name.title = item.name;
@@ -499,12 +524,7 @@ function filterReportByPeriod(rawReport: any, period: string): any {
       .filter((d: any) => typeof d === "string" && /^\d{4}-\d{2}-\d{2}/.test(d))
       .map((d: string) => new Date(d + "T23:59:59Z").getTime())
       .filter((t: number) => !isNaN(t));
-    if (dates.length > 0) {
-      const maxDate = Math.max(...dates);
-      if (refTime - maxDate > 14 * 86400 * 1000) {
-        refTime = maxDate;
-      }
-    }
+    if (dates.length > 0) refTime = Math.max(...dates);
   }
 
   const cutoffTime = refTime - days * 24 * 60 * 60 * 1000;
@@ -581,10 +601,7 @@ function filterHourlyByPeriod(snapshots: any[], period: string): any[] {
   const times = snapshots
     .map((s) => typeof s?.timestamp === "string" ? new Date(s.timestamp).getTime() : NaN)
     .filter((t) => !isNaN(t));
-  if (times.length > 0) {
-    const maxTime = Math.max(...times);
-    if (refTime - maxTime > 14 * 86400 * 1000) refTime = maxTime;
-  }
+  if (times.length > 0) refTime = Math.max(...times);
   const cutoffTime = refTime - days * 24 * 60 * 60 * 1000;
   return snapshots.filter((s) => {
     const t = typeof s?.timestamp === "string" ? new Date(s.timestamp).getTime() : NaN;
@@ -596,10 +613,15 @@ function updateSelectors() {
   const catalog = chartCatalog(state.report);
   const agentEl = $("agent") as HTMLSelectElement | null;
   if (agentEl) state.agent = choices(agentEl, catalog.agents, "All providers", state.agent);
-  else state.agent = "all";
+  else if (state.agent !== "all" && !catalog.agents.includes(state.agent)) state.agent = "all";
+  const available = availableModels(state.report, state.agent);
   const modelEl = $("model") as HTMLSelectElement | null;
-  if (modelEl) state.model = choices(modelEl, availableModels(state.report, state.agent), "All models", state.model);
-  else state.model = "all";
+  if (modelEl) state.model = choices(modelEl, available, "All models", state.model);
+  else if (state.model !== "all" && !available.includes(state.model)) state.model = "all";
+  workspaceStore.hydrate({ filters: {
+    providers: state.agent === "all" ? [] : [state.agent],
+    models: state.model === "all" ? [] : [state.model]
+  } }, "dashboard-hydrate");
 }
 function render() {
   if (!state.report) return;
@@ -631,6 +653,27 @@ function render() {
   $("stat-input").textContent = fmt(vals.inputTokens);
   $("stat-output").textContent = fmt(vals.outputTokens);
   $("stat-cost").textContent = hasCost ? fmt(cost, "totalCost") : "Unavailable";
+  const comparison = buildPeriodComparison(state.report, {
+    period: activePeriod, agent: state.agent, model: state.model
+  });
+  const rangeNode = $("workspace-range") as HTMLElement | null;
+  if (rangeNode) {
+    const dates = (state.report.daily ?? []).map((row: any) => String(row.period ?? row.date ?? "").slice(0, 10))
+      .filter((date: string) => /^\d{4}-\d{2}-\d{2}$/.test(date)).sort();
+    const observed = dates.at(-1);
+    const stale = observed && observed < new Date().toISOString().slice(0, 10);
+    const range = comparison.currentRange;
+    const coverage = comparison.coverage === "partial"
+      ? ` · Comparison unavailable: ${comparison.previousDays}/${comparison.days} previous days recorded` : "";
+    rangeNode.textContent = range
+      ? `Report-relative UTC: ${range.start} – ${range.end}${stale ? " · Last observed " + observed + " (stale)" : ""}${coverage}`
+      : `Report-relative UTC: ${activePeriod === "all" ? "all available history" : "no dated records"}${observed ? " · Last observed " + observed : ""}`;
+  }
+  renderKpiDelta("delta-tokens", vals.totalTokens, comparison.previous.totalTokens, comparison.label, comparison.available);
+  renderKpiDelta("delta-input", vals.inputTokens, comparison.previous.inputTokens, comparison.label, comparison.available);
+  renderKpiDelta("delta-output", vals.outputTokens, comparison.previous.outputTokens, comparison.label, comparison.available);
+  renderKpiDelta("delta-cost", cost, comparison.previous.totalCost, comparison.label,
+    comparison.available && hasCost, "totalCost", "lower-is-better");
   $("break-input").textContent = fmt(vals.inputTokens);
   $("break-output").textContent = fmt(vals.outputTokens);
   $("break-cache").textContent = fmt(vals.cacheReadTokens);
@@ -650,7 +693,7 @@ function render() {
   const trendChip = $("trend-period");
   if (trendChip) trendChip.textContent = trendGranularity.toUpperCase();
   const headerPeriod = $("header-period") as HTMLSelectElement | null;
-  if (headerPeriod) headerPeriod.value = activePeriod;
+  if (headerPeriod) headerPeriod.value = ["14d", "all"].includes(activePeriod) ? activePeriod : "";
   $("chart-heading").textContent = (state.metric === "totalCost" ? "Estimated cost" : "Token consumption") + " over time";
   document.querySelectorAll<HTMLElement>(".period").forEach((button) => {
     const active = button.dataset.period === state.section;
@@ -701,48 +744,44 @@ function render() {
   } else { dismissedPricingSignature = null; notice.hidden = true; }
 }
 let lastLoadedAt = 0;
+let lastReportPayload: string | null = null;
+let lastHourlyPayload: string | null = null;
+let loadInFlight = false;
 async function load() {
+  if (loadInFlight) return;
+  loadInFlight = true;
   const button = $("refresh");
   button.disabled = true; button.textContent = "↻  Updating…";
   try {
     const response = await fetch("/api/usage", { cache: "no-store" });
-    const report = await response.json();
+    const reportPayload = await response.text();
+    const report = JSON.parse(reportPayload);
     if (!response.ok) throw new Error(report.error || "Usage unavailable");
-    state.report = report;
+    const changed = state.report === null || reportPayload !== lastReportPayload;
+    if (changed) state.report = report;
+    let hourlyChanged = false;
+    let hourlyPayload: string | null = null;
     try {
       const observations = await fetch("/api/hourly", { cache: "no-store" });
-      if (observations.ok) state.hourly = (await observations.json()).observations ?? [];
+      if (observations.ok) {
+        hourlyPayload = await observations.text();
+        hourlyChanged = hourlyPayload !== lastHourlyPayload;
+        if (hourlyChanged) state.hourly = JSON.parse(hourlyPayload).observations ?? [];
+      }
     } catch { /* Daily/weekly reporting remains usable if hourly history is unavailable. */ }
-    updateSelectors();
+    if (changed) updateSelectors();
     lastLoadedAt = Date.now();
     $("updated").textContent = "Updated " + new Date().toLocaleTimeString();
-    render();
+    // Preserve focus, chart nodes, and scroll position when fetched bytes are unchanged.
+    if (changed || hourlyChanged) render();
+    lastReportPayload = reportPayload;
+    if (hourlyPayload !== null) lastHourlyPayload = hourlyPayload;
   } catch (error) {
     const notice = $("notice");
     notice.className = "notice error"; notice.hidden = false;
     notice.textContent = (error instanceof Error ? error.message : "Failed to load report") + " Inspect the dashboard server terminal.";
-  } finally { button.disabled = false; button.textContent = "↻  Refresh data"; }
+  } finally { button.disabled = false; button.textContent = "↻  Refresh data"; loadInFlight = false; }
 }
-const headerPeriod = $("header-period") as HTMLSelectElement | null;
-if (headerPeriod) {
-  headerPeriod.addEventListener("change", () => {
-    state.section = headerPeriod.value;
-    persistFilters();
-    render();
-  });
-}
-document.querySelectorAll<HTMLElement>(".period").forEach((button) => button.addEventListener("click", () => {
-  state.section = button.dataset.period ?? "7d";
-  const headerPeriod = $("header-period") as HTMLSelectElement | null;
-  if (headerPeriod) headerPeriod.value = state.section;
-  persistFilters(); render();
-}));
-const agentEl = $("agent") as HTMLSelectElement | null;
-if (agentEl) agentEl.addEventListener("change", () => { state.agent = agentEl.value; updateSelectors(); persistFilters(); render(); });
-const modelEl = $("model") as HTMLSelectElement | null;
-if (modelEl) modelEl.addEventListener("change", () => { state.model = modelEl.value; persistFilters(); render(); });
-const metricEl = $("metric") as HTMLSelectElement | null;
-if (metricEl) metricEl.addEventListener("change", () => { state.metric = metricEl.value; persistFilters(); render(); });
 const breakdownEl = $("breakdown") as HTMLSelectElement | null;
 if (breakdownEl) breakdownEl.addEventListener("change", () => { state.breakdown = breakdownEl.value; persistFilters(); render(); });
 const sessionMetricEl = $("session-metric") as HTMLSelectElement | null;
@@ -765,7 +804,7 @@ for (const group of ["providers", "models"]) {
   if (lSelect) lSelect.addEventListener("change", () => updateGraphSettings(group, { limit: Number(lSelect.value) }));
 }
 window.addEventListener("scroll", scheduleNavigationUpdate, { passive: true });
-window.addEventListener("scroll", hideChartTooltip, { passive: true });
+window.addEventListener("scroll", hideActiveChartInteraction, { passive: true });
 
 for (const dialog of document.querySelectorAll<HTMLDialogElement>("dialog")) {
   dialog.addEventListener("click", (event) => {
@@ -1106,6 +1145,8 @@ function closeLayoutEdit(save: boolean){
   }
   refreshArrangeTools();
   if(state.report)render();
+  // The Save/Cancel controls disappear after committing; restore keyboard focus.
+  ($("layout-edit") as HTMLButtonElement).focus({preventScroll:true});
 }
 function installLayoutPanel(panel: HTMLElement){
   if(panel.dataset.layoutInstalled==="true")return;
@@ -1159,7 +1200,10 @@ function installLayoutPanel(panel: HTMLElement){
       const dx=event.key==="ArrowRight"?1:event.key==="ArrowLeft"?-1:0;
       const dy=event.key==="ArrowDown"?1:event.key==="ArrowUp"?-1:0;
       const next=resizeGridRectangle(before,id,direction,dx,dy);
-      if(["x","y","w","h"].some(k=>before[k as keyof GridRect]!==next[k as keyof GridRect]))saveGridPosition(id,next);
+      if(["x","y","w","h"].some(k=>before[k as keyof GridRect]!==next[k as keyof GridRect])){
+        saveGridPosition(id,next);
+        $("layout-announcement").textContent=label()+" resized to "+next.w+" columns by "+next.h+" rows";
+      }
     });
   }
 }
@@ -1266,7 +1310,6 @@ function beginEdgeResize(event: PointerEvent,edge: HTMLElement,panel: HTMLElemen
   edge.addEventListener("pointerup",finish);
   edge.addEventListener("pointercancel",cancel);
 }
-const DRAG_SENSITIVITY=1.0;
 function beginPanelDrag(event: PointerEvent,surface: HTMLElement,panel: HTMLElement,id: string){
   if(!arranging||event.button!==0||interactiveHeaderTarget(event.target)||
     getComputedStyle($("dashboard-grid")).display!=="grid")return;
@@ -1278,16 +1321,16 @@ function beginPanelDrag(event: PointerEvent,surface: HTMLElement,panel: HTMLElem
   activeLayoutGesture=true;
   surface.setPointerCapture(event.pointerId);
   const update=(x:number,y:number)=>{
-    // Reduce drag gain so accidental trackpad/mouse motion cannot jump several
-    // rows or columns. The floating card and drop position share this gain.
-    const dx=(x-x0)*DRAG_SENSITIVITY,dy=(y-y0)*DRAG_SENSITIVITY;
+    // Ghost preview and snap both follow measured pointer-to-grid motion.
+    const {dx,dy,x:gridDx,y:gridDy}=pointerToGridDelta(
+      {x:x0,y:y0},{x,y},{columnStep:stepX,rowStep:GRID_ROW_STEP_PX});
     if(!moved&&Math.hypot(x-x0,y-y0)<6)return;
     moved=true;
     // One cell of pointer travel changes one grid cell. This remains stable
     // even when the dragged item was previously moved by the user.
     const candidate={...start,
-      x:Math.max(0,Math.min(GRID_COLUMNS-start.w,start.x+Math.round(dx/stepX))),
-      y:Math.max(0,Math.min(GRID_MAX_ROW-start.h,start.y+Math.round(dy/32)))};
+      x:Math.max(0,Math.min(GRID_COLUMNS-start.w,start.x+gridDx)),
+      y:Math.max(0,Math.min(GRID_MAX_ROW-start.h,start.y+gridDy))};
     panel.classList.add("layout-drag-source");
     panel.style.transform="translate3d("+dx+"px,"+dy+"px,0)";
     if(candidate.x===next.x&&candidate.y===next.y)return;
@@ -1341,6 +1384,26 @@ function installLayoutEditor(){
   if(toolbarSave)toolbarSave.addEventListener("click",()=>closeLayoutEdit(true));
   const toolbarCancel=$("layout-toolbar-cancel");
   if(toolbarCancel)toolbarCancel.addEventListener("click",()=>closeLayoutEdit(false));
+  $("layout-preset-apply").addEventListener("click",()=>{
+    if(!arranging||!layoutDraft||!layoutDraftWidgets)return;
+    try {
+      const preset=applyDashboardLayoutPreset({
+        ...dashboardConfig,title:layoutDraftTitle??dashboardConfig.title,
+        widgets:layoutDraftWidgets,layout:layoutDraft,charts:layoutDraftCharts??dashboardConfig.charts
+      },$("layout-preset").value);
+      layoutDraft=preset.layout;
+      layoutDraftWidgets=preset.widgets;
+      layoutDraftTitle=preset.title;
+      $("layout-title-input").value=preset.title;
+      syncCustomChartNodes(layoutDraftCharts??dashboardConfig.charts);
+      populateLayoutToolbar();
+      applyGridPreview(layoutDraft.positions);
+      for(const panel of $("dashboard-grid").querySelectorAll("[data-widget]")){
+        panel.hidden=!layoutDraftWidgets.includes(panel.dataset.widget);
+      }
+      $("layout-preset-status").textContent=preset.title+" previewed. Save Layout to persist or Cancel to restore.";
+    }catch(error){$("layout-preset-status").textContent=error instanceof Error?error.message:"Invalid preset";}
+  });
   const toolbarReset=$("layout-toolbar-reset");
   if(toolbarReset){
     toolbarReset.addEventListener("click",()=>{
@@ -1370,6 +1433,7 @@ function installLayoutEditor(){
     rememberViewport();
     $("graph-status").textContent="";
     $("graph-dialog").showModal();
+    updateGraphBuilderPreview();
   });
   const toolbarSettings=$("layout-toolbar-settings");
   if(toolbarSettings)toolbarSettings.addEventListener("click",()=>{
@@ -1380,6 +1444,11 @@ function installLayoutEditor(){
   if(customizeEditLayout)customizeEditLayout.addEventListener("click",()=>{
     $("customize-dialog").close();
     beginLayoutEdit();
+  });
+  document.addEventListener("keydown",(event: KeyboardEvent)=>{
+    if(event.key!=="Escape"||!arranging||document.querySelector("dialog[open]"))return;
+    event.preventDefault();
+    closeLayoutEdit(false);
   });
   refreshArrangeTools();
 }
@@ -1473,7 +1542,72 @@ function renderCustomCharts(report = filterReportByPeriod(state.report, state.se
     $("custom-note-"+chart.id).textContent=issues.join(" ");
   }
 }
+function updateGraphBuilderPreview(){
+  const plot=$("graph-preview-plot") as SVGSVGElement;
+  const caption=$("graph-preview-caption") as HTMLElement;
+  plot.replaceChildren();
+  if(!state.report){
+    caption.textContent="No local usage report available for preview.";
+    return;
+  }
+  const metric=($("graph-metric") as HTMLSelectElement).value;
+  const period=($("graph-period") as HTMLSelectElement).value;
+  const breakdown=($("graph-group") as HTMLSelectElement).value;
+  const visual=($("graph-visual") as HTMLSelectElement).value;
+  const report=filterReportByPeriod(state.report,state.section||"7d");
+  const chart=buildChart(report,{period,metric,breakdown,agent:state.agent,model:state.model});
+  const samples=visual==="bars"
+    ? chart.series.slice(0,8).map((entry:any)=>({name:entry.name,value:entry.value}))
+    : chart.points.slice(-24).map((point:any)=>({
+        name:point.label,value:Object.values(point.values).reduce((sum:number,v:any)=>sum+(Number.isFinite(v)?v:0),0)
+      }));
+  if(!samples.length){
+    caption.textContent="No matching local records for the current preview settings.";
+    return;
+  }
+  const max=Math.max(1,...samples.map((item:any)=>item.value));
+  const color="var(--accent-primary)";
+  const make=(tag:string,attrs:Record<string,string>)=>{
+    const node=document.createElementNS("http://www.w3.org/2000/svg",tag);
+    for(const [key,value] of Object.entries(attrs))node.setAttribute(key,value);
+    plot.append(node);return node;
+  };
+  if(visual==="bars"){
+    const step=490/samples.length;
+    samples.forEach((item:any,i:number)=>{
+      const height=90*item.value/max;
+      const bar=make("rect",{x:String(6+i*step),y:String(104-height),
+        width:String(Math.max(4,step-8)),height:String(Math.max(0,height)),rx:"3",fill:color});
+      const title=document.createElementNS("http://www.w3.org/2000/svg","title");
+      title.textContent=item.name+": "+fmt(item.value,metric);
+      bar.append(title);
+    });
+  }else{
+    const coords=samples.map((item:any,i:number)=>({
+      x:6+i*488/Math.max(1,samples.length-1),y:104-90*item.value/max
+    }));
+    const path=coords.map((item:any,i:number)=>(i?"L":"M")+item.x+" "+item.y).join(" ");
+    make("path",{d:path,fill:"none",stroke:color,"stroke-width":"3","stroke-linejoin":"round"});
+    for(const point of coords)make("circle",{cx:String(point.x),cy:String(point.y),r:"2.5",fill:color});
+  }
+  caption.textContent=samples.length+" observed "+(visual==="bars"?"dimensions":"time points")+
+    " · "+fmt(chart.total,metric)+" total · "+period+" · "+breakdown;
+}
 function setupCustomGraphBuilder(){
+  for(const id of ["graph-visual","graph-metric","graph-group","graph-period"]){
+    $(id).addEventListener("change",updateGraphBuilderPreview);
+  }
+  $("graph-preset").addEventListener("change",()=>{
+    const id=($("graph-preset") as HTMLSelectElement).value;
+    if (!id) return;
+    const preset=getGraphPreset(id);
+    $("graph-title").value=preset.title;
+    $("graph-visual").value=preset.visual;
+    $("graph-metric").value=preset.metric;
+    $("graph-group").value=preset.breakdown;
+    $("graph-period").value=preset.period;
+    updateGraphBuilderPreview();
+  });
   $("add-graph").addEventListener("click",()=>{
     rememberViewport();
     $("graph-status").textContent="";
@@ -1714,6 +1848,7 @@ $("visual-editor-form").addEventListener("submit",(event: any)=>{
       persistDashboardConfig({...dashboardConfig,charts});
     }else if(id==="trend"){
       state.metric=draft.metric;state.breakdown=draft.breakdown;
+      workspaceStore.hydrate({filters:{metric:state.metric}}, "dashboard-hydrate");
       persistDashboardConfig(configWithCurrentFilters({...dashboardConfig,widgetSettings:{
         ...dashboardConfig.widgetSettings,trend:{
           showLabels:draft.showLabels,maxSeries:draft.maxSeries,hiddenDimensions:draft.hiddenDimensions

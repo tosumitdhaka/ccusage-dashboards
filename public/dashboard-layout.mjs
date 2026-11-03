@@ -189,3 +189,10 @@ export function reflowGridAfterResize(positions, id, next, order = Object.keys(p
     }
     return Object.fromEntries(Object.keys(positions).map(k => [k, placed[k]]));
 }
+export function pointerToGridDelta(origin, pointer, measured) {
+    if (![origin.x, origin.y, pointer.x, pointer.y, measured.columnStep, measured.rowStep].every(Number.isFinite) ||
+        measured.columnStep <= 0 || measured.rowStep <= 0)
+        throw Error("Invalid pointer-grid geometry.");
+    const dx = pointer.x - origin.x, dy = pointer.y - origin.y;
+    return { x: Math.round(dx / measured.columnStep), y: Math.round(dy / measured.rowStep), dx, dy };
+}

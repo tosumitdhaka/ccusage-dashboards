@@ -2,53 +2,45 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-test("public/styles.css declares comprehensive :root design tokens and adopts them in layout rules", async () => {
-  const css = await readFile(new URL("../public/styles.css", import.meta.url), "utf8");
 
-  // Balanced braces check
+test("public/styles.css declares the v0.4 token hierarchy and theme overrides", async () => {
+  const css = await readFile(new URL("../public/styles.css", import.meta.url), "utf8");
   const openCount = (css.match(/\{/g) || []).length;
   const closeCount = (css.match(/\}/g) || []).length;
   assert.equal(openCount, closeCount, "CSS brace balance check failed");
 
-  // Verify all required :root custom properties are declared
   const requiredTokens = [
-    "color-scheme: dark",
-    "--color-bg-canvas: #0c111c",
-    "--color-bg-surface: #111927",
-    "--color-bg-elevated: #162538",
-    "--color-bg-card: #141d2c",
-    "--color-border: #253346",
-    "--color-border-subtle: #1f2c3d",
-    "--color-border-focus: #53d5bd",
-    "--color-text-primary: #ecf1fb",
-    "--color-text-secondary: #94a7bd",
-    "--color-text-muted: #8ea0b8",
-    "--color-accent-teal: #53d5bd",
-    "--color-accent-teal-subtle: rgba(83, 213, 189, 0.12)",
+    "--primitive-slate-950: #080b10",
+    "--surface-root: var(--primitive-slate-950)",
+    "--surface-sidebar: var(--primitive-slate-925)",
+    "--surface-card: var(--primitive-slate-900)",
+    "--surface-card-hover: var(--primitive-slate-875)",
+    "--surface-elevated: var(--primitive-slate-850)",
+    "--border-subtle: rgba(255, 255, 255, .07)",
+    "--border-default: rgba(255, 255, 255, .11)",
+    "--text-primary: var(--primitive-slate-50)",
+    "--text-secondary: var(--primitive-slate-400)",
+    "--accent-primary: var(--primitive-blue-500)",
+    "--accent-secondary: var(--primitive-cyan-400)",
+    "--status-positive: var(--primitive-green-400)",
+    "--status-warning: var(--primitive-amber-400)",
+    "--status-negative: var(--primitive-red-400)",
+    "--space-4: 16px",
     "--radius-sm: 6px",
     "--radius-md: 10px",
     "--radius-lg: 14px",
+    "--ease-standard: cubic-bezier(.2, .8, .2, 1)"
   ];
+  for (const token of requiredTokens) assert.ok(css.includes(token), `Missing v0.4 design token: "${token}"`);
 
-  for (const token of requiredTokens) {
-    assert.ok(css.includes(token), `Missing required design token in :root: "${token}"`);
+  for (const usage of ["var(--surface-root)", "var(--surface-card)", "var(--border-default)", "var(--text-primary)", "var(--accent-primary)"]) {
+    assert.ok(css.includes(usage), `Expected semantic token usage: ${usage}`);
   }
-
-  // Verify custom property variables are utilized in core layout rules
-  assert.ok(css.includes("var(--color-bg-canvas)"), "Expected var(--color-bg-canvas) usage in layout rules");
-  assert.ok(css.includes("var(--color-text-primary)"), "Expected var(--color-text-primary) usage in layout rules");
-  assert.ok(css.includes("var(--color-border)"), "Expected var(--color-border) usage in layout rules");
-  assert.ok(css.includes("var(--color-border-subtle)"), "Expected var(--color-border-subtle) usage in layout rules");
-  assert.ok(css.includes("var(--color-bg-card)"), "Expected var(--color-bg-card) usage in layout rules");
-  assert.ok(css.includes("var(--color-bg-surface)"), "Expected var(--color-bg-surface) usage in layout rules");
-  assert.ok(css.includes("var(--color-bg-elevated)"), "Expected var(--color-bg-elevated) usage in layout rules");
-  assert.ok(css.includes("var(--color-accent-teal)"), "Expected var(--color-accent-teal) usage in layout rules");
-  assert.ok(css.includes("var(--color-border-focus)"), "Expected var(--color-border-focus) usage in layout rules");
-  assert.ok(css.includes("var(--radius-sm)"), "Expected var(--radius-sm) usage in layout rules");
-  assert.ok(css.includes("var(--radius-md)"), "Expected var(--radius-md) usage in layout rules");
-  assert.ok(css.includes("var(--radius-lg)"), "Expected var(--radius-lg) usage in layout rules");
+  assert.ok(css.includes('[data-theme="light"]'), "Missing light theme override");
+  assert.ok(css.includes('[data-theme="contrast"]'), "Missing contrast theme override");
+  assert.ok(css.includes('[data-density="compact"]'), "Missing compact density override");
+  assert.ok(css.includes("@media (prefers-reduced-motion: reduce)"), "Missing reduced-motion handling");
 });
-
 test("dashboard.ts and public/dashboard.js implement safe iterative max reduction without spreading flatMap", async () => {
   const ts = await readFile(new URL("../src/client/dashboard.ts", import.meta.url), "utf8");
   const js = await readFile(new URL("../public/dashboard.js", import.meta.url), "utf8");

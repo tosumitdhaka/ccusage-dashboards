@@ -35,6 +35,14 @@ jobs:
       - name: Populated Chrome visual audit (diagnostic)
         if: matrix.os == 'ubuntu-latest'
         run: node scripts/browser-visual-audit.mjs
+      - name: Upload responsive screenshot evidence
+        if: matrix.os == 'ubuntu-latest' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ccusage-v04-ui-audit
+          path: artifacts/ui-audit/*.jpg
+          if-no-files-found: warn
+          retention-days: 14
       - name: Verify npm package contents
         shell: bash
         run: |

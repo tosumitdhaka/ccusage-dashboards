@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildChart, buildObservedHourly, buildSessions, chartCatalog } from "./public/analytics.mjs";
+import { buildChart, buildObservedHourly, buildPeriodComparison, buildSessions, chartCatalog, metricDelta } from "./public/analytics.mjs";
 
 const breakdown = (modelName, inputTokens, outputTokens, cost, missingPricing = false) => ({
   modelName, inputTokens, outputTokens, cacheCreationTokens: 0, cacheReadTokens: 20, cost, missingPricing
@@ -96,4 +96,39 @@ test("hourly observation never attributes across a date boundary", () => {
     { timestamp: "2026-10-08T01:00:00.000Z", day: "2026-10-08", row: sample.daily[1] }
   ];
   assert.equal(buildObservedHourly(snapshots).total, 0);
+});
+
+test("previous-period comparison is deterministic from report dates", () => {
+  const comparison = buildPeriodComparison(sample, { period: "today" });
+  assert.equal(comparison.available, true);
+  assert.equal(comparison.label, "vs previous day");
+  assert.deepEqual(comparison.currentRange, { start: "2026-10-08", end: "2026-10-08" });
+  assert.deepEqual(comparison.previousRange, { start: "2026-10-07", end: "2026-10-07" });
+  assert.equal(comparison.current.totalTokens, 400);
+  assert.equal(comparison.previous.totalTokens, 300);
+});
+test("metric deltas separate direction from semantic sentiment", () => {
+  const neutral = metricDelta(400, 300);
+  assert.equal(neutral.direction, "up");
+  assert.equal(neutral.sentiment, "neutral");
+  assert.ok(Math.abs(neutral.ratio - 1 / 3) < 1e-10);
+  assert.equal(metricDelta(4, 5, "lower-is-better").sentiment, "positive");
+  assert.equal(metricDelta(6, 5, "lower-is-better").sentiment, "negative");
+  assert.equal(metricDelta(0, 0).ratio, 0);
+  assert.equal(metricDelta(10, 0).ratio, null);
+});
+
+test("incomplete previous-period coverage is not an equivalent comparison", () => {
+  const day=(d)=>new Date(Date.UTC(2026,9,d)).toISOString().slice(0,10);
+  const current=Array.from({length:7},(_,i)=>({period:day(22+i),agent:"all",totalTokens:100}));
+  const sparse=buildPeriodComparison({daily:[{period:day(20),agent:"all",totalTokens:5},...current]},{period:"7d"});
+  assert.equal(sparse.available,false);
+  assert.equal(sparse.coverage,"partial");
+  assert.equal(sparse.currentDays,7);
+  assert.equal(sparse.previousDays,1);
+  const complete=buildPeriodComparison({daily:Array.from({length:14},(_,i)=>({period:day(15+i),agent:"all",totalTokens:0}))},{period:"7d"});
+  assert.equal(complete.available,true);
+  assert.equal(complete.coverage,"complete");
+  assert.equal(complete.previousDays,7);
+  assert.equal(buildPeriodComparison({daily:[]},{period:"7d"}).coverage,"none");
 });

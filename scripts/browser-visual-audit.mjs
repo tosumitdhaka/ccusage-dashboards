@@ -1,7 +1,7 @@
 // Diagnostic-only Chrome capture: populated synthetic report; never uses user logs.
 // Emits screenshot JPEG plus measurements to CI logs for independent inspection.
 import {spawn,spawnSync} from "node:child_process";
-import {mkdtemp,readFile,rm} from "node:fs/promises";
+import {mkdtemp,readFile,rm,mkdir,writeFile} from "node:fs/promises";
 import {tmpdir} from "node:os";
 import {join} from "node:path";
 import {startDashboardServer} from "../server.mjs";
@@ -22,13 +22,15 @@ const report={
  session:Array.from({length:12},(_,i)=>({period:"session-"+i,session:"session-"+i,agent:names[i%3],totalTokens:15000+i*2700,totalCost:2+i*.4,inputTokens:8700,outputTokens:4200,modelBreakdowns:[models("codex",i)[i]]}))
 };
 const temp=await mkdtemp(join(tmpdir(),"ccusage-audit-"));
+const evidenceDir=join(process.cwd(),"artifacts","ui-audit");
+await mkdir(evidenceDir,{recursive:true});
 let browser,server,socket;
 try{
  server=await startDashboardServer({port:0,collect:async()=>report});
  const url="http://127.0.0.1:"+server.address().port;
  browser=spawn(chrome,["--headless=new","--disable-gpu","--no-sandbox","--disable-dev-shm-usage","--no-first-run","--no-default-browser-check","--no-proxy-server","--remote-debugging-port=0","--user-data-dir="+temp,"about:blank"],{stdio:["ignore","ignore","pipe"]});
  let port;
- for(let i=0;i<100&&!port;i++){
+ for(let i=0;i<240&&!port;i++){
   if(browser.exitCode!==null)throw Error("Chrome quit during startup");
   try{port=Number((await readFile(join(temp,"DevToolsActivePort"),"utf8")).split("\n")[0]);}catch{await delay(100);}
  }
@@ -200,6 +202,99 @@ try{
  await run('document.querySelector("#layout-cancel").click()');
  const state=await run(`(()=>({menu:document.querySelector('[data-widget="models"] .viz-menu-trigger')?.getBoundingClientRect().toJSON(),buttonText:document.querySelector('#customize')?.textContent,scrollTop:document.scrollingElement.scrollTop}))()`);
  console.log("UI_AUDIT_STATE:"+JSON.stringify(state));
+ // Functional Phase 6 browser acceptance: preset affects only the unsaved draft.
+ const presetResult=await run(`(()=>{
+   const visible=()=>[...document.querySelectorAll('#dashboard-grid [data-widget]')]
+     .filter(el=>!el.hidden).map(el=>el.dataset.widget);
+   const before=visible();
+   document.querySelector('#layout-edit').click();
+   document.querySelector('#layout-preset').value='sessions';
+   document.querySelector('#layout-preset-apply').click();
+   const preview=visible();
+   const title=document.querySelector('#layout-title-input').value;
+   const explanation=document.querySelector('#layout-preset-status').textContent;
+   document.querySelector('#layout-cancel').click();
+   const restored=visible();
+   return {before,preview,title,explanation,restored};
+ })()`);
+ console.log("UI_AUDIT_PRESET:"+JSON.stringify(presetResult));
+ if(presetResult.title!=="Agent Session Debugger"||
+    !presetResult.preview.includes("sessions")||presetResult.preview.includes("trend")||
+    JSON.stringify(presetResult.before)!==JSON.stringify(presetResult.restored))
+   throw Error("Workspace preset preview/cancel was not transactional: "+JSON.stringify(presetResult));
+ // Preview uses the actual populated synthetic report and updates when form changes.
+ const builder=await run(`(()=>{
+   document.querySelector('#add-graph').click();
+   const preset=document.querySelector('#graph-preset');
+   preset.value='model-cost';preset.dispatchEvent(new Event('change',{bubbles:true}));
+   const svg=document.querySelector('#graph-preview-plot');
+   const bars=svg.querySelectorAll('rect').length;
+   const caption=document.querySelector('#graph-preview-caption').textContent;
+   const visual=document.querySelector('#graph-visual');
+   visual.value='line';visual.dispatchEvent(new Event('change',{bubbles:true}));
+   const lines=svg.querySelectorAll('path').length;
+   document.querySelector('#graph-cancel').click();
+   return {bars,lines,caption};
+ })()`);
+ console.log("UI_AUDIT_GRAPH_PREVIEW:"+JSON.stringify(builder));
+ if(builder.bars<1||builder.lines<1||!builder.caption.includes("observed"))
+   throw Error("Graph preview did not derive real report values: "+JSON.stringify(builder));
+ // Phase 9 regression gate: inspect all target widths and supported themes.
+ // Real Chromium computes the layout; these are geometry/overflow checks, not
+ // substitutes for independent screenshot or WCAG contrast inspection.
+ for (const width of [390,768,1024,1280,1440,1920]) {
+  await call("Emulation.setDeviceMetricsOverride",{width,height:850,deviceScaleFactor:1,mobile:width<768});
+  for (const theme of ["dark","light","contrast"]) {
+   const metrics=await run(`(()=>{
+     document.documentElement.dataset.theme=${JSON.stringify(theme)};
+     const root=document.scrollingElement;
+     const nav=document.querySelector('#mobile-nav-toggle');
+     const main=document.querySelector('main');
+     return {width:innerWidth,scrollWidth:root.scrollWidth,
+       overflow:root.scrollWidth-innerWidth,
+       theme:document.documentElement.dataset.theme,
+       mainWidth:Math.round(main?.getBoundingClientRect().width??0),
+       navToggle:nav?getComputedStyle(nav).display:null,
+       visibleKpis:!!document.querySelector('#stat-tokens')?.textContent};
+   })()`);
+   console.log("UI_AUDIT_RESPONSIVE:"+JSON.stringify({targetWidth:width,...metrics}));
+   if(metrics.width!==width || metrics.theme!==theme || !metrics.visibleKpis ||
+      metrics.mainWidth<=0 || metrics.overflow>6)
+     throw Error("Responsive layout overflow or missing content: "+JSON.stringify(metrics));
+   // Keep inspectable screenshots in CI artifacts; do not treat geometry as visual certification.
+   const shot=await call("Page.captureScreenshot",{format:"jpeg",quality:55,captureBeyondViewport:false,fromSurface:true});
+   await writeFile(join(evidenceDir,width+"-"+theme+".jpg"),Buffer.from(shot.data,"base64"));
+  }
+ }
+ await call("Emulation.setDeviceMetricsOverride",{width:1440,height:850,deviceScaleFactor:1,mobile:false});
+ await run('document.documentElement.dataset.theme="dark"');
+ // CSS zoom exercises reflow at 125%, 150% and 200%, distinct from DPR changes.
+ for(const zoom of [1.25,1.5,2]){
+   const m=await run(`(()=>{
+     document.documentElement.style.zoom=${JSON.stringify(zoom)};
+     const root=document.scrollingElement,main=document.querySelector('main');
+     return {zoom:getComputedStyle(document.documentElement).zoom,
+       overflow:root.scrollWidth-innerWidth,mainWidth:main.getBoundingClientRect().width,
+       kpi:document.querySelector('#stat-tokens')?.textContent};
+   })()`);
+   console.log("UI_AUDIT_ZOOM:"+JSON.stringify(m));
+   if(m.overflow>6||m.mainWidth<=0||!m.kpi)
+     throw Error("Zoom reflow failure: "+JSON.stringify(m));
+ }
+ await run('document.documentElement.style.zoom=""');
+ // Measure real data-backed filter redraw time rather than source-code patterns.
+ const samples=await run(`(()=>{
+   const timings=[];
+   for(let i=0;i<12;i++){
+     const period=document.querySelector('.workspace-period[data-period="'+(i%2===0?'30d':'7d')+'"]');
+     const start=performance.now(); period.click(); timings.push(performance.now()-start);
+   }
+   return timings;
+ })()`);
+ const sorted=[...samples].sort((a,b)=>a-b);
+ const p95=sorted[Math.ceil(sorted.length*.95)-1];
+ console.log("UI_AUDIT_PERFORMANCE:"+JSON.stringify({samples,p95,budgetMs:250}));
+ if(p95>250)throw Error("Filter redraw p95 exceeded 250ms CI budget: "+p95);
  console.log("UI_AUDIT_PASS");
 }catch(e){console.error("UI_AUDIT_FAILURE",e?.stack??e);process.exitCode=1;}
 finally{

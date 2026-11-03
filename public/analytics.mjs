@@ -123,6 +123,97 @@ export function buildChart(report, { period = "daily", agent = "all", model = "a
         total: keys.reduce((sum, name) => sum + sums.get(name)[metric], 0)
     };
 }
+const DAY_MS = 86_400_000;
+function comparisonDays(period) {
+    if (period === "today")
+        return 1;
+    if (period === "7d")
+        return 7;
+    if (period === "14d")
+        return 14;
+    if (period === "30d")
+        return 30;
+    if (period === "90d")
+        return 90;
+    return null;
+}
+function dateDay(value) {
+    if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}/.test(value))
+        return null;
+    const timestamp = Date.parse(value.slice(0, 10) + "T00:00:00Z");
+    return Number.isFinite(timestamp) ? Math.floor(timestamp / DAY_MS) : null;
+}
+function dayLabel(day) {
+    return new Date(day * DAY_MS).toISOString().slice(0, 10);
+}
+function totalsForDailyRows(rows, agent, model) {
+    const total = metrics();
+    for (const row of rows) {
+        const scoped = scopeValue(row, { agent, model });
+        if (scoped)
+            add(total, scoped);
+    }
+    return total;
+}
+export function buildPeriodComparison(report, { period = "7d", agent = "all", model = "all" } = {}) {
+    const days = comparisonDays(period);
+    const empty = metrics();
+    const label = days === 1 ? "vs previous day" : days ? `vs previous ${days} days` : "No previous-period comparison";
+    if (!days || !Array.isArray(report?.daily)) {
+        return {
+            available: false, label, days, currentDays: 0, previousDays: 0, coverage: "none",
+            current: { ...empty }, previous: { ...empty },
+            currentRange: null, previousRange: null
+        };
+    }
+    const dated = report.daily.flatMap((row) => {
+        const day = dateDay(periodOf(row));
+        return day === null ? [] : [{ row, day }];
+    });
+    if (!dated.length) {
+        return {
+            available: false, label, days, currentDays: 0, previousDays: 0, coverage: "none",
+            current: { ...empty }, previous: { ...empty },
+            currentRange: null, previousRange: null
+        };
+    }
+    const anchor = Math.max(...dated.map(({ day }) => day));
+    const currentStart = anchor - days + 1;
+    const previousEnd = currentStart - 1;
+    const previousStart = previousEnd - days + 1;
+    const currentRows = dated.filter(({ day }) => day >= currentStart && day <= anchor)
+        .map(({ row }) => row);
+    const previousRows = dated.filter(({ day }) => day >= previousStart && day <= previousEnd)
+        .map(({ row }) => row);
+    const currentDays = new Set(dated.filter(({ day }) => day >= currentStart && day <= anchor).map(({ day }) => day)).size;
+    const previousDays = new Set(dated.filter(({ day }) => day >= previousStart && day <= previousEnd).map(({ day }) => day)).size;
+    // Absence of daily rows is not proof of zero-usage days.
+    const available = currentDays === days && previousDays === days;
+    const coverage = available ? "complete" : currentDays || previousDays ? "partial" : "none";
+    return {
+        available, currentDays, previousDays, coverage,
+        label,
+        days,
+        current: totalsForDailyRows(currentRows, agent, model),
+        previous: totalsForDailyRows(previousRows, agent, model),
+        currentRange: { start: dayLabel(currentStart), end: dayLabel(anchor) },
+        previousRange: { start: dayLabel(previousStart), end: dayLabel(previousEnd) }
+    };
+}
+export function metricDelta(currentValue, previousValue, polarity = "neutral") {
+    const current = safe(currentValue);
+    const previous = safe(previousValue);
+    const absolute = current - previous;
+    const epsilon = 1e-12;
+    const direction = Math.abs(absolute) <= epsilon ? "flat" : absolute > 0 ? "up" : "down";
+    const ratio = previous > 0 ? absolute / previous : current === 0 ? 0 : null;
+    let sentiment = "neutral";
+    if (direction !== "flat" && polarity !== "neutral") {
+        const improvement = polarity === "higher-is-better" ? direction === "up" : direction === "down";
+        sentiment = improvement ? "positive" : "negative";
+    }
+    return { current, previous, absolute, ratio, direction, sentiment };
+}
 export function buildSessions(report, { agent = "all", model = "all", metric = "totalTokens", limit = 12 } = {}) {
     if (!METRICS.includes(metric))
         throw new Error("Unsupported session metric");

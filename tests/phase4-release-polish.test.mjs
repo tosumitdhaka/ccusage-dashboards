@@ -50,42 +50,28 @@ test("persistent header CSS properties are sticky with backdrop-filter blur and 
   );
 });
 
-test("period selector is present on .topbar with full synchronization in dashboard.ts and public/dashboard.js", async () => {
-  const html = await readFile(new URL("../public/index.html", import.meta.url), "utf8");
-  const ts = await readFile(new URL("../src/client/dashboard.ts", import.meta.url), "utf8");
-  const js = await readFile(new URL("../public/dashboard.js", import.meta.url), "utf8");
 
-  // Verify HTML topbar includes period selector
-  const topbarMatch = html.match(/<header class="topbar">([\s\S]*?)<\/header>/);
+test("workspace header exposes segmented period selection and filter-controller synchronization", async () => {
+  const html = await readFile(new URL("../public/index.html", import.meta.url), "utf8");
+  const ts = await readFile(new URL("../src/client/filter-controller.mts", import.meta.url), "utf8");
+  const js = await readFile(new URL("../public/filter-controller.mjs", import.meta.url), "utf8");
+
+  const topbarMatch = html.match(/<header class="[^"]*\btopbar\b[^"]*">([\s\S]*?)<\/header>/);
   assert.ok(topbarMatch, "Expected .topbar header in public/index.html");
   const topbarHtml = topbarMatch[1];
+  for (const period of ["today", "7d", "30d", "90d"]) {
+    assert.ok(topbarHtml.includes(`data-period="${period}"`), `Missing segmented ${period} period action`);
+  }
+  assert.ok(topbarHtml.includes('id="header-period"'), "Missing custom #header-period select");
+  assert.ok(topbarHtml.includes('value="14d"'), "Missing custom 14d option");
+  assert.ok(topbarHtml.includes('value="all"'), "Missing custom all-time option");
 
-  assert.ok(topbarHtml.includes('id="header-period"'), "Missing #header-period select in .topbar");
-  assert.ok(topbarHtml.includes('class="period-select header-period-select"'), "Expected .period-select and .header-period-select classes");
-  assert.ok(topbarHtml.includes('value="7d"'), "Missing 7d option in #header-period");
-  assert.ok(topbarHtml.includes('value="14d"'), "Missing 14d option in #header-period");
-  assert.ok(topbarHtml.includes('value="30d"'), "Missing 30d option in #header-period");
-  assert.ok(topbarHtml.includes('value="90d"'), "Missing 90d option in #header-period");
-  assert.ok(topbarHtml.includes('value="all"'), "Missing all option in #header-period");
-
-  // Verify event listeners and bidirectional synchronization in TypeScript and compiled JavaScript
-  for (const [name, code] of [["dashboard.ts", ts], ["dashboard.js", js]]) {
-    // Header select change updates state and triggers render
-    assert.match(
-      code,
-      /header-period[\s\S]*?addEventListener\(["']change["']/,
-      `${name} should wire change event listener on header-period`
-    );
-
-    // applyFilterState updates header-period select value
-    assert.match(
-      code,
-      /headerPeriod\.value\s*=\s*state\.section/,
-      `${name} should sync headerPeriod.value in applyFilterState / render`
-    );
+  for (const [name, code] of [["filter-controller.mts", ts], ["filter-controller.mjs", js]]) {
+    assert.match(code, /workspace-period\[data-period\]/, `${name} should bind segmented period actions`);
+    assert.match(code, /period-segment/, `${name} should dispatch period intent through WorkspaceState`);
+    assert.match(code, /period-custom/, `${name} should dispatch custom period intent through WorkspaceState`);
   }
 });
-
 test("dashboard-grid and card containers minimize widget gap for data density and alignment", async () => {
   const css = await readFile(new URL("../public/styles.css", import.meta.url), "utf8");
 
@@ -125,7 +111,7 @@ test("layout editing controls streamline locked and unlocked button states", asy
 
   // HTML has the locked button labelled '🔒 Edit Layout'
   assert.ok(
-    html.includes(">🔒 Edit Layout</button>"),
+    /id="layout-edit"[\s\S]*?🔒[\s\S]*?Edit Layout[\s\S]*?<\/button>/.test(html),
     "Expected #layout-edit button text to be '🔒 Edit Layout'"
   );
   assert.ok(

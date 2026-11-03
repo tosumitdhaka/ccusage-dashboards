@@ -23,6 +23,12 @@ const ASSETS = new Map<string,[string,string]>([
   ["/widget-registry.mjs", ["widget-registry.mjs", "text/javascript; charset=utf-8"]],
   ["/dashboard-config.mjs", ["dashboard-config.mjs", "text/javascript; charset=utf-8"]],
   ["/chart-presentation.mjs", ["chart-presentation.mjs", "text/javascript; charset=utf-8"]],
+  ["/workspace-state.mjs", ["workspace-state.mjs", "text/javascript; charset=utf-8"]],
+  ["/filter-controller.mjs", ["filter-controller.mjs", "text/javascript; charset=utf-8"]],
+  ["/chart-interaction.mjs", ["chart-interaction.mjs", "text/javascript; charset=utf-8"]],
+  ["/formatting.mjs", ["formatting.mjs", "text/javascript; charset=utf-8"]],
+  ["/widget-presets.mjs", ["widget-presets.mjs", "text/javascript; charset=utf-8"]],
+  ["/dashboard-presets.mjs", ["dashboard-presets.mjs", "text/javascript; charset=utf-8"]],
   ["/dashboard-layout.mjs", ["dashboard-layout.mjs", "text/javascript; charset=utf-8"]],
   ["/styles.css", ["styles.css", "text/css; charset=utf-8"]]
 ]);

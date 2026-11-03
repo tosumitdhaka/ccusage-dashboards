@@ -1,19 +1,18 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark" data-density="comfortable">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#0d1220">
+  <meta name="theme-color" content="#080b10">
   <title>AI Usage Observatory · ccusage</title>
   <link rel="stylesheet" href="/styles.css">
   <script src="/dashboard.js" type="module"></script>
 </head>
 <body>
   <div class="shell">
-    <aside class="sidebar" aria-label="Dashboard navigation">
+    <aside id="workspace-sidebar" class="sidebar" aria-label="Dashboard navigation">
       <div class="sidebar-header">
         <a href="#overview" class="identity"><span class="identity-mark">◈</span><span>CC<span class="identity-muted">usage</span><small>OBSERVATORY</small></span></a>
-        <button id="mobile-nav-toggle" class="mobile-nav-toggle" aria-expanded="false" aria-controls="sidebar-nav" aria-label="Toggle navigation menu">☰</button>
       </div>
       <div class="nav-caption">WORKSPACE</div>
       <nav id="sidebar-nav">
@@ -30,14 +29,67 @@
       </div>
     </aside>
     <main id="overview" class="main">
-      <header class="topbar">
-        <div class="breadcrumb">Workspace <span>/</span> <strong id="view-name">Overview</strong></div>
-        <div class="top-actions"><div class="topbar-period" role="group" aria-label="Time period grouping"><label for="header-period" class="topbar-period-label">Period</label><select id="header-period" class="period-select header-period-select" aria-label="Select report period"><option value="today">Today</option><option value="7d" selected>Last 7 Days</option><option value="14d">Last 14 Days</option><option value="30d">Last 30 Days</option><option value="90d">Last 90 Days</option><option value="all">All Time</option></select></div><span class="local-tag"><span class="signal-dot"></span> Localhost</span><button id="customize" class="customize-trigger" type="button" aria-haspopup="dialog" title="Customize dashboard settings">⚙ Customize</button><button id="add-graph" class="refresh" type="button" aria-haspopup="dialog">+ New graph</button><button id="layout-edit" class="refresh" type="button" aria-pressed="false" aria-label="Layout locked. Click to edit positions." title="Layout Locked. Click to edit positions.">🔒 Edit Layout</button><button id="layout-save" class="save-button layout-save" type="button" title="Save widget positions to local storage" hidden>✓ Save Layout</button><button id="layout-cancel" class="refresh layout-cancel" type="button" title="Discard layout changes and restore saved positions" hidden>✕ Cancel</button><span id="layout-help" class="layout-compact-hint" hidden role="status">Use a wider screen to drag or resize widgets. Save or cancel to finish editing.</span><button id="refresh" class="refresh" type="button">↻ &nbsp; Refresh data</button></div>
+      <header class="topbar workspace-header">
+        <div class="workspace-header-leading">
+          <button id="mobile-nav-toggle" class="mobile-nav-toggle" type="button" aria-expanded="false" aria-controls="workspace-sidebar" aria-label="Open navigation">☰</button>
+          <button id="sidebar-collapse" class="sidebar-collapse" type="button" aria-pressed="false" aria-label="Collapse sidebar" title="Collapse sidebar">◀</button>
+          <div class="breadcrumb">Workspace <span>/</span> <strong id="view-name">Overview</strong></div>
+        </div>
+        <div class="top-actions workspace-actions">
+          <div class="period-segmented" role="group" aria-label="Report period">
+            <button class="period workspace-period" type="button" data-period="today" aria-pressed="false">Today</button>
+            <button class="period workspace-period active" type="button" data-period="7d" aria-pressed="true">7D</button>
+            <button class="period workspace-period" type="button" data-period="30d" aria-pressed="false">30D</button>
+            <button class="period workspace-period" type="button" data-period="90d" aria-pressed="false">90D</button>
+            <label class="period-custom-control">
+              <span>Custom</span>
+              <select id="header-period" aria-label="Select a custom report period">
+                <option value="">▾</option>
+                <option value="14d">14D</option>
+                <option value="all">All time</option>
+              </select>
+            </label>
+          </div>
+          <button id="workspace-filter-toggle" class="workspace-filter-toggle" type="button" aria-expanded="false" aria-controls="workspace-filter-panel">
+            Filters <span id="workspace-filter-count" class="filter-count" hidden>0</span>
+          </button>
+          <span class="workspace-action-divider" aria-hidden="true"></span>
+          <button id="refresh" class="refresh" type="button">↻ <span>Refresh</span></button>
+          <button id="add-graph" class="refresh primary-quiet" type="button" aria-haspopup="dialog">+ Widget</button>
+          <button id="customize" class="customize-trigger" type="button" aria-haspopup="dialog" title="Customize dashboard settings">⚙ <span>Customize</span></button>
+          <button id="layout-edit" class="refresh" type="button" aria-pressed="false" aria-label="Layout locked. Click to edit positions." title="Layout Locked. Click to edit positions.">🔒 <span>Edit Layout</span></button>
+          <button id="layout-save" class="save-button layout-save" type="button" title="Save widget positions to local storage" hidden>✓ Save Layout</button>
+          <button id="layout-cancel" class="refresh layout-cancel" type="button" title="Discard layout changes and restore saved positions" hidden>✕ Cancel</button>
+          <span id="layout-help" class="layout-compact-hint" hidden role="status">Use a wider screen to drag or resize widgets. Save or cancel to finish editing.</span>
+          <span id="layout-announcement" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></span>
+        </div>
       </header>
+      <section id="workspace-filter-panel" class="workspace-filter-panel" aria-label="Workspace filters" hidden>
+        <div class="workspace-filter-grid">
+          <label class="workspace-filter-field" for="agent"><span>Provider</span><select id="agent"><option value="all">All providers</option></select></label>
+          <label class="workspace-filter-field" for="model"><span>Model</span><select id="model"><option value="all">All models</option></select></label>
+          <label class="workspace-filter-field" for="workspace-metric"><span>Metric</span><select id="workspace-metric">
+            <option value="totalTokens">Reported tokens</option>
+            <option value="inputTokens">Input tokens</option>
+            <option value="outputTokens">Output tokens</option>
+            <option value="cacheReadTokens">Cache reads</option>
+            <option value="cacheCreationTokens">Cache writes</option>
+            <option value="totalCost">Estimated API cost ($)</option>
+          </select></label>
+          <label class="workspace-filter-field" for="workspace-density"><span>Density</span><select id="workspace-density">
+            <option value="comfortable">Comfortable</option>
+            <option value="compact">Compact</option>
+          </select></label>
+        </div>
+      </section>
+      <div id="active-filter-bar" class="active-filter-bar" hidden>
+        <div id="active-filter-chips" class="active-filter-chips" aria-label="Active workspace filters"></div>
+        <button id="clear-workspace-filters" class="clear-filters" type="button" hidden>Clear all</button>
+      </div>
       <div class="content">
         <div class="page-title">
           <div><div class="eyebrow">CODING AGENT INTELLIGENCE</div><h1>AI Usage Observatory<span class="accent">.</span></h1><p class="intro">Understand the token footprint of your coding agents. Compare providers, track trends, and inspect the models behind your work.</p></div>
-          <div class="updated" id="updated">Awaiting local report</div>
+          <div class="workspace-freshness"><div class="updated" id="updated">Awaiting local report</div><div id="workspace-range" class="workspace-range" role="status">Report-relative UTC range unavailable</div></div>
         </div>
         <div id="notice" class="notice" role="status" aria-live="polite">Loading your local ccusage report…</div>
         <div id="layout-toolbar" class="layout-toolbar-panel" hidden role="region" aria-label="Layout and widget editor">
@@ -55,6 +107,12 @@
           </div>
           <div class="layout-toolbar-body">
             <div class="layout-field-group">
+              <label class="layout-field-label" for="layout-preset">Workspace layout preset</label>
+              <select id="layout-preset"><option value="">Select layout…</option><option value="executive">Executive / Cost Overview</option><option value="developer">Developer / Model Deep Dive</option><option value="sessions">Agent Session Debugger</option></select>
+              <button id="layout-preset-apply" class="refresh" type="button">Preview selected layout</button>
+              <span id="layout-preset-status" role="status" aria-live="polite">Changes are only saved when you choose Save Layout.</span>
+            </div>
+            <div class="layout-field-group">
               <label for="layout-title-input" class="layout-field-label">View name</label>
               <input id="layout-title-input" class="layout-title-input" maxlength="80" placeholder="Dashboard title">
             </div>
@@ -69,10 +127,10 @@
         </div>
         <div id="dashboard-grid" class="dashboard-grid" aria-label="Dashboard widgets">
         <section class="kpis" data-widget="kpis" aria-label="Usage summary">
-          <article class="kpi"><div class="kpi-label">Reported tokens <span class="kpi-icon">⌁</span></div><strong id="stat-tokens">—</strong><p>Total reported across selected periods</p></article>
-          <article class="kpi"><div class="kpi-label">Fresh input <span class="kpi-icon">↗</span></div><strong id="stat-input">—</strong><p>Uncached input tokens</p></article>
-          <article class="kpi"><div class="kpi-label">Generated output <span class="kpi-icon">↘</span></div><strong id="stat-output">—</strong><p>Output tokens</p></article>
-          <article class="kpi"><div class="kpi-label">API-equivalent cost <span class="kpi-icon">$</span></div><strong id="stat-cost">—</strong><p>Estimated, not your subscription bill</p></article>
+          <article class="kpi"><div class="kpi-label">Reported tokens <span class="kpi-icon">⌁</span></div><strong id="stat-tokens">—</strong><div id="delta-tokens" class="kpi-delta neutral" hidden></div><p>Total reported across selected periods</p></article>
+          <article class="kpi"><div class="kpi-label">Fresh input <span class="kpi-icon">↗</span></div><strong id="stat-input">—</strong><div id="delta-input" class="kpi-delta neutral" hidden></div><p>Uncached input tokens</p></article>
+          <article class="kpi"><div class="kpi-label">Generated output <span class="kpi-icon">↘</span></div><strong id="stat-output">—</strong><div id="delta-output" class="kpi-delta neutral" hidden></div><p>Output tokens</p></article>
+          <article class="kpi"><div class="kpi-label">API-equivalent cost <span class="kpi-icon">$</span></div><strong id="stat-cost">—</strong><div id="delta-cost" class="kpi-delta neutral" hidden></div><p>Estimated, not your subscription bill</p></article>
         </section>
         <section class="wide-card trend-card" data-widget="trend" id="trend">
           <div class="section-header trend-header">
@@ -169,16 +227,22 @@
       </form>
     </dialog>
     <dialog id="graph-dialog" class="customize-dialog" aria-labelledby="graph-dialog-title">
-      <form id="graph-form">
+      <form id="graph-form" aria-describedby="graph-status">
         <div class="customize-heading"><div><div class="eyebrow">CUSTOM / LOCAL DATA</div><h2 id="graph-dialog-title">Create a graph</h2><p>Visualize an existing ccusage metric. No scripts, expressions or file uploads.</p></div>
           <button id="graph-cancel" type="button" class="customize-dismiss" aria-label="Close graph builder">×</button></div>
         <div class="graph-builder-fields">
+          <label>Start from <select id="graph-preset"><option value="">Blank graph</option><option value="provider-tokens">Tokens by provider</option><option value="model-cost">Estimated cost by model</option><option value="cache-trend">Cache reads over time</option><option value="weekly-input">Weekly input tokens</option></select></label>
           <label>Graph name <input id="graph-title" maxlength="80" required value="My usage graph" autofocus></label>
           <label>Visualization <select id="graph-visual"><option value="line">Time-series line</option><option value="bars">Ranked bars</option></select></label>
           <label>Metric <select id="graph-metric"><option value="totalTokens">Reported tokens</option><option value="inputTokens">Input tokens</option><option value="outputTokens">Output tokens</option><option value="cacheReadTokens">Cache reads</option><option value="cacheCreationTokens">Cache writes</option><option value="totalCost">Estimated API cost ($)</option></select></label>
           <label>Group by <select id="graph-group"><option value="total">Total</option><option value="provider">Provider</option><option value="model">Model</option></select></label>
           <label>Period <select id="graph-period"><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option></select></label>
         </div>
+        <section id="graph-preview" class="graph-preview" role="region" aria-label="Live graph preview">
+          <h3>Live preview <small>Local report only</small></h3>
+          <p id="graph-preview-caption" aria-live="polite">Open the builder to inspect your selected metric.</p>
+          <svg id="graph-preview-plot" viewBox="0 0 500 120" role="img" aria-label="Preview of selected graph"></svg>
+        </section>
         <p class="config-status" id="graph-status" role="status" aria-live="polite"></p>
         <div class="customize-actions"><button type="submit" class="save-button">Create graph</button></div>
       </form>

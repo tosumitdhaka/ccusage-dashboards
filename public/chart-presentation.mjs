@@ -8,6 +8,11 @@ const PREFERRED_PROVIDER_COLORS = Object.freeze({
     antigravity: "#f3bd72",
     gemini: "#f3bd72"
 });
+export const CHART_PALETTE = Object.freeze([
+    "#6f7cff", "#45d7e8", "#a78bfa", "#f472b6",
+    "#fb923c", "#34d399", "#60a5fa", "#facc15",
+    "#2dd4bf", "#c084fc", "#e879f9", "#94a3b8"
+]);
 function stableHash(text) {
     let value = 2166136261;
     for (const char of text) {
@@ -30,8 +35,7 @@ export function colorForDimension(name, kind = "provider") {
         if (canonical.includes("antigravity") || canonical.includes("gemini"))
             return PREFERRED_PROVIDER_COLORS.gemini;
     }
-    const hue = stableHash(kind + ":" + canonical) % 360;
-    return `hsl(${hue} 65% 68%)`;
+    return CHART_PALETTE[stableHash(kind + ":" + canonical) % CHART_PALETTE.length];
 }
 export function labelPointIndices(length, maxLabels = 14) {
     if (!Number.isInteger(length) || length < 1)

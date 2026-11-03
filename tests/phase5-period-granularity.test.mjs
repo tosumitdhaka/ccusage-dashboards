@@ -4,72 +4,54 @@ import { readFile } from "node:fs/promises";
 import { GRID_GAP_PX, GRID_ROW_HEIGHT_PX, GRID_ROW_STEP_PX, relocateGridWidget, snapToGrid } from "../public/dashboard-layout.mjs";
 import { DEFAULT_DASHBOARD, validateDashboardConfig } from "../public/widget-registry.mjs";
 
-test("top header #header-period has Period date range options (7d, 14d, 30d, 90d, all) and wires change event", async () => {
-  const html = await readFile(new URL("../public/index.html", import.meta.url), "utf8");
-  const ts = await readFile(new URL("../src/client/dashboard.ts", import.meta.url), "utf8");
-  const js = await readFile(new URL("../public/dashboard.js", import.meta.url), "utf8");
 
-  // Verify .topbar has #header-period select
-  const topbarMatch = html.match(/<header class="topbar">([\s\S]*?)<\/header>/);
+test("workspace header provides segmented periods plus custom ranges and wires WorkspaceState", async () => {
+  const html = await readFile(new URL("../public/index.html", import.meta.url), "utf8");
+  const controller = await readFile(new URL("../src/client/filter-controller.mts", import.meta.url), "utf8");
+
+  const topbarMatch = html.match(/<header class="[^"]*\btopbar\b[^"]*">([\s\S]*?)<\/header>/);
   assert.ok(topbarMatch, "Expected .topbar header in public/index.html");
   const topbarHtml = topbarMatch[1];
 
-  assert.ok(topbarHtml.includes('id="header-period"'), "Missing #header-period in .topbar");
-  assert.ok(topbarHtml.includes('value="7d"'), "Missing 7d option in #header-period");
-  assert.ok(topbarHtml.includes('value="14d"'), "Missing 14d option in #header-period");
-  assert.ok(topbarHtml.includes('value="30d"'), "Missing 30d option in #header-period");
-  assert.ok(topbarHtml.includes('value="90d"'), "Missing 90d option in #header-period");
-  assert.ok(topbarHtml.includes('value="all"'), "Missing all option in #header-period");
-
-  // Verify legacy granularity options are not in header-period
-  assert.ok(!topbarHtml.includes('value="daily"'), "Daily must not be a top-level Period option");
-  assert.ok(!topbarHtml.includes('value="weekly"'), "Weekly must not be a top-level Period option");
-  assert.ok(!topbarHtml.includes('value="monthly"'), "Monthly must not be a top-level Period option");
-  assert.ok(!topbarHtml.includes('value="hourly"'), "Hourly must not be a top-level Period option");
-
-  // Verify default dashboard filter period is "7d" (updated for v0.3.0 UX polish)
-  assert.ok(DEFAULT_DASHBOARD.filters.period === "7d" || DEFAULT_DASHBOARD.filters.period === "30d", "Default dashboard filter period should be 7d or 30d");
-
-  // Verify filtering logic and synchronization in dashboard.ts and public/dashboard.js
-  for (const [name, code] of [["dashboard.ts", ts], ["dashboard.js", js]]) {
-    assert.match(code, /filterReportByPeriod/, `${name} must define filterReportByPeriod`);
-    assert.match(code, /filterHourlyByPeriod/, `${name} must define filterHourlyByPeriod`);
-    assert.match(code, /header-period[\s\S]*?addEventListener\(["']change["']/, `${name} must wire change listener on header-period`);
-    assert.match(code, /headerPeriod\.value\s*=\s*(?:state\.section|activePeriod)/, `${name} must synchronize headerPeriod.value`);
+  for (const period of ["today", "7d", "30d", "90d"]) {
+    assert.ok(topbarHtml.includes(`data-period="${period}"`), `Missing segmented ${period} option`);
   }
+  assert.ok(topbarHtml.includes('id="header-period"'), "Missing custom period select");
+  assert.ok(topbarHtml.includes('value="14d"'), "Missing 14d custom option");
+  assert.ok(topbarHtml.includes('value="all"'), "Missing all-time custom option");
+  assert.ok(!topbarHtml.includes('value="daily"'));
+  assert.ok(!topbarHtml.includes('value="weekly"'));
+  assert.ok(!topbarHtml.includes('value="monthly"'));
+  assert.ok(!topbarHtml.includes('value="hourly"'));
+  assert.equal(DEFAULT_DASHBOARD.filters.period, "7d");
+  assert.match(controller, /store\.setFilters\(\{ period \}/, "Period changes must update WorkspaceState");
 });
 
-test("secondary filter bar with global granularity pills and provider/model filters is removed from public/index.html", async () => {
+test("legacy secondary filter bar is removed and provider/model filters live in the workspace panel", async () => {
   const html = await readFile(new URL("../public/index.html", import.meta.url), "utf8");
-  const ts = await readFile(new URL("../src/client/dashboard.ts", import.meta.url), "utf8");
-  const js = await readFile(new URL("../public/dashboard.js", import.meta.url), "utf8");
+  const controller = await readFile(new URL("../src/client/filter-controller.mts", import.meta.url), "utf8");
 
-  // Ensure secondary filter section is removed
-  assert.ok(!html.includes('class="filters"'), "Secondary filter section .filters must be removed from HTML");
-  assert.ok(!html.includes('class="time-pills"'), "Global time-pills container must be removed from HTML");
-  assert.ok(!html.includes('class="agent-filter"'), "Secondary agent/model filter labels must be removed from HTML");
-  assert.ok(!html.includes('id="agent"'), "#agent select must be removed from the overview page");
-  assert.ok(!html.includes('id="model"'), "#model select must be removed from the overview page");
-
-  // Verify client controller guards removed element lookups defensively
-  for (const [name, code] of [["dashboard.ts", ts], ["dashboard.js", js]]) {
-    assert.match(code, /const agent(?:El|Select)\s*=\s*\$\(["']agent["']\)/, `${name} must guard agent element lookup`);
-    assert.match(code, /const model(?:El|Select)\s*=\s*\$\(["']model["']\)/, `${name} must guard model element lookup`);
-  }
+  assert.ok(!html.includes('class="filters"'), "Legacy .filters section must remain removed");
+  assert.ok(!html.includes('class="time-pills"'), "Legacy time-pills container must remain removed");
+  assert.ok(!html.includes('class="agent-filter"'), "Legacy agent-filter wrapper must remain removed");
+  assert.ok(html.includes('id="workspace-filter-panel"'), "Global filters belong in the workspace filter panel");
+  assert.ok(html.includes('id="agent"'), "Workspace provider filter is required by v0.4");
+  assert.ok(html.includes('id="model"'), "Workspace model filter is required by v0.4");
+  assert.match(controller, /provider-filter/, "Provider changes must dispatch WorkspaceState intent");
+  assert.match(controller, /model-filter/, "Model changes must dispatch WorkspaceState intent");
 });
-
 test("customize button is present on .topbar header and layout toolbar provides editing tools", async () => {
   const html = await readFile(new URL("../public/index.html", import.meta.url), "utf8");
   const ts = await readFile(new URL("../src/client/dashboard.ts", import.meta.url), "utf8");
   const js = await readFile(new URL("../public/dashboard.js", import.meta.url), "utf8");
 
-  const topbarMatch = html.match(/<header class="topbar">([\s\S]*?)<\/header>/);
+  const topbarMatch = html.match(/<header class="[^"]*\btopbar\b[^"]*">([\s\S]*?)<\/header>/);
   assert.ok(topbarMatch, "Expected .topbar header in public/index.html");
   const topbarHtml = topbarMatch[1];
 
   // Customize button must be in the topbar actions
   assert.ok(topbarHtml.includes('id="customize"'), "Customize button must be present in .topbar");
-  assert.ok(topbarHtml.includes("⚙ Customize"), "Customize button text must be present in .topbar");
+  assert.match(topbarHtml, /⚙[\s\S]*Customize/, "Customize button text must be present in .topbar");
 
   // #layout-toolbar provides all layout & customization configuration
   assert.ok(html.includes('id="layout-toolbar"'), "Missing #layout-toolbar");

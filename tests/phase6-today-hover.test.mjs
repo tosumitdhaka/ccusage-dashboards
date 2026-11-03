@@ -3,69 +3,31 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { DEFAULT_DASHBOARD, validateDashboardConfig } from "../public/widget-registry.mjs";
 
-test("header-period includes today option, defaults to 7d selected, and validates schema", async () => {
+
+test("segmented period control includes Today and defaults to 7D while schema accepts today", async () => {
   const html = await readFile(new URL("../public/index.html", import.meta.url), "utf8");
   const tsRegistry = await readFile(new URL("../src/client/widget-registry.mts", import.meta.url), "utf8");
-  const jsRegistry = await readFile(new URL("../public/widget-registry.mjs", import.meta.url), "utf8");
 
-  // Verify .topbar has #header-period select
-  const topbarMatch = html.match(/<header class="topbar">([\s\S]*?)<\/header>/);
+  const topbarMatch = html.match(/<header class="[^"]*\btopbar\b[^"]*">([\s\S]*?)<\/header>/);
   assert.ok(topbarMatch, "Expected .topbar header in public/index.html");
   const topbarHtml = topbarMatch[1];
+  assert.match(topbarHtml, /class="period workspace-period"[^>]*data-period="today"[^>]*>Today<\/button>/);
+  assert.match(topbarHtml, /class="period workspace-period active"[^>]*data-period="7d"[^>]*aria-pressed="true"[^>]*>7D<\/button>/);
+  assert.ok(topbarHtml.includes('id="header-period"'), "Missing custom #header-period select");
+  assert.ok(topbarHtml.includes('value="14d"'), "Missing 14d custom period");
+  assert.ok(topbarHtml.includes('value="all"'), "Missing all-time custom period");
 
-  assert.ok(topbarHtml.includes('id="header-period"'), "Missing #header-period in .topbar");
-
-  // Verify option order: 'today' should be the first option, and '7d' should be selected default
-  const selectMatch = topbarHtml.match(/<select id="header-period"[^>]*>([\s\S]*?)<\/select>/);
-  assert.ok(selectMatch, "Expected #header-period select in topbar HTML");
-  const optionsHtml = selectMatch[1];
-
-  const options = [...optionsHtml.matchAll(/<option\s+value="([^"]+)"([^>]*)>([^<]+)<\/option>/g)].map((m) => ({
-    value: m[1],
-    attrs: m[2],
-    label: m[3]
-  }));
-
-  assert.ok(options.length >= 6, "Expected at least 6 period options (today, 7d, 14d, 30d, 90d, all)");
-  assert.equal(options[0].value, "today", "First option must be value='today'");
-  assert.equal(options[0].label, "Today", "First option label must be 'Today'");
-
-  // 7d must be selected
-  assert.equal(options[1].value, "7d", "Second option must be value='7d'");
-  assert.ok(options[1].attrs.includes("selected"), "Option 7d must have 'selected' attribute as the default");
-
-  // 30d must not be selected
-  const opt30d = options.find((o) => o.value === "30d");
-  assert.ok(opt30d, "Option 30d must exist");
-  assert.ok(!opt30d.attrs.includes("selected"), "Option 30d must not have 'selected' attribute");
-
-  // Verify DEFAULT_DASHBOARD filters default
-  assert.equal(DEFAULT_DASHBOARD.filters.period, "7d", "DEFAULT_DASHBOARD.filters.period must default to '7d'");
-
-  // Verify PeriodRange type includes 'today' in TypeScript source
-  assert.match(tsRegistry, /export type PeriodRange\s*=\s*"today"/, "PeriodRange in widget-registry.mts must include 'today'");
-
-  // Verify validateDashboardConfig accepts 'today'
-  const configWithToday = validateDashboardConfig({
+  assert.equal(DEFAULT_DASHBOARD.filters.period, "7d");
+  assert.match(tsRegistry, /export type PeriodRange[\s\S]*?"today"/, "PeriodRange must include today");
+  assert.equal(validateDashboardConfig({
     ...DEFAULT_DASHBOARD,
     filters: { ...DEFAULT_DASHBOARD.filters, period: "today" }
-  });
-  assert.equal(configWithToday.filters.period, "today", "validateDashboardConfig should accept 'today'");
-
-  // Verify validateDashboardConfig accepts '7d'
-  const configWith7d = validateDashboardConfig({
-    ...DEFAULT_DASHBOARD,
-    filters: { ...DEFAULT_DASHBOARD.filters, period: "7d" }
-  });
-  assert.equal(configWith7d.filters.period, "7d", "validateDashboardConfig should accept '7d'");
-
-  // Verify invalid period continues to be rejected
+  }).filters.period, "today");
   assert.throws(
     () => validateDashboardConfig({ ...DEFAULT_DASHBOARD, filters: { ...DEFAULT_DASHBOARD.filters, period: "tomorrow" } }),
     /period/
   );
 });
-
 test("filterReportByPeriod correctly filters for today and 7d", async () => {
   const ts = await readFile(new URL("../src/client/dashboard.ts", import.meta.url), "utf8");
   const js = await readFile(new URL("../public/dashboard.js", import.meta.url), "utf8");
@@ -131,7 +93,7 @@ test("filterReportByPeriod correctly filters for today and 7d", async () => {
   // Verify static patterns and 7d default fallbacks in both TS and JS
   for (const [name, code] of [["dashboard.ts", ts], ["dashboard.js", js]]) {
     assert.match(code, /period\s*===\s*["']today["']/, `${name} must check period === "today"`);
-    assert.match(code, /state\.section\s*=\s*(?:filters\.period\s*\|\|\s*["']7d["']|["']7d["'])/, `${name} must default state.section to 7d`);
+    assert.match(code, /state\.section\s*=\s*workspace\.filters\.period/, `${name} must synchronize period from WorkspaceState`);
     assert.match(code, /activePeriod\s*=\s*state\.section\s*\|\|\s*["']7d["']/, `${name} must fallback activePeriod to 7d`);
   }
 });

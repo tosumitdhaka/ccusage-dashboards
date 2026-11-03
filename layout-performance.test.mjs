@@ -8,8 +8,8 @@ test("pointer move coalesces collisions at one RAF and flushes pointerup",async(
   assert.ok(section.includes("if(!frame)frame=requestAnimationFrame("));
   assert.ok(section.includes("update(latestX,latestY)"));
   assert.ok(section.includes("frame=0;update(e.clientX,e.clientY)"));
-  assert.ok(section.includes("start.x+Math.round(dx/stepX)"));
-  assert.ok(section.includes("start.y+Math.round(dy/32)"));
+  assert.ok(section.includes("start.x+gridDx"));
+  assert.ok(section.includes("start.y+gridDy"));
   assert.ok(section.includes("panel.style.transform="));
   assert.ok(section.includes("showFloatingGridTarget(next,stepX)"));
   assert.ok(section.includes("const pointer=createPointerFrame(update)"));
@@ -69,9 +69,9 @@ test("configuration controls remain visible without hover support",async()=>{
 
 test("drag gain is shared by preview and snap coordinates",async()=>{
   const js=await readFile(new URL("./src/client/dashboard.ts",import.meta.url),"utf8");
-  assert.ok(js.includes("const DRAG_SENSITIVITY=1.0;"));
-  assert.ok(js.includes("const dx=(x-x0)*DRAG_SENSITIVITY,dy=(y-y0)*DRAG_SENSITIVITY;"));
-  assert.ok(js.includes("start.x+Math.round(dx/stepX)"));
-  assert.ok(js.includes("start.y+Math.round(dy/32)"));
+  assert.ok(js.includes("pointerToGridDelta("));
+  assert.ok(js.includes("columnStep:stepX,rowStep:GRID_ROW_STEP_PX"));
+  assert.ok(js.includes("start.x+gridDx"));
+  assert.ok(js.includes("start.y+gridDy"));
   assert.ok(js.includes('panel.style.transform="translate3d("+dx+"px,"+dy+"px,0)"'));
 });

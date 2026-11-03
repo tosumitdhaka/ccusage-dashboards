@@ -23,15 +23,17 @@ try{
     "--no-first-run","--no-default-browser-check","--no-proxy-server",
     "--remote-debugging-port=0","--user-data-dir="+temp,"about:blank"
   ],{stdio:["ignore","ignore","pipe"]});
+  let chromeStartupLog="";
+  browser.stderr.on("data",chunk=>{chromeStartupLog=(chromeStartupLog+String(chunk)).slice(-6000);});
   let debugPort=0;
-  for(let i=0;i<100&&!debugPort;i++){
+  for(let i=0;i<240&&!debugPort;i++){
     if(browser.exitCode!==null)throw Error("Chrome exited before opening DevTools");
     try{
       const active=await readFile(join(temp,"DevToolsActivePort"),"utf8");
       debugPort=Number(active.split("\n")[0]);
     }catch{await delay(100);}
   }
-  assert.ok(debugPort,"Chrome DevTools did not start");
+  assert.ok(debugPort,"Chrome DevTools did not start: "+chromeStartupLog);
   const targets=await (await fetch("http://127.0.0.1:"+debugPort+"/json")).json();
   const tab=targets.find(t=>t.type==="page");
   assert.ok(tab?.webSocketDebuggerUrl,"Chrome page target unavailable");
@@ -42,8 +44,13 @@ try{
   });
   let nextId=0;
   const pending=new Map();
+  const runtimeErrors=[];
   socket.addEventListener("message",event=>{
     const msg=JSON.parse(event.data);
+    if(msg.method==="Runtime.exceptionThrown") {
+      const e=msg.params?.exceptionDetails;
+      runtimeErrors.push({text:e?.text,description:e?.exception?.description,stack:e?.stackTrace?.callFrames?.slice(0,5)});
+    }
     if(!msg.id||!pending.has(msg.id))return;
     const p=pending.get(msg.id);pending.delete(msg.id);
     if(msg.error)p.reject(Error(JSON.stringify(msg.error)));
@@ -65,7 +72,7 @@ try{
       await delay(100);
     }
     const diagnostic=await evaluate('JSON.stringify({ready:document.readyState,notice:document.querySelector("#notice")?.textContent,stat:document.querySelector("#stat-tokens")?.textContent,menu:!!document.querySelector(\'.dashboard-grid [data-widget="trend"] .viz-menu-trigger\')})').catch(e=>String(e));
-    throw Error("Timed out waiting for "+label+" "+diagnostic);
+    throw Error("Timed out waiting for "+label+" "+diagnostic+" runtimeErrors="+JSON.stringify(runtimeErrors.slice(-8)));
   };
   await send("Page.enable");
   await send("Runtime.enable");
@@ -118,6 +125,35 @@ try{
   const providerScroll=await wheelAt("providers");
 
   await evaluate('document.querySelector("#layout-edit").click()');
+  // Actual sequential keyboard traversal: resize edges become Tab-reachable
+  // only while editing. ArrowDown changes the draft geometry and announces it.
+  const keyboardStart = await evaluate(`(()=>{
+    const header=document.querySelector('[data-widget="providers"] .section-header');
+    header.focus();
+    const edges=[...document.querySelectorAll('[data-widget="providers"] .layout-resize-edge')];
+    return {headerFocused:document.activeElement===header,
+      edges:edges.map(e=>({tabIndex:e.tabIndex,hidden:e.hidden,role:e.getAttribute('role')}))};
+  })()`);
+  assert.ok(keyboardStart.headerFocused && keyboardStart.edges.length===8 &&
+    keyboardStart.edges.every(e=>e.tabIndex===0&&!e.hidden&&e.role==="button"),
+    "Layout resize handles must be keyboard reachable in edit mode: "+JSON.stringify(keyboardStart));
+  let focusedEdge="";
+  for(let i=0;i<45&&!focusedEdge;i++){
+    await send("Input.dispatchKeyEvent",{type:"keyDown",key:"Tab",code:"Tab",windowsVirtualKeyCode:9,nativeVirtualKeyCode:9});
+    await send("Input.dispatchKeyEvent",{type:"keyUp",key:"Tab",code:"Tab",windowsVirtualKeyCode:9,nativeVirtualKeyCode:9});
+    focusedEdge=await evaluate(`document.activeElement?.matches('[data-widget="providers"] .layout-resize-edge') ? document.activeElement.className : ""`);
+  }
+  assert.ok(focusedEdge,"Tab navigation never reached a keyboard resize handle");
+  const keyboardBefore=await evaluate(`document.querySelector('[data-widget="providers"]').style.gridRow`);
+  await send("Input.dispatchKeyEvent",{type:"keyDown",key:"ArrowDown",code:"ArrowDown",windowsVirtualKeyCode:40,nativeVirtualKeyCode:40});
+  await send("Input.dispatchKeyEvent",{type:"keyUp",key:"ArrowDown",code:"ArrowDown",windowsVirtualKeyCode:40,nativeVirtualKeyCode:40});
+  const keyboardAfter=await evaluate(`({
+    row:document.querySelector('[data-widget="providers"]').style.gridRow,
+    announcement:document.querySelector('#layout-announcement')?.textContent
+  })`);
+  assert.ok(keyboardAfter.announcement?.includes("resized") &&
+    (keyboardAfter.row!==keyboardBefore || focusedEdge.includes("edge-w") || focusedEdge.includes("edge-e")),
+    "Keyboard resize must announce its result: "+JSON.stringify({focusedEdge,keyboardBefore,keyboardAfter}));
   const dragStart=await evaluate(`(()=>{
     const kicker=document.querySelector('[data-widget="providers"] .section-kicker');
     kicker.scrollIntoView({block:"center",behavior:"instant"});
@@ -136,8 +172,8 @@ try{
       source:card.classList.contains("layout-drag-source")};
   })()`);
   assert.ok(drag.source,"Provider widget should enter floating drag mode: "+JSON.stringify(drag));
-  assert.ok(Math.abs(drag.dx-36)<12&&Math.abs(drag.dy-57.6)<12,
-    "Dragged widget must move at 45% gain, not full pointer speed: "+JSON.stringify(drag));
+  assert.ok(Math.abs(drag.dx-80)<12&&Math.abs(drag.dy-128)<12,
+    "Floating ghost must follow pointer without arbitrary gain: "+JSON.stringify(drag));
   await send("Input.dispatchMouseEvent",{type:"mouseReleased",x:dragStart.x+80,y:dragStart.y+128,
     button:"left",buttons:0,clickCount:1});
   await evaluate('document.querySelector("#layout-cancel").click()');
