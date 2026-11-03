@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { DEFAULT_DASHBOARD, validateDashboardConfig } from "./public/widget-registry.mjs";
 import {
-  DASHBOARD_STORAGE_KEY, parseDashboardJSON, readDashboardConfig,
+  DASHBOARD_STORAGE_KEY, LEGACY_DASHBOARD_STORAGE_KEY, PERSISTED_DASHBOARD_VERSION, parsePersistedDashboardV4, stringifyPersistedDashboardV4, parseDashboardJSON, readDashboardConfig,
   saveDashboardConfig, resetDashboardConfig, stringifyDashboardConfig
 } from "./public/dashboard-config.mjs";
 
@@ -44,4 +44,31 @@ test("failed storage writes do not produce a partial persisted configuration", (
   const local = { getItem() { return null; }, setItem() { throw Error("Storage disabled"); }, removeItem() {} };
   assert.throws(() => saveDashboardConfig(local, DEFAULT_DASHBOARD), /disabled/);
   assert.deepEqual(readDashboardConfig(local).widgets, DEFAULT_DASHBOARD.widgets);
+});
+
+test("v4 persisted envelope round-trips and migrates legacy preferences without eager writes", () => {
+  const legacy=storage();
+  const initial={...DEFAULT_DASHBOARD,title:"Legacy dashboard"};
+  legacy.setItem(LEGACY_DASHBOARD_STORAGE_KEY,stringifyDashboardConfig(initial));
+  assert.equal(readDashboardConfig(legacy).title,"Legacy dashboard");
+  assert.equal(legacy.getItem(DASHBOARD_STORAGE_KEY),null);
+  const saved=saveDashboardConfig(legacy,readDashboardConfig(legacy));
+  assert.equal(saved.title,"Legacy dashboard");
+  const envelope=JSON.parse(legacy.peek());
+  assert.equal(envelope.schemaVersion,PERSISTED_DASHBOARD_VERSION);
+  assert.equal(envelope.dashboard.title,"Legacy dashboard");
+  assert.deepEqual(parsePersistedDashboardV4(stringifyPersistedDashboardV4(initial)),saved);
+  resetDashboardConfig(legacy);
+  assert.equal(legacy.getItem(DASHBOARD_STORAGE_KEY),null);
+  assert.equal(legacy.getItem(LEGACY_DASHBOARD_STORAGE_KEY),null);
+});
+test("v4 invalid or oversized envelopes fail closed before mutating storage",()=>{
+  const local=storage();
+  const before=saveDashboardConfig(local,DEFAULT_DASHBOARD);
+  const snapshot=local.peek();
+  assert.throws(()=>parsePersistedDashboardV4(JSON.stringify({schemaVersion:3,dashboard:before})),/version/);
+  assert.throws(()=>parsePersistedDashboardV4(JSON.stringify({schemaVersion:4,dashboard:before,extra:true})),/fields/);
+  assert.throws(()=>parsePersistedDashboardV4("x".repeat(16385)),/16 KiB/);
+  assert.throws(()=>saveDashboardConfig(local,{...before,widgets:[]}),/widgets/);
+  assert.equal(local.peek(),snapshot);
 });
