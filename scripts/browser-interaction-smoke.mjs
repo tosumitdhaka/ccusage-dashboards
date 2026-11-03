@@ -42,8 +42,13 @@ try{
   });
   let nextId=0;
   const pending=new Map();
+  const runtimeErrors=[];
   socket.addEventListener("message",event=>{
     const msg=JSON.parse(event.data);
+    if(msg.method==="Runtime.exceptionThrown") {
+      const e=msg.params?.exceptionDetails;
+      runtimeErrors.push({text:e?.text,description:e?.exception?.description,stack:e?.stackTrace?.callFrames?.slice(0,5)});
+    }
     if(!msg.id||!pending.has(msg.id))return;
     const p=pending.get(msg.id);pending.delete(msg.id);
     if(msg.error)p.reject(Error(JSON.stringify(msg.error)));
@@ -65,7 +70,7 @@ try{
       await delay(100);
     }
     const diagnostic=await evaluate('JSON.stringify({ready:document.readyState,notice:document.querySelector("#notice")?.textContent,stat:document.querySelector("#stat-tokens")?.textContent,menu:!!document.querySelector(\'.dashboard-grid [data-widget="trend"] .viz-menu-trigger\')})').catch(e=>String(e));
-    throw Error("Timed out waiting for "+label+" "+diagnostic);
+    throw Error("Timed out waiting for "+label+" "+diagnostic+" runtimeErrors="+JSON.stringify(runtimeErrors.slice(-8)));
   };
   await send("Page.enable");
   await send("Runtime.enable");
