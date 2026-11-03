@@ -111,6 +111,124 @@ export function buildChart(report: Row, {
   };
 }
 
+export type ComparisonPolarity = "neutral" | "higher-is-better" | "lower-is-better";
+export type ComparisonSentiment = "neutral" | "positive" | "negative";
+export type ComparisonDirection = "up" | "down" | "flat";
+
+export interface MetricDelta {
+  current: number;
+  previous: number;
+  absolute: number;
+  ratio: number | null;
+  direction: ComparisonDirection;
+  sentiment: ComparisonSentiment;
+}
+
+export interface PeriodComparison {
+  available: boolean;
+  label: string;
+  days: number | null;
+  current: Metrics;
+  previous: Metrics;
+  currentRange: { start: string; end: string } | null;
+  previousRange: { start: string; end: string } | null;
+}
+
+const DAY_MS = 86_400_000;
+
+function comparisonDays(period: string): number | null {
+  if (period === "today") return 1;
+  if (period === "7d") return 7;
+  if (period === "14d") return 14;
+  if (period === "30d") return 30;
+  if (period === "90d") return 90;
+  return null;
+}
+
+function dateDay(value: unknown): number | null {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}/.test(value)) return null;
+  const timestamp = Date.parse(value.slice(0, 10) + "T00:00:00Z");
+  return Number.isFinite(timestamp) ? Math.floor(timestamp / DAY_MS) : null;
+}
+
+function dayLabel(day: number): string {
+  return new Date(day * DAY_MS).toISOString().slice(0, 10);
+}
+
+function totalsForDailyRows(rows: Row[], agent: string, model: string): Metrics {
+  const total = metrics();
+  for (const row of rows) {
+    const scoped = scopeValue(row, { agent, model });
+    if (scoped) add(total, scoped);
+  }
+  return total;
+}
+
+export function buildPeriodComparison(report: Row, {
+  period = "7d", agent = "all", model = "all"
+}: { period?: string; agent?: string; model?: string } = {}): PeriodComparison {
+  const days = comparisonDays(period);
+  const empty = metrics();
+  const label = days === 1 ? "vs previous day" : days ? `vs previous ${days} days` : "No previous-period comparison";
+  if (!days || !Array.isArray(report?.daily)) {
+    return {
+      available: false, label, days,
+      current: { ...empty }, previous: { ...empty },
+      currentRange: null, previousRange: null
+    };
+  }
+
+  const dated = report.daily.flatMap((row: Row) => {
+    const day = dateDay(periodOf(row));
+    return day === null ? [] : [{ row, day }];
+  });
+  if (!dated.length) {
+    return {
+      available: false, label, days,
+      current: { ...empty }, previous: { ...empty },
+      currentRange: null, previousRange: null
+    };
+  }
+
+  const anchor = Math.max(...dated.map(({ day }: { day: number }) => day));
+  const currentStart = anchor - days + 1;
+  const previousEnd = currentStart - 1;
+  const previousStart = previousEnd - days + 1;
+  const currentRows = dated.filter(({ day }: { day: number }) => day >= currentStart && day <= anchor)
+    .map(({ row }: { row: Row }) => row);
+  const previousRows = dated.filter(({ day }: { day: number }) => day >= previousStart && day <= previousEnd)
+    .map(({ row }: { row: Row }) => row);
+
+  return {
+    available: previousRows.length > 0,
+    label,
+    days,
+    current: totalsForDailyRows(currentRows, agent, model),
+    previous: totalsForDailyRows(previousRows, agent, model),
+    currentRange: { start: dayLabel(currentStart), end: dayLabel(anchor) },
+    previousRange: { start: dayLabel(previousStart), end: dayLabel(previousEnd) }
+  };
+}
+
+export function metricDelta(
+  currentValue: unknown,
+  previousValue: unknown,
+  polarity: ComparisonPolarity = "neutral"
+): MetricDelta {
+  const current = safe(currentValue);
+  const previous = safe(previousValue);
+  const absolute = current - previous;
+  const epsilon = 1e-12;
+  const direction: ComparisonDirection = Math.abs(absolute) <= epsilon ? "flat" : absolute > 0 ? "up" : "down";
+  const ratio = previous > 0 ? absolute / previous : current === 0 ? 0 : null;
+  let sentiment: ComparisonSentiment = "neutral";
+  if (direction !== "flat" && polarity !== "neutral") {
+    const improvement = polarity === "higher-is-better" ? direction === "up" : direction === "down";
+    sentiment = improvement ? "positive" : "negative";
+  }
+  return { current, previous, absolute, ratio, direction, sentiment };
+}
+
 export function buildSessions(report: Row, { agent = "all", model = "all", metric = "totalTokens", limit = 12 }: {agent?:string;model?:string;metric?:string;limit?:number} = {}) {
   if (!METRICS.includes(metric)) throw new Error("Unsupported session metric");
   const list = (report?.session ?? [] as Row[]).flatMap((row: Row) => {

@@ -120,10 +120,10 @@
         </div>
         <div id="dashboard-grid" class="dashboard-grid" aria-label="Dashboard widgets">
         <section class="kpis" data-widget="kpis" aria-label="Usage summary">
-          <article class="kpi"><div class="kpi-label">Reported tokens <span class="kpi-icon">⌁</span></div><strong id="stat-tokens">—</strong><p>Total reported across selected periods</p></article>
-          <article class="kpi"><div class="kpi-label">Fresh input <span class="kpi-icon">↗</span></div><strong id="stat-input">—</strong><p>Uncached input tokens</p></article>
-          <article class="kpi"><div class="kpi-label">Generated output <span class="kpi-icon">↘</span></div><strong id="stat-output">—</strong><p>Output tokens</p></article>
-          <article class="kpi"><div class="kpi-label">API-equivalent cost <span class="kpi-icon">$</span></div><strong id="stat-cost">—</strong><p>Estimated, not your subscription bill</p></article>
+          <article class="kpi"><div class="kpi-label">Reported tokens <span class="kpi-icon">⌁</span></div><strong id="stat-tokens">—</strong><div id="delta-tokens" class="kpi-delta neutral" hidden></div><p>Total reported across selected periods</p></article>
+          <article class="kpi"><div class="kpi-label">Fresh input <span class="kpi-icon">↗</span></div><strong id="stat-input">—</strong><div id="delta-input" class="kpi-delta neutral" hidden></div><p>Uncached input tokens</p></article>
+          <article class="kpi"><div class="kpi-label">Generated output <span class="kpi-icon">↘</span></div><strong id="stat-output">—</strong><div id="delta-output" class="kpi-delta neutral" hidden></div><p>Output tokens</p></article>
+          <article class="kpi"><div class="kpi-label">API-equivalent cost <span class="kpi-icon">$</span></div><strong id="stat-cost">—</strong><div id="delta-cost" class="kpi-delta neutral" hidden></div><p>Estimated, not your subscription bill</p></article>
         </section>
         <section class="wide-card trend-card" data-widget="trend" id="trend">
           <div class="section-header trend-header">

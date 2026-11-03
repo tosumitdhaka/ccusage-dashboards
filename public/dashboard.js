@@ -2,10 +2,10 @@
 import { buildView } from "./normalize.mjs";
 import { METRIC_NAMES, DEFAULT_DASHBOARD, WIDGET_REGISTRY, validateDashboardConfig } from "./widget-registry.mjs";
 import { MAX_DASHBOARD_JSON_LENGTH, readDashboardConfig, saveDashboardConfig, resetDashboardConfig, parseDashboardJSON, stringifyDashboardConfig } from "./dashboard-config.mjs";
-import { buildChart, buildObservedHourly, buildSessions, chartCatalog } from "./analytics.mjs";
+import { buildChart, buildObservedHourly, buildPeriodComparison, buildSessions, chartCatalog, metricDelta } from "./analytics.mjs";
 import { colorForDimension, labelPointIndices } from "./chart-presentation.mjs";
 import { bindLineChartInteraction, clearLineChartInteraction, hideActiveChartInteraction } from "./chart-interaction.mjs";
-import { formatMetric } from "./formatting.mjs";
+import { formatMetric, formatPercentage } from "./formatting.mjs";
 import { workspaceStore } from "./workspace-state.mjs";
 import { bindWorkspaceFilterController } from "./filter-controller.mjs";
 import { GRID_COLUMNS, GRID_MAX_ROW, GRID_GAP_PX, GRID_ROW_STEP_PX, relocateGridWidget, cacheRowsForWidth, visibleGridOrder, compactVisibleLayout, reflowGridAfterResize } from "./dashboard-layout.mjs";
@@ -213,6 +213,25 @@ function svgEl(tag, attrs = {}) {
     return node;
 }
 function empty(target, msg) { target.replaceChildren(el("p", "empty", msg)); }
+function renderKpiDelta(id, current, previous, label, available, metric = "totalTokens", polarity = "neutral") {
+    const node = $(id);
+    if (!node)
+        return;
+    if (!available) {
+        node.hidden = true;
+        node.textContent = "";
+        node.className = "kpi-delta neutral";
+        node.removeAttribute("title");
+        return;
+    }
+    const delta = metricDelta(current, previous, polarity);
+    const arrow = delta.direction === "up" ? "↑" : delta.direction === "down" ? "↓" : "→";
+    const amount = delta.ratio === null ? "New" : formatPercentage(Math.abs(delta.ratio));
+    node.textContent = `${arrow} ${amount} ${label}`;
+    node.className = "kpi-delta " + delta.sentiment;
+    node.hidden = false;
+    node.title = `Previous period: ${fmt(previous, metric)}`;
+}
 function choices(select, names, allLabel, desired = select.value) {
     const selected = desired;
     select.replaceChildren();
@@ -690,6 +709,13 @@ function render() {
     $("stat-input").textContent = fmt(vals.inputTokens);
     $("stat-output").textContent = fmt(vals.outputTokens);
     $("stat-cost").textContent = hasCost ? fmt(cost, "totalCost") : "Unavailable";
+    const comparison = buildPeriodComparison(state.report, {
+        period: activePeriod, agent: state.agent, model: state.model
+    });
+    renderKpiDelta("delta-tokens", vals.totalTokens, comparison.previous.totalTokens, comparison.label, comparison.available);
+    renderKpiDelta("delta-input", vals.inputTokens, comparison.previous.inputTokens, comparison.label, comparison.available);
+    renderKpiDelta("delta-output", vals.outputTokens, comparison.previous.outputTokens, comparison.label, comparison.available);
+    renderKpiDelta("delta-cost", cost, comparison.previous.totalCost, comparison.label, comparison.available && hasCost, "totalCost", "lower-is-better");
     $("break-input").textContent = fmt(vals.inputTokens);
     $("break-output").textContent = fmt(vals.outputTokens);
     $("break-cache").textContent = fmt(vals.cacheReadTokens);

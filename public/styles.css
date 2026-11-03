@@ -1420,3 +1420,14 @@ html[data-sidebar="collapsed"] .nav-link>span{font-size:16px;margin:0}
 @media (prefers-reduced-motion: reduce){
   .chart-series-line{transition:none}
 }
+
+
+/* ==========================================================================
+   v0.4 Phase 4 — Comparative analytics and semantic KPI deltas
+   ========================================================================== */
+.kpi-delta{display:inline-flex;align-items:center;width:max-content;max-width:100%;margin-top:var(--space-2);padding:3px 7px;border:1px solid var(--border-subtle);border-radius:var(--radius-pill);background:var(--surface-elevated);color:var(--text-secondary);font-size:var(--font-size-xs);font-weight:var(--font-weight-semibold);font-variant-numeric:tabular-nums}
+.kpi-delta[hidden]{display:none!important}
+.kpi-delta.positive{color:var(--status-positive);background:var(--state-success-bg);border-color:color-mix(in srgb,var(--status-positive) 36%,transparent)}
+.kpi-delta.negative{color:var(--status-negative);background:var(--state-danger-bg);border-color:color-mix(in srgb,var(--status-negative) 36%,transparent)}
+.kpi-delta.neutral{color:var(--text-secondary)}
+[data-theme="contrast"] .kpi-delta{border-width:2px;background:var(--surface-elevated)}
