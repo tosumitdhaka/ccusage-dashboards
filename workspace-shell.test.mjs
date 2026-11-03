@@ -24,3 +24,12 @@ test("workspace discloses report-relative UTC windows and stale history", async 
   assert.match(code,/Last observed/);
   assert.match(code,/Comparison unavailable/);
 });
+
+test("server allowlists every required local browser module", async () => {
+  const source=await readFile(new URL("./src/node/server.mts",import.meta.url),"utf8");
+  const runtime=await readFile(new URL("./server.mjs",import.meta.url),"utf8");
+  for(const file of ["workspace-state.mjs","filter-controller.mjs","chart-interaction.mjs","formatting.mjs"]) {
+    assert.ok(source.includes('"/'+file+'"'),file+" missing from TypeScript asset map");
+    assert.ok(runtime.includes('"/'+file+'"'),file+" missing from runtime asset map");
+  }
+});
