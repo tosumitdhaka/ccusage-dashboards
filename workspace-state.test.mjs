@@ -29,3 +29,12 @@ test("workspace store clear keeps period, metric and density", () => {
   assert.deepEqual(state.filters.providers, []);
   assert.deepEqual(state.filters.models, []);
 });
+
+test("workspace rejects unsupported multi-select and dormant filters without mutating state", () => {
+  const store=createWorkspaceStore();
+  const before=structuredClone(store.getState());
+  for (const filters of [{providers:["claude","codex"]},{models:["a","b"]},{agents:["claude"]},{sessions:["s1"]}]) {
+    assert.throws(()=>store.setFilters(filters),/Unsupported workspace filter/);
+    assert.deepEqual(store.getState(),before);
+  }
+});

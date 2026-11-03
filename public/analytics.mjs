@@ -161,7 +161,7 @@ export function buildPeriodComparison(report, { period = "7d", agent = "all", mo
     const label = days === 1 ? "vs previous day" : days ? `vs previous ${days} days` : "No previous-period comparison";
     if (!days || !Array.isArray(report?.daily)) {
         return {
-            available: false, label, days,
+            available: false, label, days, currentDays: 0, previousDays: 0, coverage: "none",
             current: { ...empty }, previous: { ...empty },
             currentRange: null, previousRange: null
         };
@@ -172,7 +172,7 @@ export function buildPeriodComparison(report, { period = "7d", agent = "all", mo
     });
     if (!dated.length) {
         return {
-            available: false, label, days,
+            available: false, label, days, currentDays: 0, previousDays: 0, coverage: "none",
             current: { ...empty }, previous: { ...empty },
             currentRange: null, previousRange: null
         };
@@ -185,8 +185,13 @@ export function buildPeriodComparison(report, { period = "7d", agent = "all", mo
         .map(({ row }) => row);
     const previousRows = dated.filter(({ day }) => day >= previousStart && day <= previousEnd)
         .map(({ row }) => row);
+    const currentDays = new Set(dated.filter(({ day }) => day >= currentStart && day <= anchor).map(({ day }) => day)).size;
+    const previousDays = new Set(dated.filter(({ day }) => day >= previousStart && day <= previousEnd).map(({ day }) => day)).size;
+    // Absence of daily rows is not proof of zero-usage days.
+    const available = currentDays === days && previousDays === days;
+    const coverage = available ? "complete" : currentDays || previousDays ? "partial" : "none";
     return {
-        available: previousRows.length > 0,
+        available, currentDays, previousDays, coverage,
         label,
         days,
         current: totalsForDailyRows(currentRows, agent, model),

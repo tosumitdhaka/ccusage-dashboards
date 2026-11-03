@@ -117,3 +117,18 @@ test("metric deltas separate direction from semantic sentiment", () => {
   assert.equal(metricDelta(0, 0).ratio, 0);
   assert.equal(metricDelta(10, 0).ratio, null);
 });
+
+test("incomplete previous-period coverage is not an equivalent comparison", () => {
+  const day=(d)=>new Date(Date.UTC(2026,9,d)).toISOString().slice(0,10);
+  const current=Array.from({length:7},(_,i)=>({period:day(22+i),agent:"all",totalTokens:100}));
+  const sparse=buildPeriodComparison({daily:[{period:day(20),agent:"all",totalTokens:5},...current]},{period:"7d"});
+  assert.equal(sparse.available,false);
+  assert.equal(sparse.coverage,"partial");
+  assert.equal(sparse.currentDays,7);
+  assert.equal(sparse.previousDays,1);
+  const complete=buildPeriodComparison({daily:Array.from({length:14},(_,i)=>({period:day(15+i),agent:"all",totalTokens:0}))},{period:"7d"});
+  assert.equal(complete.available,true);
+  assert.equal(complete.coverage,"complete");
+  assert.equal(complete.previousDays,7);
+  assert.equal(buildPeriodComparison({daily:[]},{period:"7d"}).coverage,"none");
+});

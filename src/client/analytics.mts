@@ -128,6 +128,9 @@ export interface PeriodComparison {
   available: boolean;
   label: string;
   days: number | null;
+  currentDays: number;
+  previousDays: number;
+  coverage: "complete" | "partial" | "none";
   current: Metrics;
   previous: Metrics;
   currentRange: { start: string; end: string } | null;
@@ -172,7 +175,7 @@ export function buildPeriodComparison(report: Row, {
   const label = days === 1 ? "vs previous day" : days ? `vs previous ${days} days` : "No previous-period comparison";
   if (!days || !Array.isArray(report?.daily)) {
     return {
-      available: false, label, days,
+      available: false, label, days, currentDays: 0, previousDays: 0, coverage: "none",
       current: { ...empty }, previous: { ...empty },
       currentRange: null, previousRange: null
     };
@@ -184,7 +187,7 @@ export function buildPeriodComparison(report: Row, {
   });
   if (!dated.length) {
     return {
-      available: false, label, days,
+      available: false, label, days, currentDays: 0, previousDays: 0, coverage: "none",
       current: { ...empty }, previous: { ...empty },
       currentRange: null, previousRange: null
     };
@@ -199,8 +202,13 @@ export function buildPeriodComparison(report: Row, {
   const previousRows = dated.filter(({ day }: { day: number }) => day >= previousStart && day <= previousEnd)
     .map(({ row }: { row: Row }) => row);
 
+  const currentDays = new Set(dated.filter(({ day }: { day: number }) => day >= currentStart && day <= anchor).map(({ day }: { day: number }) => day)).size;
+  const previousDays = new Set(dated.filter(({ day }: { day: number }) => day >= previousStart && day <= previousEnd).map(({ day }: { day: number }) => day)).size;
+  // Absence of daily rows is not proof of zero-usage days.
+  const available = currentDays === days && previousDays === days;
+  const coverage = available ? "complete" : currentDays || previousDays ? "partial" : "none";
   return {
-    available: previousRows.length > 0,
+    available, currentDays, previousDays, coverage,
     label,
     days,
     current: totalsForDailyRows(currentRows, agent, model),

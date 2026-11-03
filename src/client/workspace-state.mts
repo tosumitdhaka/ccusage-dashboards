@@ -67,13 +67,21 @@ function normalizeState(input: WorkspaceStatePatch, previous: WorkspaceState = D
   const filters = input.filters ?? {};
   const period = filters.period && PERIODS.has(filters.period) ? filters.period : previous.filters.period;
   const density = input.density === "compact" || input.density === "comfortable" ? input.density : previous.density;
+  const providers = uniqueStrings(filters.providers, previous.filters.providers);
+  const models = uniqueStrings(filters.models, previous.filters.models);
+  const agents = uniqueStrings(filters.agents, previous.filters.agents);
+  const sessions = uniqueStrings(filters.sessions, previous.filters.sessions);
+  // Phase 2 only supports one provider/model; reject non-functional filters.
+  if (providers.length > 1 || models.length > 1 || agents.length || sessions.length) {
+      throw new RangeError("Unsupported workspace filter combination");
+  }
   return {
     filters: {
       period,
-      providers: uniqueStrings(filters.providers, previous.filters.providers),
-      models: uniqueStrings(filters.models, previous.filters.models),
-      agents: uniqueStrings(filters.agents, previous.filters.agents),
-      sessions: uniqueStrings(filters.sessions, previous.filters.sessions),
+      providers,
+      models,
+      agents,
+      sessions,
       metric: typeof filters.metric === "string" && filters.metric ? filters.metric : previous.filters.metric
     },
     density,

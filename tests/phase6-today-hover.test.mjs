@@ -93,7 +93,7 @@ test("filterReportByPeriod correctly filters for today and 7d", async () => {
   // Verify static patterns and 7d default fallbacks in both TS and JS
   for (const [name, code] of [["dashboard.ts", ts], ["dashboard.js", js]]) {
     assert.match(code, /period\s*===\s*["']today["']/, `${name} must check period === "today"`);
-    assert.match(code, /state\.section\s*=\s*(?:filters\.period\s*\|\|\s*["']7d["']|["']7d["'])/, `${name} must default state.section to 7d`);
+    assert.match(code, /state\.section\s*=\s*workspace\.filters\.period/, `${name} must synchronize period from WorkspaceState`);
     assert.match(code, /activePeriod\s*=\s*state\.section\s*\|\|\s*["']7d["']/, `${name} must fallback activePeriod to 7d`);
   }
 });
