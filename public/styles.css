@@ -1385,3 +1385,38 @@ html[data-sidebar="collapsed"] .nav-link>span{font-size:16px;margin:0}
   .workspace-period[data-period="90d"]{display:none}
   .workspace-filter-toggle{padding-inline:9px}
 }
+
+
+/* ==========================================================================
+   v0.4 Phase 3 — Chart interaction engine and deterministic presentation
+   ========================================================================== */
+.chart-grid-line{stroke:var(--chart-grid);stroke-dasharray:4 5;vector-effect:non-scaling-stroke}
+.chart-axis-label,.chart-empty-label{fill:var(--chart-axis)}
+.chart-value-label{paint-order:stroke;stroke:var(--surface-card);stroke-width:3;stroke-linejoin:round}
+.chart-point{stroke:var(--surface-card);stroke-width:1.5;pointer-events:none}
+.chart-series-line{vector-effect:non-scaling-stroke;transition:opacity var(--transition-fast),stroke-width var(--transition-fast);pointer-events:stroke}
+.chart-series-line.is-dimmed{opacity:.18}
+.chart-series-line.is-emphasized{opacity:1;stroke-width:4}
+.chart-series-line.is-comparison,[data-comparison="true"].chart-series-line{stroke-dasharray:7 6;opacity:.45}
+.chart-crosshair{stroke:var(--text-tertiary);stroke-width:1;stroke-dasharray:3 4;pointer-events:none;vector-effect:non-scaling-stroke}
+.chart-crosshair[hidden],.chart-focus-dot[hidden]{display:none}
+.chart-focus-dot{fill:var(--surface-card);stroke-width:3;pointer-events:none;vector-effect:non-scaling-stroke}
+
+#trend-chart:focus-visible,.custom-chart-card svg:focus-visible{outline:none;filter:drop-shadow(0 0 2px var(--focus-ring))}
+.chart-tooltip{min-width:210px;max-width:min(340px,calc(100vw - 24px));white-space:normal;padding:10px 12px;background:var(--tooltip-bg);border-color:var(--tooltip-border)}
+.chart-tooltip-series{display:grid;gap:4px}
+.chart-tooltip-row{display:grid;grid-template-columns:10px minmax(0,1fr) auto;align-items:center;gap:8px;padding:2px 0;color:var(--text-secondary)}
+.chart-tooltip-row.is-active{color:var(--text-primary);font-weight:var(--font-weight-semibold)}
+.chart-tooltip-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chart-tooltip-value{justify-self:end;font-variant-numeric:tabular-nums}
+.chart-tooltip-swatch{width:8px;height:8px}
+
+.bar-filter-row{width:100%;display:block;text-align:left;border:0;background:transparent;color:inherit;font:inherit;padding:0;border-radius:var(--radius-sm)}
+.bar-filter-row:hover{background:var(--state-hover-bg)}
+.bar-filter-row:focus-visible{box-shadow:var(--shadow-focus)}
+.bar-filter-row .bar-labels,.bar-filter-row .bar-track{margin-inline:var(--space-2)}
+.bar-filter-row .bar-labels{padding-top:var(--space-1)}
+
+@media (prefers-reduced-motion: reduce){
+  .chart-series-line{transition:none}
+}

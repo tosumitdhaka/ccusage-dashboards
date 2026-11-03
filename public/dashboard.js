@@ -4,14 +4,14 @@ import { METRIC_NAMES, DEFAULT_DASHBOARD, WIDGET_REGISTRY, validateDashboardConf
 import { MAX_DASHBOARD_JSON_LENGTH, readDashboardConfig, saveDashboardConfig, resetDashboardConfig, parseDashboardJSON, stringifyDashboardConfig } from "./dashboard-config.mjs";
 import { buildChart, buildObservedHourly, buildSessions, chartCatalog } from "./analytics.mjs";
 import { colorForDimension, labelPointIndices } from "./chart-presentation.mjs";
+import { bindLineChartInteraction, clearLineChartInteraction, hideActiveChartInteraction } from "./chart-interaction.mjs";
+import { formatMetric } from "./formatting.mjs";
 import { workspaceStore } from "./workspace-state.mjs";
 import { bindWorkspaceFilterController } from "./filter-controller.mjs";
 import { GRID_COLUMNS, GRID_MAX_ROW, GRID_GAP_PX, GRID_ROW_STEP_PX, relocateGridWidget, cacheRowsForWidth, visibleGridOrder, compactVisibleLayout, reflowGridAfterResize } from "./dashboard-layout.mjs";
 const $ = (id) => document.getElementById(id);
 const state = { report: null, hourly: [], section: "7d", agent: "all", model: "all",
     breakdown: "total", metric: "totalTokens", sessionMetric: "totalTokens" };
-const compact = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 2 });
-const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 });
 const hiddenTrendSeries = new Set();
 let dismissedPricingSignature = null;
 function syncGraphControls() {
@@ -197,7 +197,7 @@ workspaceStore.subscribe((workspace, previous, meta) => {
     if (state.report)
         render();
 });
-const fmt = (n, metric = "totalTokens") => metric === "totalCost" ? money.format(n ?? 0) : compact.format(n ?? 0);
+const fmt = formatMetric;
 function el(tag, cls = "", text) {
     const node = document.createElement(tag);
     if (cls)
@@ -244,60 +244,15 @@ function availableModels(report, agent) {
     }
     return [...models].sort();
 }
-function showChartTooltip(event, name, dateLabel, value, color, metric) {
-    let tooltip = $("chart-tooltip");
-    if (!tooltip) {
-        tooltip = el("div", "chart-tooltip");
-        tooltip.id = "chart-tooltip";
-        document.body.append(tooltip);
-    }
-    tooltip.replaceChildren();
-    const header = el("div", "chart-tooltip-header", dateLabel);
-    const body = el("div", "chart-tooltip-body");
-    const swatch = el("span", "chart-tooltip-swatch");
-    swatch.style.background = color;
-    const nameSpan = el("span", "", name + ": ");
-    const valSpan = el("span", "chart-tooltip-value", fmt(value, metric));
-    body.append(swatch, nameSpan, valSpan);
-    tooltip.hidden = false;
-    tooltip.removeAttribute("hidden");
-    tooltip.setAttribute("aria-hidden", "false");
-    positionChartTooltip(event.clientX, event.clientY);
-}
-function positionChartTooltip(x, y) {
-    const tooltip = $("chart-tooltip");
-    if (!tooltip || tooltip.hidden)
-        return;
-    const clampedX = Math.max(70, Math.min(window.innerWidth - 70, x));
-    tooltip.style.left = `${clampedX}px`;
-    if (y < 60) {
-        tooltip.style.top = `${y + 14}px`;
-        tooltip.style.transform = "translateX(-50%)";
-    }
-    else {
-        tooltip.style.top = `${y - 12}px`;
-        tooltip.style.transform = "translate(-50%, -100%)";
-    }
-}
-function hideChartTooltip() {
-    const tooltip = $("chart-tooltip");
-    if (!tooltip)
-        return;
-    tooltip.hidden = true;
-    tooltip.setAttribute("hidden", "");
-    tooltip.setAttribute("aria-hidden", "true");
-}
 function drawLineChart(data, metric, options = {}) {
     const svg = $(options.svgId ?? "trend-chart");
     const legend = $(options.legendId ?? "trend-legend");
     const activeSection = options.period ?? state.section;
     const activeBreakdown = options.breakdown ?? state.breakdown;
     const invisible = options.hiddenSeries ?? hiddenTrendSeries;
+    clearLineChartInteraction(svg);
     svg.replaceChildren();
     legend.replaceChildren();
-    svg.addEventListener("pointerleave", hideChartTooltip);
-    // Match the actual CSS viewport. A fixed 920×264 viewBox letterboxed the
-    // graph at desktop widths, wasting horizontal space around the plot.
     const container = svg.parentElement;
     const containerRect = container ? container.getBoundingClientRect() : null;
     const W = Math.max(320, Math.round(svg.getBoundingClientRect().width || containerRect?.width || 920));
@@ -333,7 +288,7 @@ function drawLineChart(data, metric, options = {}) {
     });
     const names = shown.filter((s) => !invisible.has(s.name)).map((s) => s.name);
     if (!names.length || !data.points.length) {
-        const label = svgEl("text", { x: W / 2, y: H / 2, fill: "#92a0b8", "text-anchor": "middle", "font-size": 15 });
+        const label = svgEl("text", { x: W / 2, y: H / 2, class: "chart-empty-label", "text-anchor": "middle", "font-size": 15 });
         label.textContent = activeSection === "hourly"
             ? "No observed hourly changes yet — two different snapshots are needed"
             : "No usage records for this selection";
@@ -351,8 +306,8 @@ function drawLineChart(data, metric, options = {}) {
     const ceiling = maxValue * 1.13;
     for (let i = 0; i <= 4; i++) {
         const y = T + PH * i / 4;
-        svg.append(svgEl("line", { x1: L, y1: y, x2: W - R, y2: y, stroke: "#29384a", "stroke-dasharray": "4 5" }));
-        const text = svgEl("text", { x: L - 9, y: y + 4, "text-anchor": "end", fill: "#8494a9", "font-size": 12 });
+        svg.append(svgEl("line", { x1: L, y1: y, x2: W - R, y2: y, class: "chart-grid-line" }));
+        const text = svgEl("text", { x: L - 9, y: y + 4, "text-anchor": "end", class: "chart-axis-label", "font-size": 12 });
         text.textContent = fmt(ceiling * (1 - i / 4), metric);
         svg.append(text);
     }
@@ -360,40 +315,35 @@ function drawLineChart(data, metric, options = {}) {
         ...point, x: L + (data.points.length === 1 ? PW / 2 : i * PW / (data.points.length - 1))
     }));
     const labelledPoints = new Set(labelPointIndices(coords.length, 12));
+    const interactionSeries = [];
     for (const [index, name] of names.entries()) {
         const coordsSeries = coords.map((point) => ({
             ...point, y: T + PH * (1 - Math.max(0, point.values[name] ?? 0) / ceiling)
         }));
         const color = colorForDimension(name, groupKind);
+        interactionSeries.push({
+            name,
+            color,
+            points: coordsSeries.map((point) => ({ y: point.y, value: point.values[name] ?? 0 }))
+        });
         const path = coordsSeries.map((p, i) => (i ? "L" : "M") + p.x + " " + p.y).join(" ");
-        svg.append(svgEl("path", { d: path, fill: "none", stroke: color,
-            "stroke-width": 3, "stroke-linejoin": "round", "stroke-linecap": "round" }));
+        const pathNode = svgEl("path", { d: path, fill: "none", stroke: color,
+            "stroke-width": 3, "stroke-linejoin": "round", "stroke-linecap": "round",
+            class: "chart-series-line", "data-series-name": name });
+        svg.append(pathNode);
         coordsSeries.forEach((p, pointIndex) => {
             const circle = svgEl("circle", { cx: p.x, cy: p.y, r: 3.8,
-                fill: color, stroke: "#111927", "stroke-width": 1.5 });
+                fill: color, class: "chart-point", "data-series-name": name, "aria-hidden": "true" });
             const title = svgEl("title");
             const label = activeSection === "hourly" ? p.label.replace("T", " ") : p.label;
             title.textContent = name + " • " + label + ": " + fmt(p.values[name], metric);
-            circle.style.cursor = "pointer";
             circle.append(title);
-            circle.addEventListener("pointerenter", (e) => {
-                circle.setAttribute("r", "5.5");
-                showChartTooltip(e, name, label, p.values[name] ?? 0, color, metric);
-            });
-            circle.addEventListener("pointermove", (e) => {
-                positionChartTooltip(e.clientX, e.clientY);
-            });
-            circle.addEventListener("pointerleave", () => {
-                circle.setAttribute("r", "3.8");
-                hideChartTooltip();
-            });
             svg.append(circle);
             if (settings.showLabels && labelledPoints.has(pointIndex)) {
                 const text = svgEl("text", {
                     x: p.x, y: Math.max(12, p.y - 10 - 14 * (index % 2)),
-                    fill: color, "font-size": 11,
-                    "text-anchor": pointIndex === 0 ? "start" : pointIndex === coords.length - 1 ? "end" : "middle",
-                    "paint-order": "stroke", stroke: "#101827", "stroke-width": 3
+                    fill: color, "font-size": 11, class: "chart-value-label",
+                    "text-anchor": pointIndex === 0 ? "start" : pointIndex === coords.length - 1 ? "end" : "middle"
                 });
                 text.textContent = fmt(p.values[name], metric);
                 svg.append(text);
@@ -404,9 +354,17 @@ function drawLineChart(data, metric, options = {}) {
     coords.forEach((p, i) => {
         if (i % step !== 0 && i !== coords.length - 1)
             return;
-        const label = svgEl("text", { x: p.x, y: H - 15, "text-anchor": "middle", fill: "#8799ac", "font-size": 12 });
+        const label = svgEl("text", { x: p.x, y: H - 15, "text-anchor": "middle", class: "chart-axis-label", "font-size": 12 });
         label.textContent = activeSection === "hourly" ? p.label.slice(5, 13).replace("T", " ") : p.label;
         svg.append(label);
+    });
+    bindLineChartInteraction(svg, {
+        metric,
+        points: coords.map((point) => ({
+            x: point.x,
+            label: activeSection === "hourly" ? point.label.replace("T", " ") : point.label
+        })),
+        series: interactionSeries
     });
 }
 function drawBars(id, entries, metric, emptyMessage, limit, kind, hiddenDimensions = []) {
@@ -423,7 +381,15 @@ function drawBars(id, entries, metric, emptyMessage, limit, kind, hiddenDimensio
             max = e.value;
     }
     visible.slice(0, limit).forEach((item) => {
-        const group = el("div", "bar-row");
+        const filterable = kind === "provider" || kind === "model";
+        const group = el(filterable ? "button" : "div", "bar-row" + (filterable ? " bar-filter-row" : ""));
+        if (filterable) {
+            group.type = "button";
+            group.setAttribute("aria-label", "Filter workspace by " + kind + " " + item.name);
+            group.addEventListener("click", () => {
+                workspaceStore.setFilters(kind === "provider" ? { providers: [item.name] } : { models: [item.name] }, "distribution-chart");
+            });
+        }
         const label = el("div", "bar-labels");
         const name = el("span", "bar-name", item.name);
         name.title = item.name;
@@ -868,7 +834,7 @@ for (const group of ["providers", "models"]) {
         lSelect.addEventListener("change", () => updateGraphSettings(group, { limit: Number(lSelect.value) }));
 }
 window.addEventListener("scroll", scheduleNavigationUpdate, { passive: true });
-window.addEventListener("scroll", hideChartTooltip, { passive: true });
+window.addEventListener("scroll", hideActiveChartInteraction, { passive: true });
 for (const dialog of document.querySelectorAll("dialog")) {
     dialog.addEventListener("click", (event) => {
         const rect = dialog.getBoundingClientRect();

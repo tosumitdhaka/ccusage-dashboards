@@ -7,6 +7,8 @@ import {
 } from "./dashboard-config.mjs";
 import { buildChart, buildObservedHourly, buildSessions, chartCatalog } from "./analytics.mjs";
 import { colorForDimension, labelPointIndices } from "./chart-presentation.mjs";
+import { bindLineChartInteraction, clearLineChartInteraction, hideActiveChartInteraction } from "./chart-interaction.mjs";
+import { formatMetric } from "./formatting.mjs";
 import { workspaceStore, type WorkspaceState } from "./workspace-state.mjs";
 import { bindWorkspaceFilterController } from "./filter-controller.mjs";
 import type { GridRect, GridPositions, GridLayout } from "./dashboard-layout.mjs";
@@ -20,8 +22,6 @@ interface DashboardState {
 }
 const state: DashboardState = { report: null, hourly: [], section: "7d", agent: "all", model: "all",
   breakdown: "total", metric: "totalTokens", sessionMetric: "totalTokens" };
-const compact = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 2 });
-const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 });
 const hiddenTrendSeries = new Set<string>();
 let dismissedPricingSignature: string|null = null;
 function syncGraphControls() {
@@ -174,7 +174,7 @@ workspaceStore.subscribe((workspace, previous, meta) => {
   persistDashboardConfig(configWithCurrentFilters());
   if (state.report) render();
 });
-const fmt = (n: any, metric = "totalTokens") => metric === "totalCost" ? money.format(n ?? 0) : compact.format(n ?? 0);
+const fmt = formatMetric;
 function el(tag: string, cls: string = "", text?: string): any {
   const node = document.createElement(tag);
   if (cls) node.className = cls;
@@ -212,55 +212,14 @@ function availableModels(report: any, agent: string) {
   }
   return [...models].sort();
 }
-function showChartTooltip(event: MouseEvent | PointerEvent, name: string, dateLabel: string, value: number, color: string, metric: string) {
-  let tooltip = $("chart-tooltip");
-  if (!tooltip) {
-    tooltip = el("div", "chart-tooltip");
-    tooltip.id = "chart-tooltip";
-    document.body.append(tooltip);
-  }
-  tooltip.replaceChildren();
-  const header = el("div", "chart-tooltip-header", dateLabel);
-  const body = el("div", "chart-tooltip-body");
-  const swatch = el("span", "chart-tooltip-swatch");
-  swatch.style.background = color;
-  const nameSpan = el("span", "", name + ": ");
-  const valSpan = el("span", "chart-tooltip-value", fmt(value, metric));
-  body.append(swatch, nameSpan, valSpan);
-  tooltip.hidden = false;
-  tooltip.removeAttribute("hidden");
-  tooltip.setAttribute("aria-hidden", "false");
-  positionChartTooltip(event.clientX, event.clientY);
-}
-function positionChartTooltip(x: number, y: number) {
-  const tooltip = $("chart-tooltip");
-  if (!tooltip || tooltip.hidden) return;
-  const clampedX = Math.max(70, Math.min(window.innerWidth - 70, x));
-  tooltip.style.left = `${clampedX}px`;
-  if (y < 60) {
-    tooltip.style.top = `${y + 14}px`;
-    tooltip.style.transform = "translateX(-50%)";
-  } else {
-    tooltip.style.top = `${y - 12}px`;
-    tooltip.style.transform = "translate(-50%, -100%)";
-  }
-}
-function hideChartTooltip() {
-  const tooltip = $("chart-tooltip");
-  if (!tooltip) return;
-  tooltip.hidden = true;
-  tooltip.setAttribute("hidden", "");
-  tooltip.setAttribute("aria-hidden", "true");
-}
 function drawLineChart(data: any, metric: string, options: any = {}) {
-  const svg = $(options.svgId ?? "trend-chart");
+  const svg = $(options.svgId ?? "trend-chart") as SVGSVGElement;
   const legend = $(options.legendId ?? "trend-legend");
   const activeSection=options.period ?? state.section;
   const activeBreakdown=options.breakdown ?? state.breakdown;
   const invisible=options.hiddenSeries ?? hiddenTrendSeries;
-  svg.replaceChildren(); legend.replaceChildren(); svg.addEventListener("pointerleave", hideChartTooltip);
-  // Match the actual CSS viewport. A fixed 920×264 viewBox letterboxed the
-  // graph at desktop widths, wasting horizontal space around the plot.
+  clearLineChartInteraction(svg);
+  svg.replaceChildren(); legend.replaceChildren();
   const container = svg.parentElement;
   const containerRect = container ? container.getBoundingClientRect() : null;
   const W = Math.max(320, Math.round(svg.getBoundingClientRect().width || containerRect?.width || 920));
@@ -290,7 +249,7 @@ function drawLineChart(data: any, metric: string, options: any = {}) {
   });
   const names = shown.filter((s: any) => !invisible.has(s.name)).map((s: any) => s.name);
   if (!names.length || !data.points.length) {
-    const label = svgEl("text", { x: W / 2, y: H / 2, fill: "#92a0b8", "text-anchor": "middle", "font-size": 15 });
+    const label = svgEl("text", { x: W / 2, y: H / 2, class: "chart-empty-label", "text-anchor": "middle", "font-size": 15 });
     label.textContent = activeSection === "hourly"
       ? "No observed hourly changes yet — two different snapshots are needed"
       : "No usage records for this selection";
@@ -307,48 +266,43 @@ function drawLineChart(data: any, metric: string, options: any = {}) {
   const ceiling = maxValue * 1.13;
   for (let i = 0; i <= 4; i++) {
     const y = T + PH * i / 4;
-    svg.append(svgEl("line", { x1: L, y1: y, x2: W - R, y2: y, stroke: "#29384a", "stroke-dasharray": "4 5" }));
-    const text = svgEl("text", { x: L - 9, y: y + 4, "text-anchor": "end", fill: "#8494a9", "font-size": 12 });
+    svg.append(svgEl("line", { x1: L, y1: y, x2: W - R, y2: y, class: "chart-grid-line" }));
+    const text = svgEl("text", { x: L - 9, y: y + 4, "text-anchor": "end", class: "chart-axis-label", "font-size": 12 });
     text.textContent = fmt(ceiling * (1 - i / 4), metric); svg.append(text);
   }
   const coords = data.points.map((point: any, i: number) => ({
     ...point, x: L + (data.points.length === 1 ? PW / 2 : i * PW / (data.points.length - 1))
   }));
   const labelledPoints = new Set(labelPointIndices(coords.length, 12));
+  const interactionSeries: Array<{name:string;color:string;points:Array<{y:number;value:number}>}> = [];
   for (const [index, name] of names.entries()) {
     const coordsSeries = coords.map((point: any) => ({
       ...point, y: T + PH * (1 - Math.max(0, point.values[name] ?? 0) / ceiling)
     }));
     const color = colorForDimension(name, groupKind);
+    interactionSeries.push({
+      name,
+      color,
+      points: coordsSeries.map((point: any) => ({ y: point.y, value: point.values[name] ?? 0 }))
+    });
     const path = coordsSeries.map((p: any, i: number) => (i ? "L" : "M") + p.x + " " + p.y).join(" ");
-    svg.append(svgEl("path", { d: path, fill: "none", stroke: color,
-      "stroke-width": 3, "stroke-linejoin": "round", "stroke-linecap": "round" }));
+    const pathNode = svgEl("path", { d: path, fill: "none", stroke: color,
+      "stroke-width": 3, "stroke-linejoin": "round", "stroke-linecap": "round",
+      class: "chart-series-line", "data-series-name": name });
+    svg.append(pathNode);
     coordsSeries.forEach((p: any, pointIndex: number) => {
       const circle = svgEl("circle", { cx: p.x, cy: p.y, r: 3.8,
-        fill: color, stroke: "#111927", "stroke-width": 1.5 });
+        fill: color, class: "chart-point", "data-series-name": name, "aria-hidden": "true" });
       const title = svgEl("title");
       const label = activeSection === "hourly" ? p.label.replace("T", " ") : p.label;
       title.textContent = name + " • " + label + ": " + fmt(p.values[name], metric);
-      circle.style.cursor = "pointer";
       circle.append(title);
-      circle.addEventListener("pointerenter", (e: PointerEvent) => {
-        circle.setAttribute("r", "5.5");
-        showChartTooltip(e, name, label, p.values[name] ?? 0, color, metric);
-      });
-      circle.addEventListener("pointermove", (e: PointerEvent) => {
-        positionChartTooltip(e.clientX, e.clientY);
-      });
-      circle.addEventListener("pointerleave", () => {
-        circle.setAttribute("r", "3.8");
-        hideChartTooltip();
-      });
       svg.append(circle);
       if (settings.showLabels && labelledPoints.has(pointIndex)) {
         const text = svgEl("text", {
           x: p.x, y: Math.max(12, p.y - 10 - 14 * (index % 2)),
-          fill: color, "font-size": 11,
-          "text-anchor": pointIndex === 0 ? "start" : pointIndex === coords.length - 1 ? "end" : "middle",
-          "paint-order": "stroke", stroke: "#101827", "stroke-width": 3
+          fill: color, "font-size": 11, class: "chart-value-label",
+          "text-anchor": pointIndex === 0 ? "start" : pointIndex === coords.length - 1 ? "end" : "middle"
         });
         text.textContent = fmt(p.values[name], metric);
         svg.append(text);
@@ -358,9 +312,17 @@ function drawLineChart(data: any, metric: string, options: any = {}) {
   const step = Math.max(1, Math.ceil(coords.length / Math.max(2, Math.floor(PW / 120))));
   coords.forEach((p: any, i: number) => {
     if (i % step !== 0 && i !== coords.length - 1) return;
-    const label = svgEl("text", { x: p.x, y: H - 15, "text-anchor": "middle", fill: "#8799ac", "font-size": 12 });
+    const label = svgEl("text", { x: p.x, y: H - 15, "text-anchor": "middle", class: "chart-axis-label", "font-size": 12 });
     label.textContent = activeSection === "hourly" ? p.label.slice(5, 13).replace("T", " ") : p.label;
     svg.append(label);
+  });
+  bindLineChartInteraction(svg, {
+    metric,
+    points: coords.map((point: any) => ({
+      x: point.x,
+      label: activeSection === "hourly" ? point.label.replace("T", " ") : point.label
+    })),
+    series: interactionSeries
   });
 }
 function drawBars(id: string, entries: any[], metric: string, emptyMessage: string, limit: number, kind: string, hiddenDimensions: string[]=[]) {
@@ -373,7 +335,15 @@ function drawBars(id: string, entries: any[], metric: string, emptyMessage: stri
     if (e.value > max) max = e.value;
   }
   visible.slice(0, limit).forEach((item: any) => {
-    const group = el("div", "bar-row");
+    const filterable = kind === "provider" || kind === "model";
+    const group = el(filterable ? "button" : "div", "bar-row" + (filterable ? " bar-filter-row" : ""));
+    if (filterable) {
+      group.type = "button";
+      group.setAttribute("aria-label", "Filter workspace by " + kind + " " + item.name);
+      group.addEventListener("click", () => {
+        workspaceStore.setFilters(kind === "provider" ? { providers: [item.name] } : { models: [item.name] }, "distribution-chart");
+      });
+    }
     const label = el("div", "bar-labels");
     const name = el("span", "bar-name", item.name);
     name.title = item.name;
@@ -777,7 +747,7 @@ for (const group of ["providers", "models"]) {
   if (lSelect) lSelect.addEventListener("change", () => updateGraphSettings(group, { limit: Number(lSelect.value) }));
 }
 window.addEventListener("scroll", scheduleNavigationUpdate, { passive: true });
-window.addEventListener("scroll", hideChartTooltip, { passive: true });
+window.addEventListener("scroll", hideActiveChartInteraction, { passive: true });
 
 for (const dialog of document.querySelectorAll<HTMLDialogElement>("dialog")) {
   dialog.addEventListener("click", (event) => {
