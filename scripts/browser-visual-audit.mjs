@@ -200,6 +200,32 @@ try{
  await run('document.querySelector("#layout-cancel").click()');
  const state=await run(`(()=>({menu:document.querySelector('[data-widget="models"] .viz-menu-trigger')?.getBoundingClientRect().toJSON(),buttonText:document.querySelector('#customize')?.textContent,scrollTop:document.scrollingElement.scrollTop}))()`);
  console.log("UI_AUDIT_STATE:"+JSON.stringify(state));
+ // Phase 9 regression gate: inspect all target widths and supported themes.
+ // Real Chromium computes the layout; these are geometry/overflow checks, not
+ // substitutes for independent screenshot or WCAG contrast inspection.
+ for (const width of [390,768,1024,1280,1440,1920]) {
+  await call("Emulation.setDeviceMetricsOverride",{width,height:850,deviceScaleFactor:1,mobile:width<768});
+  for (const theme of ["dark","light","contrast"]) {
+   const metrics=await run(`(()=>{
+     document.documentElement.dataset.theme=${JSON.stringify(theme)};
+     const root=document.scrollingElement;
+     const nav=document.querySelector('#mobile-nav-toggle');
+     const main=document.querySelector('main');
+     return {width:innerWidth,scrollWidth:root.scrollWidth,
+       overflow:root.scrollWidth-innerWidth,
+       theme:document.documentElement.dataset.theme,
+       mainWidth:Math.round(main?.getBoundingClientRect().width??0),
+       navToggle:nav?getComputedStyle(nav).display:null,
+       visibleKpis:!!document.querySelector('#stat-tokens')?.textContent};
+   })()`);
+   console.log("UI_AUDIT_RESPONSIVE:"+JSON.stringify({targetWidth:width,...metrics}));
+   if(metrics.width!==width || metrics.theme!==theme || !metrics.visibleKpis ||
+      metrics.mainWidth<=0 || metrics.overflow>6)
+     throw Error("Responsive layout overflow or missing content: "+JSON.stringify(metrics));
+  }
+ }
+ await call("Emulation.setDeviceMetricsOverride",{width:1440,height:850,deviceScaleFactor:1,mobile:false});
+ await run('document.documentElement.dataset.theme="dark"');
  console.log("UI_AUDIT_PASS");
 }catch(e){console.error("UI_AUDIT_FAILURE",e?.stack??e);process.exitCode=1;}
 finally{
