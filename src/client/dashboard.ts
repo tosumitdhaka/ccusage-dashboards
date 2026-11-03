@@ -654,6 +654,19 @@ function render() {
   const comparison = buildPeriodComparison(state.report, {
     period: activePeriod, agent: state.agent, model: state.model
   });
+  const rangeNode = $("workspace-range") as HTMLElement | null;
+  if (rangeNode) {
+    const dates = (state.report.daily ?? []).map((row: any) => String(row.period ?? row.date ?? "").slice(0, 10))
+      .filter((date: string) => /^\d{4}-\d{2}-\d{2}$/.test(date)).sort();
+    const observed = dates.at(-1);
+    const stale = observed && observed < new Date().toISOString().slice(0, 10);
+    const range = comparison.currentRange;
+    const coverage = comparison.coverage === "partial"
+      ? ` · Comparison unavailable: ${comparison.previousDays}/${comparison.days} previous days recorded` : "";
+    rangeNode.textContent = range
+      ? `Report-relative UTC: ${range.start} – ${range.end}${stale ? " · Last observed " + observed + " (stale)" : ""}${coverage}`
+      : `Report-relative UTC: ${activePeriod === "all" ? "all available history" : "no dated records"}${observed ? " · Last observed " + observed : ""}`;
+  }
   renderKpiDelta("delta-tokens", vals.totalTokens, comparison.previous.totalTokens, comparison.label, comparison.available);
   renderKpiDelta("delta-input", vals.inputTokens, comparison.previous.inputTokens, comparison.label, comparison.available);
   renderKpiDelta("delta-output", vals.outputTokens, comparison.previous.outputTokens, comparison.label, comparison.available);

@@ -1431,3 +1431,5 @@ html[data-sidebar="collapsed"] .nav-link>span{font-size:16px;margin:0}
 .kpi-delta.negative{color:var(--status-negative);background:var(--state-danger-bg);border-color:color-mix(in srgb,var(--status-negative) 36%,transparent)}
 .kpi-delta.neutral{color:var(--text-secondary)}
 [data-theme="contrast"] .kpi-delta{border-width:2px;background:var(--surface-elevated)}
+
+.workspace-freshness{display:grid;gap:var(--space-1);justify-items:end}.workspace-range{font-size:var(--font-size-xs);color:var(--text-tertiary);font-variant-numeric:tabular-nums;max-width:480px;text-align:right}@media(max-width:767px){.workspace-freshness{justify-items:start}.workspace-range{text-align:left}}

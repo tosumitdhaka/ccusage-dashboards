@@ -15,3 +15,12 @@ test("v0.4 workspace shell exposes responsive navigation and global filter contr
   assert.match(css, /@media \(max-width:767px\)/);
   assert.match(css, /html\[data-sidebar="collapsed"\]/);
 });
+
+test("workspace discloses report-relative UTC windows and stale history", async () => {
+  const html = await readFile(new URL("./public/index.html", import.meta.url), "utf8");
+  const code = await readFile(new URL("./src/client/dashboard.ts", import.meta.url), "utf8");
+  assert.match(html,/id="workspace-range"/);
+  assert.match(code,/Report-relative UTC:/);
+  assert.match(code,/Last observed/);
+  assert.match(code,/Comparison unavailable/);
+});
