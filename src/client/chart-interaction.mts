@@ -125,6 +125,25 @@ export function bindLineChartInteraction(svg: SVGSVGElement, options: LineChartI
     }
   };
 
+  const header = document.createElement("div");
+  header.className = "chart-tooltip-header";
+  const seriesList = document.createElement("div");
+  seriesList.className = "chart-tooltip-series";
+  const rows = options.series.map((series) => {
+    const row = document.createElement("div");
+    row.className = "chart-tooltip-row";
+    const swatch = document.createElement("span");
+    swatch.className = "chart-tooltip-swatch";
+    swatch.style.background = series.color;
+    const name = document.createElement("span");
+    name.className = "chart-tooltip-name";
+    name.textContent = series.name;
+    const value = document.createElement("span");
+    value.className = "chart-tooltip-value";
+    row.append(swatch, name, value);
+    seriesList.append(row);
+    return { row, value };
+  });
   const show = (index: number, clientX: number, clientY: number, selectedSeriesIndex: number) => {
     if (index < 0 || index >= options.points.length) return;
     pointIndex = index;
@@ -146,32 +165,17 @@ export function bindLineChartInteraction(svg: SVGSVGElement, options: LineChartI
     }
     emphasize(selectedSeriesIndex);
 
-    tooltip.replaceChildren();
-    const header = document.createElement("div");
-    header.className = "chart-tooltip-header";
+    // Rows are created once per bound chart and reused for every pointer frame.
+    if (tooltip.firstChild !== header) tooltip.replaceChildren(header, seriesList);
     header.textContent = point.label;
-    const seriesList = document.createElement("div");
-    seriesList.className = "chart-tooltip-series";
     const accessible = [point.label];
     options.series.forEach((series, seriesIndex) => {
-      const row = document.createElement("div");
-      row.className = "chart-tooltip-row";
-      if (seriesIndex === selectedSeriesIndex) row.classList.add("is-active");
-      const swatch = document.createElement("span");
-      swatch.className = "chart-tooltip-swatch";
-      swatch.style.background = series.color;
-      const name = document.createElement("span");
-      name.className = "chart-tooltip-name";
-      name.textContent = series.name;
-      const value = document.createElement("span");
-      value.className = "chart-tooltip-value";
+      const { row, value } = rows[seriesIndex];
+      row.classList.toggle("is-active", seriesIndex === selectedSeriesIndex);
       const formatted = formatMetric(series.points[index]?.value ?? 0, options.metric);
       value.textContent = formatted;
       accessible.push(series.name + " " + formatted);
-      row.append(swatch, name, value);
-      seriesList.append(row);
     });
-    tooltip.append(header, seriesList);
     tooltip.hidden = false;
     tooltip.removeAttribute("hidden");
     tooltip.setAttribute("aria-hidden", "false");
