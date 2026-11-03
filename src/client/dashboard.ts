@@ -1287,7 +1287,7 @@ function beginEdgeResize(event: PointerEvent,edge: HTMLElement,panel: HTMLElemen
   edge.addEventListener("pointerup",finish);
   edge.addEventListener("pointercancel",cancel);
 }
-const DRAG_SENSITIVITY=1.0;
+const DRAG_SENSITIVITY=0.45;
 function beginPanelDrag(event: PointerEvent,surface: HTMLElement,panel: HTMLElement,id: string){
   if(!arranging||event.button!==0||interactiveHeaderTarget(event.target)||
     getComputedStyle($("dashboard-grid")).display!=="grid")return;

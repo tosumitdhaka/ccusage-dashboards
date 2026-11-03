@@ -1459,7 +1459,7 @@ function beginEdgeResize(event, edge, panel, id, direction) {
     edge.addEventListener("pointerup", finish);
     edge.addEventListener("pointercancel", cancel);
 }
-const DRAG_SENSITIVITY = 1.0;
+const DRAG_SENSITIVITY = 0.45;
 function beginPanelDrag(event, surface, panel, id) {
     if (!arranging || event.button !== 0 || interactiveHeaderTarget(event.target) ||
         getComputedStyle($("dashboard-grid")).display !== "grid")
