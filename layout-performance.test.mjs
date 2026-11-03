@@ -69,7 +69,7 @@ test("configuration controls remain visible without hover support",async()=>{
 
 test("drag gain is shared by preview and snap coordinates",async()=>{
   const js=await readFile(new URL("./src/client/dashboard.ts",import.meta.url),"utf8");
-  assert.ok(js.includes("const DRAG_SENSITIVITY=1.0;"));
+  assert.ok(js.includes("const DRAG_SENSITIVITY=0.45;"));
   assert.ok(js.includes("const dx=(x-x0)*DRAG_SENSITIVITY,dy=(y-y0)*DRAG_SENSITIVITY;"));
   assert.ok(js.includes("start.x+Math.round(dx/stepX)"));
   assert.ok(js.includes("start.y+Math.round(dy/32)"));
