@@ -141,8 +141,8 @@ try{
       source:card.classList.contains("layout-drag-source")};
   })()`);
   assert.ok(drag.source,"Provider widget should enter floating drag mode: "+JSON.stringify(drag));
-  assert.ok(Math.abs(drag.dx-36)<12&&Math.abs(drag.dy-57.6)<12,
-    "Dragged widget must move at 45% gain, not full pointer speed: "+JSON.stringify(drag));
+  assert.ok(Math.abs(drag.dx-80)<12&&Math.abs(drag.dy-128)<12,
+    "Floating ghost must follow pointer without arbitrary gain: "+JSON.stringify(drag));
   await send("Input.dispatchMouseEvent",{type:"mouseReleased",x:dragStart.x+80,y:dragStart.y+128,
     button:"left",buttons:0,clickCount:1});
   await evaluate('document.querySelector("#layout-cancel").click()');

@@ -8,7 +8,7 @@ import { bindLineChartInteraction, clearLineChartInteraction, hideActiveChartInt
 import { formatMetric, formatPercentage } from "./formatting.mjs";
 import { workspaceStore } from "./workspace-state.mjs";
 import { bindWorkspaceFilterController } from "./filter-controller.mjs";
-import { GRID_COLUMNS, GRID_MAX_ROW, GRID_GAP_PX, GRID_ROW_STEP_PX, relocateGridWidget, cacheRowsForWidth, visibleGridOrder, compactVisibleLayout, reflowGridAfterResize } from "./dashboard-layout.mjs";
+import { GRID_COLUMNS, GRID_MAX_ROW, GRID_GAP_PX, GRID_ROW_STEP_PX, relocateGridWidget, cacheRowsForWidth, visibleGridOrder, compactVisibleLayout, reflowGridAfterResize, pointerToGridDelta } from "./dashboard-layout.mjs";
 const $ = (id) => document.getElementById(id);
 const state = { report: null, hourly: [], section: "7d", agent: "all", model: "all",
     breakdown: "total", metric: "totalTokens", sessionMetric: "totalTokens" };
@@ -1459,7 +1459,6 @@ function beginEdgeResize(event, edge, panel, id, direction) {
     edge.addEventListener("pointerup", finish);
     edge.addEventListener("pointercancel", cancel);
 }
-const DRAG_SENSITIVITY = 0.45;
 function beginPanelDrag(event, surface, panel, id) {
     if (!arranging || event.button !== 0 || interactiveHeaderTarget(event.target) ||
         getComputedStyle($("dashboard-grid")).display !== "grid")
@@ -1474,17 +1473,16 @@ function beginPanelDrag(event, surface, panel, id) {
     activeLayoutGesture = true;
     surface.setPointerCapture(event.pointerId);
     const update = (x, y) => {
-        // Reduce drag gain so accidental trackpad/mouse motion cannot jump several
-        // rows or columns. The floating card and drop position share this gain.
-        const dx = (x - x0) * DRAG_SENSITIVITY, dy = (y - y0) * DRAG_SENSITIVITY;
+        // Ghost preview and snap both follow measured pointer-to-grid motion.
+        const { dx, dy, x: gridDx, y: gridDy } = pointerToGridDelta({ x: x0, y: y0 }, { x, y }, { columnStep: stepX, rowStep: GRID_ROW_STEP_PX });
         if (!moved && Math.hypot(x - x0, y - y0) < 6)
             return;
         moved = true;
         // One cell of pointer travel changes one grid cell. This remains stable
         // even when the dragged item was previously moved by the user.
         const candidate = { ...start,
-            x: Math.max(0, Math.min(GRID_COLUMNS - start.w, start.x + Math.round(dx / stepX))),
-            y: Math.max(0, Math.min(GRID_MAX_ROW - start.h, start.y + Math.round(dy / 32))) };
+            x: Math.max(0, Math.min(GRID_COLUMNS - start.w, start.x + gridDx)),
+            y: Math.max(0, Math.min(GRID_MAX_ROW - start.h, start.y + gridDy)) };
         panel.classList.add("layout-drag-source");
         panel.style.transform = "translate3d(" + dx + "px," + dy + "px,0)";
         if (candidate.x === next.x && candidate.y === next.y)
