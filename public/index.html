@@ -107,6 +107,12 @@
           </div>
           <div class="layout-toolbar-body">
             <div class="layout-field-group">
+              <label class="layout-field-label" for="layout-preset">Workspace layout preset</label>
+              <select id="layout-preset"><option value="">Select layout…</option><option value="executive">Executive / Cost Overview</option><option value="developer">Developer / Model Deep Dive</option><option value="sessions">Agent Session Debugger</option></select>
+              <button id="layout-preset-apply" class="refresh" type="button">Preview selected layout</button>
+              <span id="layout-preset-status" role="status" aria-live="polite">Changes are only saved when you choose Save Layout.</span>
+            </div>
+            <div class="layout-field-group">
               <label for="layout-title-input" class="layout-field-label">View name</label>
               <input id="layout-title-input" class="layout-title-input" maxlength="80" placeholder="Dashboard title">
             </div>

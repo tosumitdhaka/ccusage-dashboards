@@ -12,6 +12,7 @@ import { formatMetric, formatPercentage } from "./formatting.mjs";
 import { workspaceStore, type WorkspaceState } from "./workspace-state.mjs";
 import { bindWorkspaceFilterController } from "./filter-controller.mjs";
 import { getGraphPreset } from "./widget-presets.mjs";
+import { applyDashboardLayoutPreset } from "./dashboard-presets.mjs";
 import type { GridRect, GridPositions, GridLayout } from "./dashboard-layout.mjs";
 import { GRID_COLUMNS, GRID_MAX_ROW, GRID_GAP_PX, GRID_ROW_STEP_PX, relocateGridWidget, snapToGrid, cacheRowsForWidth, visibleGridOrder, compactVisibleLayout, reflowGridAfterResize, pointerToGridDelta } from "./dashboard-layout.mjs";
 
@@ -1383,6 +1384,26 @@ function installLayoutEditor(){
   if(toolbarSave)toolbarSave.addEventListener("click",()=>closeLayoutEdit(true));
   const toolbarCancel=$("layout-toolbar-cancel");
   if(toolbarCancel)toolbarCancel.addEventListener("click",()=>closeLayoutEdit(false));
+  $("layout-preset-apply").addEventListener("click",()=>{
+    if(!arranging||!layoutDraft||!layoutDraftWidgets)return;
+    try {
+      const preset=applyDashboardLayoutPreset({
+        ...dashboardConfig,title:layoutDraftTitle??dashboardConfig.title,
+        widgets:layoutDraftWidgets,layout:layoutDraft,charts:layoutDraftCharts??dashboardConfig.charts
+      },$("layout-preset").value);
+      layoutDraft=preset.layout;
+      layoutDraftWidgets=preset.widgets;
+      layoutDraftTitle=preset.title;
+      $("layout-title-input").value=preset.title;
+      syncCustomChartNodes(layoutDraftCharts??dashboardConfig.charts);
+      populateLayoutToolbar();
+      applyGridPreview(layoutDraft.positions);
+      for(const panel of $("dashboard-grid").querySelectorAll("[data-widget]")){
+        panel.hidden=!layoutDraftWidgets.includes(panel.dataset.widget);
+      }
+      $("layout-preset-status").textContent=preset.title+" previewed. Save Layout to persist or Cancel to restore.";
+    }catch(error){$("layout-preset-status").textContent=error instanceof Error?error.message:"Invalid preset";}
+  });
   const toolbarReset=$("layout-toolbar-reset");
   if(toolbarReset){
     toolbarReset.addEventListener("click",()=>{
