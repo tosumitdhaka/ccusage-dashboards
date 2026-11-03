@@ -224,6 +224,7 @@
         <div class="customize-heading"><div><div class="eyebrow">CUSTOM / LOCAL DATA</div><h2 id="graph-dialog-title">Create a graph</h2><p>Visualize an existing ccusage metric. No scripts, expressions or file uploads.</p></div>
           <button id="graph-cancel" type="button" class="customize-dismiss" aria-label="Close graph builder">×</button></div>
         <div class="graph-builder-fields">
+          <label>Start from <select id="graph-preset"><option value="">Blank graph</option><option value="provider-tokens">Tokens by provider</option><option value="model-cost">Estimated cost by model</option><option value="cache-trend">Cache reads over time</option><option value="weekly-input">Weekly input tokens</option></select></label>
           <label>Graph name <input id="graph-title" maxlength="80" required value="My usage graph" autofocus></label>
           <label>Visualization <select id="graph-visual"><option value="line">Time-series line</option><option value="bars">Ranked bars</option></select></label>
           <label>Metric <select id="graph-metric"><option value="totalTokens">Reported tokens</option><option value="inputTokens">Input tokens</option><option value="outputTokens">Output tokens</option><option value="cacheReadTokens">Cache reads</option><option value="cacheCreationTokens">Cache writes</option><option value="totalCost">Estimated API cost ($)</option></select></label>

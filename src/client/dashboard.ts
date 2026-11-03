@@ -11,6 +11,7 @@ import { bindLineChartInteraction, clearLineChartInteraction, hideActiveChartInt
 import { formatMetric, formatPercentage } from "./formatting.mjs";
 import { workspaceStore, type WorkspaceState } from "./workspace-state.mjs";
 import { bindWorkspaceFilterController } from "./filter-controller.mjs";
+import { getGraphPreset } from "./widget-presets.mjs";
 import type { GridRect, GridPositions, GridLayout } from "./dashboard-layout.mjs";
 import { GRID_COLUMNS, GRID_MAX_ROW, GRID_GAP_PX, GRID_ROW_STEP_PX, relocateGridWidget, snapToGrid, cacheRowsForWidth, visibleGridOrder, compactVisibleLayout, reflowGridAfterResize, pointerToGridDelta } from "./dashboard-layout.mjs";
 
@@ -1494,6 +1495,16 @@ function renderCustomCharts(report = filterReportByPeriod(state.report, state.se
   }
 }
 function setupCustomGraphBuilder(){
+  $("graph-preset").addEventListener("change",()=>{
+    const id=($("graph-preset") as HTMLSelectElement).value;
+    if (!id) return;
+    const preset=getGraphPreset(id);
+    $("graph-title").value=preset.title;
+    $("graph-visual").value=preset.visual;
+    $("graph-metric").value=preset.metric;
+    $("graph-group").value=preset.breakdown;
+    $("graph-period").value=preset.period;
+  });
   $("add-graph").addEventListener("click",()=>{
     rememberViewport();
     $("graph-status").textContent="";
