@@ -108,7 +108,7 @@ try{
  if(smoothAudit.before.behavior!=="auto"||smoothAudit.immediately!==400||
     smoothAudit.after75!==400||smoothAudit.after350!==400)
    throw Error("Document scroll delay persists: "+JSON.stringify(smoothAudit));
- const wheel=async(widget,targetSelector,dy,innerPosition=0)=>{
+ const wheel=async(widget,targetSelector,dy)=>{
   const geometry=await run(`(()=>{
     const card=document.querySelector('[data-widget="${widget}"]');
     const body=card?.querySelector('.widget-scroll-body');
@@ -117,44 +117,44 @@ try{
     target.scrollIntoView({block:'center',behavior:'instant'});
     const root=document.scrollingElement;
     const maxRoot=root.scrollHeight-root.clientHeight;
-    // Target center should be visible and leave enough document remaining to
-    // distinguish true root movement from a clamped scroll boundary.
-    const absolute=target.getBoundingClientRect().top+root.scrollTop;
-    root.scrollTop=Math.max(0,Math.min(maxRoot-260,absolute-innerHeight/2));
-    body.scrollTop=${innerPosition};
+    // Keep the hit target inside the viewport. Direction determines which
+    // document boundary needs room for a physical wheel event.
+    const desired=Math.max(0,Math.min(maxRoot,
+      target.getBoundingClientRect().top+root.scrollTop-innerHeight/2));
+    root.scrollTop=desired;
     const b=target.getBoundingClientRect();
-    const x=Math.round(b.left+b.width/2),y=Math.round(b.top+b.height/2);
+    const x=Math.round(Math.max(8,Math.min(innerWidth-8,b.left+b.width/2)));
+    const y=Math.round(Math.max(40,Math.min(innerHeight-40,b.top+b.height/2)));
     const actual=document.elementFromPoint(x,y);
-    return {x,y,onViewport:y>30&&y<innerHeight-30,
+    return {x,y,onViewport:y>=40&&y<=innerHeight-40,
       hit:!!actual&&body.contains(actual),
       actual:actual?.tagName,actualClass:actual?.getAttribute('class'),
       root:root.scrollTop,rootMax:maxRoot,inner:body.scrollTop,
-      bodyMax:body.scrollHeight-body.clientHeight};
+      bodyMax:body.scrollHeight-body.clientHeight,overflowY:getComputedStyle(body).overflowY};
    })()`);
-  if(!geometry.onViewport||!geometry.hit||geometry.rootMax-geometry.root<dy+50)
+  const room=dy>0?geometry.rootMax-geometry.root:geometry.root;
+  if(!geometry.onViewport||!geometry.hit||room<Math.abs(dy)+30)
     throw Error("Invalid physical wheel target for "+widget+": "+JSON.stringify(geometry));
-  await call("Input.dispatchMouseEvent",{type:"mouseWheel",x:geometry.x,y:geometry.y,deltaX:0,deltaY:dy,modifiers:0,pointerType:"mouse"});
+  await call("Input.dispatchMouseEvent",{type:"mouseWheel",x:geometry.x,y:geometry.y,
+    deltaX:0,deltaY:dy,modifiers:0,pointerType:"mouse"});
   await delay(200);
-  const after=await run(`(()=>({root:document.scrollingElement.scrollTop,inner:document.querySelector('[data-widget="${widget}"]>.widget-scroll-body')?.scrollTop}))()`);
+  const after=await run(`(()=>({root:document.scrollingElement.scrollTop,
+    inner:document.querySelector('[data-widget="${widget}"]>.widget-scroll-body')?.scrollTop}))()`);
   return {widget,targetSelector,dy,before:geometry,after};
  };
- for(const [widget,target,dy,innerPosition] of [
-  ["trend","svg",170,0],["providers",".bar-row",180,0],
-  ["models",".widget-scroll-body",180,0],["models",".widget-scroll-body",180,100],
-  ["cache",".widget-scroll-body",170,0],["sessions",".widget-scroll-body",180,0]
+ for(const [widget,target,dy] of [
+  ["trend","svg",170],["providers",".bar-row",180],["models",".widget-scroll-body",180],
+  ["cache",".widget-scroll-body",-170],["sessions",".widget-scroll-body",-180]
  ]) {
-  const result=await wheel(widget,target,dy,innerPosition);
+  const result=await wheel(widget,target,dy);
   console.log("UI_AUDIT_WHEEL:"+JSON.stringify(result));
-  const isScrollable = (result.before.bodyMax ?? 0) > 5;
-  if(widget === "trend" || !isScrollable) {
-    if(result.after.root<=result.before.root+20)
-      throw Error("Page wheel failed over "+widget+" content: "+JSON.stringify(result));
-  } else {
-    const innerDelta = Math.abs((result.after.inner??0)-(result.before.inner??0));
-    const rootDelta = result.after.root - result.before.root;
-    if(innerDelta <= 1 && rootDelta <= 20)
-      throw Error("Wheel did not produce native scroll for "+widget+": "+JSON.stringify(result));
-  }
+  const rootDelta=result.after.root-result.before.root;
+  if(dy>0 ? rootDelta<=20 : rootDelta>=-20)
+    throw Error("Document wheel failed over "+widget+" content: "+JSON.stringify(result));
+  if(Math.abs((result.after.inner??0)-(result.before.inner??0))>1)
+    throw Error("Spend surface unexpectedly nested-scrolls "+widget+": "+JSON.stringify(result));
+  if(result.before.overflowY!=="visible")
+    throw Error("Spend surface body overflow is not visible for "+widget+": "+JSON.stringify(result));
  }
  await run("document.scrollingElement.scrollTop=0");
  await capture("TOP_AFTER_WHEEL");
