@@ -152,7 +152,9 @@ function showWidgetSelection() {
         panel.dataset.width = rect.w === 12 ? "full" : "half";
         panel.style.setProperty("--grid-rows", String(rect.h));
     }
-    $("view-name").textContent = dashboardConfig.title;
+    const viewName = $("view-name");
+    if (viewName)
+        viewName.textContent = dashboardConfig.title;
     updateActiveNavigation();
 }
 function persistDashboardConfig(config) {
