@@ -33,8 +33,8 @@ test("per-graph settings validate and older saved configurations migrate to defa
   const old = structuredClone(DEFAULT_DASHBOARD);
   delete old.widgetSettings;
   const migrated = validateDashboardConfig(old);
-  assert.equal(migrated.widgetSettings.providers.metric, "totalTokens");
-  assert.equal(migrated.widgetSettings.trend.maxSeries, 6);
+  assert.equal(migrated.widgetSettings.providers.metric, "totalCost");
+  assert.equal(migrated.widgetSettings.trend.maxSeries, 3);
   const custom = validateDashboardConfig({
     ...old,
     widgetSettings: {
@@ -53,6 +53,9 @@ test("per-graph settings validate and older saved configurations migrate to defa
   assert.throws(() => validateDashboardConfig({ ...old, widgetSettings: { providers: { limit: 200 } } }), /limit/);
 });
 
-test("new views default to visible sampled point labels", () => {
-  assert.equal(validateDashboardConfig(DEFAULT_DASHBOARD).widgetSettings.trend.showLabels, true);
+test("new spend views default to a cleaner unlabeled cost trend", () => {
+  const config=validateDashboardConfig(DEFAULT_DASHBOARD);
+  assert.equal(config.widgetSettings.trend.showLabels,false);
+  assert.equal(config.filters.metric,"totalCost");
+  assert.equal(config.filters.sessionMetric,"totalCost");
 });
