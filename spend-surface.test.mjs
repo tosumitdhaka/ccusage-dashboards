@@ -45,3 +45,11 @@ test("primary spend cards suppress dense inline configuration while retaining op
   assert.ok(css.includes('body.spend-surface [data-widget="sessions"] .chart-header-controls'));
   assert.ok(css.includes('body.spend-surface [data-widget="trend"] .trend-controls label:not(:first-child)'));
 });
+
+test("session spend surface ranks by cost but preserves token detail",async()=>{
+  const ts=await readFile(new URL("./src/client/dashboard.ts",import.meta.url),"utf8");
+  assert.ok(ts.includes('metric:"totalCost",limit:30'));
+  assert.ok(ts.includes("drawSessionGraph(sessionCosts.slice(0,5))"));
+  assert.ok(ts.includes("tokenBySession"));
+  assert.ok(ts.includes("fmt(row.tokens ?? row.value)"));
+});
