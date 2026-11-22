@@ -489,7 +489,7 @@ function drawSessionTable(rows) {
         const sessionCost = typeof row.totalCost === "number" ? row.totalCost :
             (typeof row.cost === "number" ? row.cost : costs.get(key) ?? 0);
         const tr = el("tr");
-        tr.append(el("td", "agent-cell", row.agent), el("td", "session-id", row.session), el("td", "numeric cost-cell", state.reportHasCost ? fmt(sessionCost, "totalCost") : "Unavailable"), el("td", "numeric", fmt(row.value)), el("td", "subtle", row.lastActivity ? new Date(row.lastActivity).toLocaleString() : "Unknown"));
+        tr.append(el("td", "agent-cell", row.agent), el("td", "session-id", row.session), el("td", "numeric cost-cell", state.reportHasCost ? fmt(sessionCost, "totalCost") : "Unavailable"), el("td", "numeric", fmt(row.tokens ?? row.value)), el("td", "subtle", row.lastActivity ? new Date(row.lastActivity).toLocaleString() : "Unknown"));
         tbody.append(tr);
     }
 }
@@ -720,9 +720,9 @@ function render() {
     $("stat-active-days").textContent = activeDays ? activeDays + " usage day" + (activeDays === 1 ? "" : "s") + " observed" : "No usage days in this period";
     $("stat-cost-per-million").textContent = hasCost && vals.totalTokens > 0 ? fmt(blended, "totalCost") : "—";
     $("stat-top-provider").textContent = topProvider?.name ?? "—";
-    $("stat-top-provider-share").textContent = hasCost && cost > 0 && topProvider ? percent(topProvider.value / cost) + " of estimated spend" : "No priced provider data";
+    $("stat-top-provider-share").textContent = hasCost && cost > 0 && topProvider ? fmt(topProvider.value, "totalCost") + " · " + percent(topProvider.value / cost) + " of spend" : "No priced provider data";
     $("stat-top-model").textContent = topModel?.name ?? "—";
-    $("stat-top-model-share").textContent = hasCost && cost > 0 && topModel ? percent(topModel.value / cost) + " of estimated spend" : "No priced model data";
+    $("stat-top-model-share").textContent = hasCost && cost > 0 && topModel ? fmt(topModel.value, "totalCost") + " · " + percent(topModel.value / cost) + " of spend" : "No priced model data";
     $("spend-period-label").textContent = PERIOD_LABELS[activePeriod] ?? activePeriod;
     $("break-input").textContent = fmt(vals.inputTokens);
     $("break-output").textContent = fmt(vals.outputTokens);
@@ -778,9 +778,15 @@ function render() {
     drawBars("model-bars", modelGraph.series, modelSettings.metric, "No model breakdown available.", modelSettings.limit, "model", modelSettings.hiddenDimensions);
     $("provider-summary").textContent = "Ranked by " + METRIC_NAMES[providerSettings.metric].toLowerCase();
     $("model-summary").textContent = "Ranked by " + METRIC_NAMES[modelSettings.metric].toLowerCase();
-    const sessions = buildSessions(filteredReport, { agent: state.agent, model: state.model, metric: state.sessionMetric });
-    drawSessionGraph(sessions.filter((s) => !dashboardConfig.widgetSettings.sessions.hiddenDimensions.includes(s.agent)));
-    drawSessionTable(buildSessions(filteredReport, { agent: state.agent, model: state.model, metric: "totalTokens", limit: 30 }).filter((s) => !dashboardConfig.widgetSettings.sessions.hiddenDimensions.includes(s.agent)).slice(0, 10));
+    const hiddenSessionProviders = new Set(dashboardConfig.widgetSettings.sessions.hiddenDimensions);
+    const sessionCosts = buildSessions(filteredReport, { agent: state.agent, model: state.model, metric: "totalCost", limit: 30 })
+        .filter((s) => !hiddenSessionProviders.has(s.agent));
+    const sessionTokens = buildSessions(filteredReport, { agent: state.agent, model: state.model, metric: "totalTokens", limit: 100 });
+    const tokenBySession = new Map(sessionTokens.map((s) => [(s.agent ?? "unknown") + "\0" + String(s.session ?? ""), s.value]));
+    drawSessionGraph(sessionCosts.slice(0, 5));
+    drawSessionTable(sessionCosts.slice(0, 10).map((row) => ({
+        ...row, cost: row.value, tokens: tokenBySession.get((row.agent ?? "unknown") + "\0" + String(row.session ?? "")) ?? 0
+    })));
     renderCustomCharts(filteredReport, filteredHourly);
     const warnings = state.model === "all" ? view.missingPricing : view.missingPricing.filter((m) => m === state.model);
     const notice = $("notice");
