@@ -713,9 +713,10 @@ function render() {
   $("provider-summary").textContent = "Ranked by " + METRIC_NAMES[providerSettings.metric].toLowerCase();
   $("model-summary").textContent = "Ranked by " + METRIC_NAMES[modelSettings.metric].toLowerCase();
   const hiddenSessionProviders=new Set(dashboardConfig.widgetSettings.sessions.hiddenDimensions);
-  const sessionCosts=buildSessions(filteredReport,{agent:state.agent,model:state.model,metric:"totalCost",limit:30})
+  const sessionCandidateLimit=Math.max(12,Array.isArray(filteredReport.session)?filteredReport.session.length:12);
+  const sessionCosts=buildSessions(filteredReport,{agent:state.agent,model:state.model,metric:"totalCost",limit:sessionCandidateLimit})
     .filter((s:any)=>!hiddenSessionProviders.has(s.agent));
-  const sessionTokens=buildSessions(filteredReport,{agent:state.agent,model:state.model,metric:"totalTokens",limit:100});
+  const sessionTokens=buildSessions(filteredReport,{agent:state.agent,model:state.model,metric:"totalTokens",limit:sessionCandidateLimit});
   const tokenBySession=new Map(sessionTokens.map((s:any)=>[(s.agent??"unknown")+"\0"+String(s.session??""),s.value]));
   drawSessionGraph(sessionCosts.slice(0,5));
   drawSessionTable(sessionCosts.slice(0,10).map((row:any)=>({
