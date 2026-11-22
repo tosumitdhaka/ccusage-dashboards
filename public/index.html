@@ -4,11 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0d1220">
-  <title>AI Usage Observatory · ccusage</title>
+  <title>AI Spend Overview · ccusage</title>
   <link rel="stylesheet" href="/styles.css">
   <script src="/dashboard.js" type="module"></script>
 </head>
-<body>
+<body class="spend-surface">
   <div class="shell">
     <aside class="sidebar" aria-label="Dashboard navigation">
       <div class="sidebar-header">
@@ -31,14 +31,43 @@
     </aside>
     <main id="overview" class="main">
       <header class="topbar">
-        <div class="breadcrumb">Workspace <span>/</span> <strong id="view-name">Overview</strong></div>
-        <div class="top-actions"><div class="topbar-period" role="group" aria-label="Time period grouping"><label for="header-period" class="topbar-period-label">Period</label><select id="header-period" class="period-select header-period-select" aria-label="Select report period"><option value="today">Today</option><option value="7d" selected>Last 7 Days</option><option value="14d">Last 14 Days</option><option value="30d">Last 30 Days</option><option value="90d">Last 90 Days</option><option value="all">All Time</option></select></div><span class="local-tag"><span class="signal-dot"></span> Localhost</span><button id="customize" class="customize-trigger" type="button" aria-haspopup="dialog" title="Customize dashboard settings">⚙ Customize</button><button id="add-graph" class="refresh" type="button" aria-haspopup="dialog">+ New graph</button><button id="layout-edit" class="refresh" type="button" aria-pressed="false" aria-label="Layout locked. Click to edit positions." title="Layout Locked. Click to edit positions.">🔒 Edit Layout</button><button id="layout-save" class="save-button layout-save" type="button" title="Save widget positions to local storage" hidden>✓ Save Layout</button><button id="layout-cancel" class="refresh layout-cancel" type="button" title="Discard layout changes and restore saved positions" hidden>✕ Cancel</button><span id="layout-help" class="layout-compact-hint" hidden role="status">Use a wider screen to drag or resize widgets. Save or cancel to finish editing.</span><button id="refresh" class="refresh" type="button">↻ &nbsp; Refresh data</button></div>
+        <div class="topbar-brand" aria-label="ccusage local AI spend dashboard">
+          <span class="topbar-brand-mark">◈</span>
+          <span><strong>ccusage</strong><small>LOCAL AI SPEND</small></span>
+        </div>
+        <div class="top-actions">
+          <label class="top-filter" for="header-period"><span>Period</span><select id="header-period" class="period-select header-period-select" aria-label="Select report period"><option value="today">Today</option><option value="7d" selected>Last 7 days</option><option value="14d">Last 14 days</option><option value="30d">Last 30 days</option><option value="90d">Last 90 days</option><option value="all">All time</option></select></label>
+          <label class="top-filter" for="agent"><span>Provider</span><select id="agent" aria-label="Filter by provider"><option value="all">All providers</option></select></label>
+          <label class="top-filter" for="model"><span>Model</span><select id="model" aria-label="Filter by model"><option value="all">All models</option></select></label>
+          <button id="customize" class="top-action-secondary" type="button" aria-haspopup="dialog" title="Dashboard settings">Settings</button>
+          <button id="refresh" class="top-action-primary" type="button">↻ Refresh</button>
+          <details class="advanced-menu">
+            <summary aria-label="Advanced dashboard tools">•••</summary>
+            <div class="advanced-menu-panel">
+              <button id="add-graph" class="advanced-action" type="button" aria-haspopup="dialog">+ New graph</button>
+              <button id="layout-edit" class="advanced-action experimental-layout" type="button" aria-pressed="false" aria-label="Layout locked. Click to edit positions.">Edit layout</button>
+            </div>
+          </details>
+          <button id="layout-save" class="save-button layout-save experimental-layout" type="button" hidden>✓ Save layout</button>
+          <button id="layout-cancel" class="advanced-action layout-cancel experimental-layout" type="button" hidden>✕ Cancel</button>
+          <span id="layout-help" class="layout-compact-hint" hidden role="status">Layout editing is an advanced tool.</span>
+        </div>
       </header>
       <div class="content">
-        <div class="page-title">
-          <div><div class="eyebrow">CODING AGENT INTELLIGENCE</div><h1>AI Usage Observatory<span class="accent">.</span></h1><p class="intro">Understand the token footprint of your coding agents. Compare providers, track trends, and inspect the models behind your work.</p></div>
-          <div class="updated" id="updated">Awaiting local report</div>
-        </div>
+        <section class="spend-hero" aria-labelledby="spend-page-title">
+          <div>
+            <div class="eyebrow">SPEND &amp; USAGE</div>
+            <h1 id="spend-page-title">AI spend overview</h1>
+            <p class="intro">See how much your AI coding tools are costing, which providers and models drive that spend, and which sessions consume the most.</p>
+          </div>
+          <div class="hero-meta">
+            <span class="local-data-pill"><span class="signal-dot"></span> Local data only</span>
+            <span class="updated" id="updated">Awaiting local report</span>
+          </div>
+        </section>
+        <nav class="surface-nav" aria-label="Spend dashboard sections">
+          <a href="#trend">Spend trend</a><a href="#providers">Providers</a><a href="#models">Models</a><a href="#sessions">Sessions</a>
+        </nav>
         <div id="notice" class="notice" role="status" aria-live="polite">Loading your local ccusage report…</div>
         <div id="layout-toolbar" class="layout-toolbar-panel" hidden role="region" aria-label="Layout and widget editor">
           <div class="layout-toolbar-header">
@@ -68,15 +97,38 @@
           </div>
         </div>
         <div id="dashboard-grid" class="dashboard-grid" aria-label="Dashboard widgets">
-        <section class="kpis" data-widget="kpis" aria-label="Usage summary">
-          <article class="kpi"><div class="kpi-label">Reported tokens <span class="kpi-icon">⌁</span></div><strong id="stat-tokens">—</strong><p>Total reported across selected periods</p></article>
-          <article class="kpi"><div class="kpi-label">Fresh input <span class="kpi-icon">↗</span></div><strong id="stat-input">—</strong><p>Uncached input tokens</p></article>
-          <article class="kpi"><div class="kpi-label">Generated output <span class="kpi-icon">↘</span></div><strong id="stat-output">—</strong><p>Output tokens</p></article>
-          <article class="kpi"><div class="kpi-label">API-equivalent cost <span class="kpi-icon">$</span></div><strong id="stat-cost">—</strong><p>Estimated, not your subscription bill</p></article>
+        <section class="kpis spend-summary" data-widget="kpis" aria-label="Spend summary">
+          <article class="kpi spend-primary">
+            <div class="kpi-label">Estimated spend <span class="kpi-icon">$</span></div>
+            <strong id="stat-cost">—</strong>
+            <p><span id="spend-period-label">Selected period</span> · API-equivalent estimate</p>
+          </article>
+          <article class="kpi">
+            <div class="kpi-label">Average / usage day</div>
+            <strong id="stat-daily-average">—</strong>
+            <p id="stat-active-days">Observed days with usage</p>
+          </article>
+          <article class="kpi">
+            <div class="kpi-label">Top provider</div>
+            <strong id="stat-top-provider">—</strong>
+            <p id="stat-top-provider-share">Share of estimated spend</p>
+          </article>
+          <article class="kpi">
+            <div class="kpi-label">Top model</div>
+            <strong id="stat-top-model">—</strong>
+            <p id="stat-top-model-share">Share of estimated spend</p>
+          </article>
+          <div class="usage-strip" aria-label="Token efficiency">
+            <div><span>Cost / 1M tokens</span><strong id="stat-cost-per-million">—</strong></div>
+            <div><span>Total tokens</span><strong id="stat-tokens">—</strong></div>
+            <div><span>Input</span><strong id="stat-input">—</strong></div>
+            <div><span>Output</span><strong id="stat-output">—</strong></div>
+            <div><span>Cache reads</span><strong id="stat-cache-read">—</strong></div>
+          </div>
         </section>
         <section class="wide-card trend-card" data-widget="trend" id="trend">
           <div class="section-header trend-header">
-            <div class="trend-heading"><div class="section-kicker">01 / TREND</div><h2 id="chart-heading">Usage over time</h2><p id="chart-explainer">Reported totals per period</p></div>
+            <div class="trend-heading"><div class="section-kicker">SPEND TREND</div><h2 id="chart-heading">Estimated spend over time</h2><p id="chart-explainer">Daily API-equivalent cost for the selected period</p></div>
             <div class="trend-header-actions">
               <div class="chart-header-controls"><div class="trend-controls">
                     <label for="trend-granularity">Granularity <select id="trend-granularity">
@@ -109,9 +161,9 @@
         </section>
         <section class="panel" data-widget="providers" id="providers">
             <div class="section-header chart-section-header">
-              <div><div class="section-kicker">02 / SOURCE MIX</div><h2>Provider distribution</h2><p id="provider-summary">Ranked by reported tokens</p></div>
+              <div><div class="section-kicker">SPEND BY PROVIDER</div><h2>Where the money goes</h2><p id="provider-summary">Ranked by estimated spend</p></div>
               <div class="chart-header-controls"><div class="bar-controls">
-                    <label for="provider-metric">Metric <select id="provider-metric"><option value="totalTokens">Reported tokens</option><option value="inputTokens">Input tokens</option><option value="outputTokens">Output tokens</option><option value="cacheReadTokens">Cache reads</option><option value="cacheCreationTokens">Cache writes</option><option value="totalCost">Estimated API cost ($)</option></select></label>
+                    <label for="provider-metric">Metric <select id="provider-metric"><option value="totalCost">Estimated spend ($)</option><option value="totalTokens">Reported tokens</option><option value="inputTokens">Input tokens</option><option value="outputTokens">Output tokens</option><option value="cacheReadTokens">Cache reads</option><option value="cacheCreationTokens">Cache writes</option></select></label>
                     <label for="provider-limit">Bars <select id="provider-limit"><option value="5">Top 5</option><option value="10">Top 10</option><option value="12">Top 12</option></select></label>
                   </div></div>
             </div>
@@ -119,7 +171,7 @@
           </section>
           <section class="panel" data-widget="models" id="models">
             <div class="section-header chart-section-header">
-              <div><div class="section-kicker">03 / MODEL MIX</div><h2>Most-used models</h2><p id="model-summary">Ranked by reported tokens</p></div>
+              <div><div class="section-kicker">SPEND BY MODEL</div><h2>Which models cost the most</h2><p id="model-summary">Ranked by estimated spend</p></div>
               <div class="chart-header-controls"><div class="bar-controls">
                     <label for="model-metric">Metric <select id="model-metric"><option value="totalTokens">Reported tokens</option><option value="inputTokens">Input tokens</option><option value="outputTokens">Output tokens</option><option value="cacheReadTokens">Cache reads</option><option value="cacheCreationTokens">Cache writes</option><option value="totalCost">Estimated API cost ($)</option></select></label>
                     <label for="model-limit">Bars <select id="model-limit"><option value="5">Top 5</option><option value="10">Top 10</option><option value="12">Top 12</option></select></label>
@@ -127,21 +179,21 @@
             </div>
             <div id="model-bars" class="bars"></div>
           </section>
-          <section class="panel" data-widget="cache"><div class="section-header"><div><div class="section-kicker">TOKEN BREAKDOWN</div><h2>Input and cache</h2><p>Raw categories from the report</p></div></div><div class="token-grid"><div><span>Input</span><strong id="break-input">—</strong></div><div><span>Output</span><strong id="break-output">—</strong></div><div><span>Cache reads</span><strong id="break-cache">—</strong></div><div><span>Cache writes</span><strong id="break-write">—</strong></div></div><p class="footnote">Provider token accounting can overlap categories. These figures are not forcibly added to the reported total.</p></section>
-          <section class="panel" data-widget="guidance"><div class="section-header"><div><div class="section-kicker">DATA NOTES</div><h2>How to read the charts</h2></div></div><div class="information"><div><span class="info-circle">i</span><p>API-equivalent pricing is an estimate, not an extra charge to your subscription.</p></div><div><span class="info-circle">i</span><p>Subscription quota percentages are not available in ccusage JSON.</p></div><div><span class="info-circle">i</span><p>Reports include only locally retained agent data and supported adapters.</p></div></div></section>
+          <section class="panel" data-widget="cache"><div class="section-header"><div><div class="section-kicker">TOKEN MIX</div><h2>What drives usage</h2><p>Input, output and cache categories</p></div></div><div class="token-grid"><div><span>Input</span><strong id="break-input">—</strong></div><div><span>Output</span><strong id="break-output">—</strong></div><div><span>Cache reads</span><strong id="break-cache">—</strong></div><div><span>Cache writes</span><strong id="break-write">—</strong></div></div><p class="footnote">Provider token accounting can overlap categories. These figures are not forcibly added to the reported total.</p></section>
+          <section class="panel" data-widget="guidance"><div class="section-header"><div><div class="section-kicker">METHODOLOGY</div><h2>About these numbers</h2></div></div><div class="information"><div><span class="info-circle">i</span><p>API-equivalent pricing is an estimate, not an extra charge to your subscription.</p></div><div><span class="info-circle">i</span><p>Subscription quota percentages are not available in ccusage JSON.</p></div><div><span class="info-circle">i</span><p>Reports include only locally retained agent data and supported adapters.</p></div></div></section>
         <section class="wide-card sessions-card" data-widget="sessions" id="sessions">
           <div class="section-header chart-section-header">
-            <div><div class="section-kicker">RECENT ACTIVITY</div><h2>Top sessions</h2><p>Ranked by reported tokens; adjust the session bar metric</p></div>
+            <div><div class="section-kicker">SESSION COST</div><h2>Highest-cost sessions</h2><p>Find the individual sessions driving spend</p></div>
             <div class="chart-header-controls"><div class="trend-controls">
-                  <label for="session-metric">Metric <select id="session-metric"><option value="totalTokens">Tokens per session</option><option value="totalCost">Estimated cost per session ($)</option><option value="outputTokens">Output tokens per session</option></select></label>
+                  <label for="session-metric">Rank by <select id="session-metric"><option value="totalCost">Estimated spend ($)</option><option value="totalTokens">Tokens per session</option><option value="outputTokens">Output tokens per session</option></select></label>
                 </div></div>
           </div>
           <div id="session-bars" class="session-bars"></div>
           <p class="footnote">Each bar represents a whole session, not an event-time progression within it. Model-filtered bars show only available per-model categories.</p>
-          <div class="table-wrap" tabindex="0" role="region" aria-label="Recent session activity table"><table><thead><tr><th scope="col">Agent</th><th scope="col">Session</th><th scope="col">Reported tokens</th><th scope="col">API-equivalent</th><th scope="col">Last activity</th></tr></thead><tbody id="sessions-body"><tr><td colspan="5">Loading…</td></tr></tbody></table></div>
+          <div class="table-wrap" tabindex="0" role="region" aria-label="Recent session activity table"><table><thead><tr><th scope="col">Provider</th><th scope="col">Session</th><th scope="col">Est. spend</th><th scope="col">Tokens</th><th scope="col">Last activity</th></tr></thead><tbody id="sessions-body"><tr><td colspan="5">Loading…</td></tr></tbody></table></div>
         </section>
         </div>
-        <footer>CCUSAGE / OBSERVATORY MVP <span>Local-first · Read-only · Powered by ccusage JSON</span></footer>
+        <footer>CCUSAGE / LOCAL AI SPEND <span>API-equivalent estimates · Local-first · Read-only</span></footer>
       </div>
     </main>
   </div>
@@ -159,7 +211,7 @@
         <fieldset id="widget-options" class="widget-options"><legend>Visible widgets</legend></fieldset>
         <p id="config-status" class="config-status" role="status" aria-live="polite"></p>
         <div class="customize-actions">
-          <button id="customize-edit-layout" type="button" class="refresh">◫ Edit grid layout</button>
+          <button id="customize-edit-layout" type="button" class="refresh experimental-layout">◫ Edit grid layout</button>
           <button id="config-export" type="button" class="refresh">Export JSON</button>
           <button id="config-import-trigger" type="button" class="refresh">Import JSON</button>
           <input id="config-import" type="file" accept=".json,application/json" hidden aria-label="Choose dashboard JSON">

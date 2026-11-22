@@ -41,16 +41,16 @@ export const WIDGET_REGISTRY: Readonly<Record<string,{kind:string;title:string;s
 export const DEFAULT_DASHBOARD = Object.freeze({
   schemaVersion: SCHEMA_VERSION,
   id: "overview",
-  title: "AI Usage Overview",
+  title: "AI Spend Overview",
   widgets: ["kpis", "trend", "providers", "models", "cache", "guidance", "sessions"],
   filters: {
     period: "7d", provider: "all", model: "all",
-    metric: "totalTokens", breakdown: "total", sessionMetric: "totalTokens"
+    metric: "totalCost", breakdown: "total", sessionMetric: "totalCost"
   },
   widgetSettings: {
-    trend: { granularity: "daily", showLabels: true, maxSeries: 6, hiddenDimensions: [] },
-    providers: { metric: "totalTokens", limit: 12, hiddenDimensions: [] },
-    models: { metric: "totalTokens", limit: 12, hiddenDimensions: [] },
+    trend: { granularity: "daily", showLabels: false, maxSeries: 3, hiddenDimensions: [] },
+    providers: { metric: "totalCost", limit: 5, hiddenDimensions: [] },
+    models: { metric: "totalCost", limit: 5, hiddenDimensions: [] },
     sessions: { hiddenDimensions: [] },
     cache: { hiddenDimensions: [] },
     kpis: { hiddenDimensions: [] },
