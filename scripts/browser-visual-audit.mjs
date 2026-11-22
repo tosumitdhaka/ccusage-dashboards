@@ -164,40 +164,24 @@ try{
  })()`);
  await delay(120);
  await capture("MODELS");
- // Fixed viewport and disabled smooth scrolling isolate geometric drop effects.
- await run('document.documentElement.style.scrollBehavior="auto"');
- await run('document.querySelector("#layout-edit").click()');
- const unlocked=await run('document.querySelector("#dashboard-grid").classList.contains("is-arranging")');
- if(!unlocked)throw Error("The layout editor did not unlock");
- const dragStart=await run(`(()=>{
-   const target=document.querySelector('[data-widget="providers"] .section-kicker');
-   target.scrollIntoView({block:'center',behavior:'instant'});
-   const r=target.getBoundingClientRect();
-   const ids=['trend','providers','models','cache','guidance','sessions'];
-   return {x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2),
-     scrollTop:document.scrollingElement.scrollTop,
-     rects:Object.fromEntries(ids.map(id=>[id,document.querySelector('[data-widget="'+id+'"]').getBoundingClientRect().toJSON()]))};
+ const spend=await run(`(()=>{
+   const val=id=>document.getElementById(id)?.textContent?.trim();
+   const layout=getComputedStyle(document.querySelector('#layout-edit'));
+   const body=document.querySelector('[data-widget="models"]>.widget-scroll-body');
+   return {cost:val('stat-cost'),avg:val('stat-daily-average'),rate:val('stat-cost-per-million'),
+     provider:val('stat-top-provider'),model:val('stat-top-model'),tokens:val('stat-tokens'),
+     providerFilter:document.querySelector('#agent')?.value,modelFilter:document.querySelector('#model')?.value,
+     layoutDisplay:layout.display,modelOverflow:getComputedStyle(body).overflowY,
+     modelBodyHeight:body?.getBoundingClientRect().height,modelScrollHeight:body?.scrollHeight};
  })()`);
- await call("Input.dispatchMouseEvent",{type:"mousePressed",x:dragStart.x,y:dragStart.y,button:"left",buttons:1,clickCount:1});
- await call("Input.dispatchMouseEvent",{type:"mouseMoved",x:dragStart.x+80,y:dragStart.y+128,button:"left",buttons:1});
+ console.log("UI_AUDIT_SPEND:"+JSON.stringify(spend));
+ if(!spend.cost||spend.cost==="—"||!spend.avg||spend.avg==="—"||!spend.provider||spend.provider==="—"||!spend.model||spend.model==="—")
+   throw Error("Spend summary did not render: "+JSON.stringify(spend));
+ if(spend.layoutDisplay!=="none")throw Error("Experimental layout editor leaked into primary surface");
+ if(spend.modelOverflow!=="visible")throw Error("Spend surface still creates nested model scrolling: "+JSON.stringify(spend));
+ await run(`document.querySelector('#sessions').scrollIntoView({behavior:'instant',block:'start'})`);
  await delay(100);
- await capture("DRAGGING");
- const mid=await run(`(()=>({
-   scrollTop:document.scrollingElement.scrollTop,
-   transform:document.querySelector('[data-widget="providers"]').style.transform,
-   targetTransform:document.querySelector('#grid-drop-preview').style.transform,
-   layout:document.querySelector('[data-widget="providers"]').style.gridRow
- }))()`);
- await call("Input.dispatchMouseEvent",{type:"mouseReleased",x:dragStart.x+80,y:dragStart.y+128,button:"left",buttons:0,clickCount:1});
- await delay(110);
- await capture("DROPPED");
- const drop=await run(`(()=>{
-   const ids=['trend','providers','models','cache','guidance','sessions'];
-   return {scrollTop:document.scrollingElement.scrollTop,
-     rects:Object.fromEntries(ids.map(id=>[id,document.querySelector('[data-widget="'+id+'"]').getBoundingClientRect().toJSON()]))};
- })()`);
- console.log("UI_AUDIT_DRAG:"+JSON.stringify({dragStart,mid,drop}));
- await run('document.querySelector("#layout-cancel").click()');
+ await capture("SESSIONS");
  const state=await run(`(()=>({menu:document.querySelector('[data-widget="models"] .viz-menu-trigger')?.getBoundingClientRect().toJSON(),buttonText:document.querySelector('#customize')?.textContent,scrollTop:document.scrollingElement.scrollTop}))()`);
  console.log("UI_AUDIT_STATE:"+JSON.stringify(state));
  console.log("UI_AUDIT_PASS");
