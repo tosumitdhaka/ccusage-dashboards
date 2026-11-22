@@ -19,7 +19,10 @@ const report={
    inputTokens:151000,outputTokens:96000,cacheReadTokens:48000,cacheCreationTokens:6000,modelBreakdowns:models("all",day)};
  }),
  weekly:[],monthly:[],
- session:Array.from({length:12},(_,i)=>({period:"session-"+i,session:"session-"+i,agent:names[i%3],totalTokens:15000+i*2700,totalCost:2+i*.4,inputTokens:8700,outputTokens:4200,modelBreakdowns:[models("codex",i)[i]]}))
+ session:Array.from({length:12},(_,i)=>({period:"session-"+i,session:"session-"+i,agent:names[i%3],
+   totalTokens:15000+i*2700,totalCost:2+i*.4,inputTokens:8700,outputTokens:4200,
+   metadata:{lastActivity:new Date(Date.UTC(2026,8,20+(i%6),10+i,0,0)).toISOString()},
+   modelBreakdowns:[models("codex",i)[i]]}))
 };
 const temp=await mkdtemp(join(tmpdir(),"ccusage-audit-"));
 let browser,server,socket;
@@ -108,7 +111,7 @@ try{
  if(smoothAudit.before.behavior!=="auto"||smoothAudit.immediately!==400||
     smoothAudit.after75!==400||smoothAudit.after350!==400)
    throw Error("Document scroll delay persists: "+JSON.stringify(smoothAudit));
- const wheel=async(widget,targetSelector,dy,innerPosition=0)=>{
+ const wheel=async(widget,targetSelector,dy)=>{
   const geometry=await run(`(()=>{
     const card=document.querySelector('[data-widget="${widget}"]');
     const body=card?.querySelector('.widget-scroll-body');
@@ -117,44 +120,44 @@ try{
     target.scrollIntoView({block:'center',behavior:'instant'});
     const root=document.scrollingElement;
     const maxRoot=root.scrollHeight-root.clientHeight;
-    // Target center should be visible and leave enough document remaining to
-    // distinguish true root movement from a clamped scroll boundary.
-    const absolute=target.getBoundingClientRect().top+root.scrollTop;
-    root.scrollTop=Math.max(0,Math.min(maxRoot-260,absolute-innerHeight/2));
-    body.scrollTop=${innerPosition};
+    // Keep the hit target inside the viewport. Direction determines which
+    // document boundary needs room for a physical wheel event.
+    const desired=Math.max(0,Math.min(maxRoot,
+      target.getBoundingClientRect().top+root.scrollTop-innerHeight/2));
+    root.scrollTop=desired;
     const b=target.getBoundingClientRect();
-    const x=Math.round(b.left+b.width/2),y=Math.round(b.top+b.height/2);
+    const x=Math.round(Math.max(8,Math.min(innerWidth-8,b.left+b.width/2)));
+    const y=Math.round(Math.max(40,Math.min(innerHeight-40,b.top+b.height/2)));
     const actual=document.elementFromPoint(x,y);
-    return {x,y,onViewport:y>30&&y<innerHeight-30,
+    return {x,y,onViewport:y>=40&&y<=innerHeight-40,
       hit:!!actual&&body.contains(actual),
       actual:actual?.tagName,actualClass:actual?.getAttribute('class'),
       root:root.scrollTop,rootMax:maxRoot,inner:body.scrollTop,
-      bodyMax:body.scrollHeight-body.clientHeight};
+      bodyMax:body.scrollHeight-body.clientHeight,overflowY:getComputedStyle(body).overflowY};
    })()`);
-  if(!geometry.onViewport||!geometry.hit||geometry.rootMax-geometry.root<dy+50)
+  const room=dy>0?geometry.rootMax-geometry.root:geometry.root;
+  if(!geometry.onViewport||!geometry.hit||room<Math.abs(dy)+30)
     throw Error("Invalid physical wheel target for "+widget+": "+JSON.stringify(geometry));
-  await call("Input.dispatchMouseEvent",{type:"mouseWheel",x:geometry.x,y:geometry.y,deltaX:0,deltaY:dy,modifiers:0,pointerType:"mouse"});
+  await call("Input.dispatchMouseEvent",{type:"mouseWheel",x:geometry.x,y:geometry.y,
+    deltaX:0,deltaY:dy,modifiers:0,pointerType:"mouse"});
   await delay(200);
-  const after=await run(`(()=>({root:document.scrollingElement.scrollTop,inner:document.querySelector('[data-widget="${widget}"]>.widget-scroll-body')?.scrollTop}))()`);
+  const after=await run(`(()=>({root:document.scrollingElement.scrollTop,
+    inner:document.querySelector('[data-widget="${widget}"]>.widget-scroll-body')?.scrollTop}))()`);
   return {widget,targetSelector,dy,before:geometry,after};
  };
- for(const [widget,target,dy,innerPosition] of [
-  ["trend","svg",170,0],["providers",".bar-row",180,0],
-  ["models",".widget-scroll-body",180,0],["models",".widget-scroll-body",180,100],
-  ["cache",".widget-scroll-body",170,0],["sessions",".widget-scroll-body",180,0]
+ for(const [widget,target,dy] of [
+  ["trend","svg",170],["providers",".bar-row",180],["models",".widget-scroll-body",180],
+  ["cache",".widget-scroll-body",-170],["sessions",".widget-scroll-body",-180]
  ]) {
-  const result=await wheel(widget,target,dy,innerPosition);
+  const result=await wheel(widget,target,dy);
   console.log("UI_AUDIT_WHEEL:"+JSON.stringify(result));
-  const isScrollable = (result.before.bodyMax ?? 0) > 5;
-  if(widget === "trend" || !isScrollable) {
-    if(result.after.root<=result.before.root+20)
-      throw Error("Page wheel failed over "+widget+" content: "+JSON.stringify(result));
-  } else {
-    const innerDelta = Math.abs((result.after.inner??0)-(result.before.inner??0));
-    const rootDelta = result.after.root - result.before.root;
-    if(innerDelta <= 1 && rootDelta <= 20)
-      throw Error("Wheel did not produce native scroll for "+widget+": "+JSON.stringify(result));
-  }
+  const rootDelta=result.after.root-result.before.root;
+  if(dy>0 ? rootDelta<=20 : rootDelta>=-20)
+    throw Error("Document wheel failed over "+widget+" content: "+JSON.stringify(result));
+  if(Math.abs((result.after.inner??0)-(result.before.inner??0))>1)
+    throw Error("Spend surface unexpectedly nested-scrolls "+widget+": "+JSON.stringify(result));
+  if(result.before.overflowY!=="visible")
+    throw Error("Spend surface body overflow is not visible for "+widget+": "+JSON.stringify(result));
  }
  await run("document.scrollingElement.scrollTop=0");
  await capture("TOP_AFTER_WHEEL");
@@ -164,40 +167,24 @@ try{
  })()`);
  await delay(120);
  await capture("MODELS");
- // Fixed viewport and disabled smooth scrolling isolate geometric drop effects.
- await run('document.documentElement.style.scrollBehavior="auto"');
- await run('document.querySelector("#layout-edit").click()');
- const unlocked=await run('document.querySelector("#dashboard-grid").classList.contains("is-arranging")');
- if(!unlocked)throw Error("The layout editor did not unlock");
- const dragStart=await run(`(()=>{
-   const target=document.querySelector('[data-widget="providers"] .section-kicker');
-   target.scrollIntoView({block:'center',behavior:'instant'});
-   const r=target.getBoundingClientRect();
-   const ids=['trend','providers','models','cache','guidance','sessions'];
-   return {x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2),
-     scrollTop:document.scrollingElement.scrollTop,
-     rects:Object.fromEntries(ids.map(id=>[id,document.querySelector('[data-widget="'+id+'"]').getBoundingClientRect().toJSON()]))};
+ const spend=await run(`(()=>{
+   const val=id=>document.getElementById(id)?.textContent?.trim();
+   const layout=getComputedStyle(document.querySelector('#layout-edit'));
+   const body=document.querySelector('[data-widget="models"]>.widget-scroll-body');
+   return {cost:val('stat-cost'),avg:val('stat-daily-average'),rate:val('stat-cost-per-million'),
+     provider:val('stat-top-provider'),model:val('stat-top-model'),tokens:val('stat-tokens'),
+     providerFilter:document.querySelector('#agent')?.value,modelFilter:document.querySelector('#model')?.value,
+     layoutDisplay:layout.display,modelOverflow:getComputedStyle(body).overflowY,
+     modelBodyHeight:body?.getBoundingClientRect().height,modelScrollHeight:body?.scrollHeight};
  })()`);
- await call("Input.dispatchMouseEvent",{type:"mousePressed",x:dragStart.x,y:dragStart.y,button:"left",buttons:1,clickCount:1});
- await call("Input.dispatchMouseEvent",{type:"mouseMoved",x:dragStart.x+80,y:dragStart.y+128,button:"left",buttons:1});
+ console.log("UI_AUDIT_SPEND:"+JSON.stringify(spend));
+ if(!spend.cost||spend.cost==="—"||!spend.avg||spend.avg==="—"||!spend.provider||spend.provider==="—"||!spend.model||spend.model==="—")
+   throw Error("Spend summary did not render: "+JSON.stringify(spend));
+ if(spend.layoutDisplay!=="none")throw Error("Experimental layout editor leaked into primary surface");
+ if(spend.modelOverflow!=="visible")throw Error("Spend surface still creates nested model scrolling: "+JSON.stringify(spend));
+ await run(`document.querySelector('#sessions').scrollIntoView({behavior:'instant',block:'start'})`);
  await delay(100);
- await capture("DRAGGING");
- const mid=await run(`(()=>({
-   scrollTop:document.scrollingElement.scrollTop,
-   transform:document.querySelector('[data-widget="providers"]').style.transform,
-   targetTransform:document.querySelector('#grid-drop-preview').style.transform,
-   layout:document.querySelector('[data-widget="providers"]').style.gridRow
- }))()`);
- await call("Input.dispatchMouseEvent",{type:"mouseReleased",x:dragStart.x+80,y:dragStart.y+128,button:"left",buttons:0,clickCount:1});
- await delay(110);
- await capture("DROPPED");
- const drop=await run(`(()=>{
-   const ids=['trend','providers','models','cache','guidance','sessions'];
-   return {scrollTop:document.scrollingElement.scrollTop,
-     rects:Object.fromEntries(ids.map(id=>[id,document.querySelector('[data-widget="'+id+'"]').getBoundingClientRect().toJSON()]))};
- })()`);
- console.log("UI_AUDIT_DRAG:"+JSON.stringify({dragStart,mid,drop}));
- await run('document.querySelector("#layout-cancel").click()');
+ await capture("SESSIONS");
  const state=await run(`(()=>({menu:document.querySelector('[data-widget="models"] .viz-menu-trigger')?.getBoundingClientRect().toJSON(),buttonText:document.querySelector('#customize')?.textContent,scrollTop:document.scrollingElement.scrollTop}))()`);
  console.log("UI_AUDIT_STATE:"+JSON.stringify(state));
  console.log("UI_AUDIT_PASS");

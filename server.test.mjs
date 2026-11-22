@@ -26,7 +26,7 @@ test("serves a cached unified report locally without remote CORS grants", async 
     assert.equal(calls, 1);
     const html = await fetch(url + "/");
     assert.equal(html.status, 200);
-    assert.match(await html.text(), /AI Usage Observatory/);
+    assert.match(await html.text(), /AI spend overview/);
     assert.equal((await fetch(url + "/../../server.mjs")).status, 404);
     const dashboardConfig = await fetch(url + "/dashboard-config.mjs");
     assert.equal(dashboardConfig.status, 200);

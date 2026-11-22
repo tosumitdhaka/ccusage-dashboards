@@ -17,7 +17,7 @@ interface DashboardState {
   metric: string; sessionMetric: string;
 }
 const state: DashboardState = { report: null, hourly: [], section: "7d", agent: "all", model: "all",
-  breakdown: "total", metric: "totalTokens", sessionMetric: "totalTokens" };
+  breakdown: "total", metric: "totalCost", sessionMetric: "totalCost" };
 const compact = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 2 });
 const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 });
 const hiddenTrendSeries = new Set<string>();
@@ -84,15 +84,32 @@ let layoutDraftTitle: string|null=null;
 let layoutDraftCharts: any[]|null=null;
 let activeLayoutGesture=false;
 let movementFrame=0;
-try { dashboardConfig = readDashboardConfig(window.localStorage); }
-catch { storageWarning = "Saved dashboard preferences are unavailable; defaults are in use."; }
+const SPEND_SURFACE_MIGRATION_KEY="ccusage-dashboards:surface:spend-v1";
+try {
+  dashboardConfig = readDashboardConfig(window.localStorage);
+  if(window.localStorage.getItem(SPEND_SURFACE_MIGRATION_KEY)!=="1"){
+    dashboardConfig=validateDashboardConfig({
+      ...dashboardConfig,
+      title:"AI Spend Overview",
+      filters:{...dashboardConfig.filters,metric:"totalCost",breakdown:"total",sessionMetric:"totalCost"},
+      widgetSettings:{
+        ...dashboardConfig.widgetSettings,
+        trend:{...dashboardConfig.widgetSettings.trend,granularity:"daily",showLabels:false,maxSeries:3},
+        providers:{...dashboardConfig.widgetSettings.providers,metric:"totalCost",limit:5},
+        models:{...dashboardConfig.widgetSettings.models,metric:"totalCost",limit:5}
+      }
+    });
+    saveDashboardConfig(window.localStorage,dashboardConfig);
+    window.localStorage.setItem(SPEND_SURFACE_MIGRATION_KEY,"1");
+  }
+} catch { storageWarning = "Saved dashboard preferences are unavailable; defaults are in use."; }
 function applyFilterState(filters: any) {
   state.section = filters.period || "7d";
   state.agent = filters.provider || "all";
   state.model = filters.model || "all";
-  state.metric = filters.metric || "totalTokens";
+  state.metric = filters.metric || "totalCost";
   state.breakdown = filters.breakdown || "total";
-  state.sessionMetric = filters.sessionMetric || "totalTokens";
+  state.sessionMetric = filters.sessionMetric || "totalCost";
   const metricEl = $("metric") as HTMLSelectElement | null;
   if (metricEl) metricEl.value = state.metric;
   const breakdownEl = $("breakdown") as HTMLSelectElement | null;
@@ -126,7 +143,8 @@ function showWidgetSelection() {
     panel.dataset.width=rect.w===12?"full":"half";
     panel.style.setProperty("--grid-rows",String(rect.h));
   }
-  $("view-name").textContent=dashboardConfig.title;
+  const viewName=$("view-name");
+  if(viewName)viewName.textContent=dashboardConfig.title;
   updateActiveNavigation();
 }
 
@@ -148,6 +166,8 @@ function replaceDashboardConfig(config: any, persist = true) {
 applyFilterState(dashboardConfig.filters);
 showWidgetSelection();
 const fmt = (n: any, metric = "totalTokens") => metric === "totalCost" ? money.format(n ?? 0) : compact.format(n ?? 0);
+const PERIOD_LABELS: Record<string,string>={today:"Today","7d":"Last 7 days","14d":"Last 14 days","30d":"Last 30 days","90d":"Last 90 days",all:"All time"};
+const percent=(n:number)=>Number.isFinite(n)?new Intl.NumberFormat("en-US",{style:"percent",maximumFractionDigits:0}).format(n):"—";
 function el(tag: string, cls: string = "", text?: string): any {
   const node = document.createElement(tag);
   if (cls) node.className = cls;
@@ -412,8 +432,8 @@ function drawSessionTable(rows: any[]) {
     tr.append(
       el("td", "agent-cell", row.agent),
       el("td", "session-id", row.session),
-      el("td", "numeric", fmt(row.value)),
-      el("td", "numeric", state.reportHasCost ? fmt(sessionCost, "totalCost") : "Unavailable"),
+      el("td", "numeric cost-cell", state.reportHasCost ? fmt(sessionCost, "totalCost") : "Unavailable"),
+      el("td", "numeric", fmt(row.tokens ?? row.value)),
       el("td", "subtle", row.lastActivity ? new Date(row.lastActivity).toLocaleString() : "Unknown")
     ); tbody.append(tr);
   }
@@ -627,10 +647,25 @@ function render() {
   const cost = buildChart(filteredReport, { ...current, metric: "totalCost" }).total;
   const hasCost = (filteredReport.daily ?? []).some((r: any) => typeof r.totalCost === "number");
   state.reportHasCost = hasCost;
+  const providerCostGraph=buildChart(filteredReport,{...current,metric:"totalCost",breakdown:"provider"});
+  const modelCostGraph=buildChart(filteredReport,{...current,metric:"totalCost",breakdown:"model"});
+  const activeDays=new Set((filteredReport.daily??[]).map((row:any)=>String(row.period??row.date??"").slice(0,10)).filter(Boolean)).size;
+  const topProvider=providerCostGraph.series[0];
+  const topModel=modelCostGraph.series[0];
+  const blended=vals.totalTokens>0?cost/vals.totalTokens*1_000_000:0;
   $("stat-tokens").textContent = fmt(vals.totalTokens);
   $("stat-input").textContent = fmt(vals.inputTokens);
   $("stat-output").textContent = fmt(vals.outputTokens);
+  $("stat-cache-read").textContent = fmt(vals.cacheReadTokens);
   $("stat-cost").textContent = hasCost ? fmt(cost, "totalCost") : "Unavailable";
+  $("stat-daily-average").textContent = hasCost&&activeDays ? fmt(cost/activeDays,"totalCost") : "—";
+  $("stat-active-days").textContent = activeDays ? activeDays+" usage day"+(activeDays===1?"":"s")+" observed" : "No usage days in this period";
+  $("stat-cost-per-million").textContent = hasCost&&vals.totalTokens>0 ? fmt(blended,"totalCost") : "—";
+  $("stat-top-provider").textContent = topProvider?.name ?? "—";
+  $("stat-top-provider-share").textContent = hasCost&&cost>0&&topProvider ? fmt(topProvider.value,"totalCost")+" · "+percent(topProvider.value/cost)+" of spend" : "No priced provider data";
+  $("stat-top-model").textContent = topModel?.name ?? "—";
+  $("stat-top-model-share").textContent = hasCost&&cost>0&&topModel ? fmt(topModel.value,"totalCost")+" · "+percent(topModel.value/cost)+" of spend" : "No priced model data";
+  $("spend-period-label").textContent = PERIOD_LABELS[activePeriod]??activePeriod;
   $("break-input").textContent = fmt(vals.inputTokens);
   $("break-output").textContent = fmt(vals.outputTokens);
   $("break-cache").textContent = fmt(vals.cacheReadTokens);
@@ -677,9 +712,16 @@ function render() {
   drawBars("model-bars", modelGraph.series, modelSettings.metric, "No model breakdown available.", modelSettings.limit, "model", modelSettings.hiddenDimensions);
   $("provider-summary").textContent = "Ranked by " + METRIC_NAMES[providerSettings.metric].toLowerCase();
   $("model-summary").textContent = "Ranked by " + METRIC_NAMES[modelSettings.metric].toLowerCase();
-  const sessions = buildSessions(filteredReport, { agent: state.agent, model: state.model, metric: state.sessionMetric });
-  drawSessionGraph(sessions.filter((s: any)=>!dashboardConfig.widgetSettings.sessions.hiddenDimensions.includes(s.agent)));
-  drawSessionTable(buildSessions(filteredReport, { agent: state.agent, model: state.model, metric: "totalTokens", limit: 30 }).filter((s: any)=>!dashboardConfig.widgetSettings.sessions.hiddenDimensions.includes(s.agent)).slice(0,10));
+  const hiddenSessionProviders=new Set(dashboardConfig.widgetSettings.sessions.hiddenDimensions);
+  const sessionCandidateLimit=Math.max(12,Array.isArray(filteredReport.session)?filteredReport.session.length:12);
+  const sessionCosts=buildSessions(filteredReport,{agent:state.agent,model:state.model,metric:"totalCost",limit:sessionCandidateLimit})
+    .filter((s:any)=>!hiddenSessionProviders.has(s.agent));
+  const sessionTokens=buildSessions(filteredReport,{agent:state.agent,model:state.model,metric:"totalTokens",limit:sessionCandidateLimit});
+  const tokenBySession=new Map(sessionTokens.map((s:any)=>[(s.agent??"unknown")+"\0"+String(s.session??""),s.value]));
+  drawSessionGraph(sessionCosts.slice(0,5));
+  drawSessionTable(sessionCosts.slice(0,10).map((row:any)=>({
+    ...row,cost:row.value,tokens:tokenBySession.get((row.agent??"unknown")+"\0"+String(row.session??""))??0
+  })));
   renderCustomCharts(filteredReport, filteredHourly);
   const warnings = state.model === "all" ? view.missingPricing : view.missingPricing.filter((m) => m === state.model);
   const notice = $("notice");

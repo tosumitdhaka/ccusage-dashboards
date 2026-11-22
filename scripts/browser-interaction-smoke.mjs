@@ -117,31 +117,17 @@ try{
   const trendScroll=await wheelAt("trend");
   const providerScroll=await wheelAt("providers");
 
-  await evaluate('document.querySelector("#layout-edit").click()');
-  const dragStart=await evaluate(`(()=>{
-    const kicker=document.querySelector('[data-widget="providers"] .section-kicker');
-    kicker.scrollIntoView({block:"center",behavior:"instant"});
-    const r=kicker.getBoundingClientRect();
-    return {x:Math.round(r.left+r.width/2),y:Math.round(r.top+r.height/2)};
+  const spendSurface=await evaluate(`(()=>{
+    const ids=["stat-cost","stat-daily-average","stat-cost-per-million","stat-top-provider","stat-top-model","agent","model","header-period"];
+    const missing=ids.filter(id=>!document.getElementById(id));
+    return {missing,sidebar:getComputedStyle(document.querySelector(".sidebar")).display,
+      gridRows:getComputedStyle(document.querySelector("#dashboard-grid")).gridAutoRows,
+      title:document.querySelector("h1")?.textContent};
   })()`);
-  await send("Input.dispatchMouseEvent",{type:"mousePressed",x:dragStart.x,y:dragStart.y,
-    button:"left",buttons:1,clickCount:1});
-  await send("Input.dispatchMouseEvent",{type:"mouseMoved",x:dragStart.x+80,y:dragStart.y+128,
-    button:"left",buttons:1});
-  await delay(90);
-  const drag=await evaluate(`(()=>{
-    const card=document.querySelector('[data-widget="providers"]');
-    const matrix=new DOMMatrixReadOnly(getComputedStyle(card).transform);
-    return {transform:card.style.transform,dx:matrix.m41,dy:matrix.m42,
-      source:card.classList.contains("layout-drag-source")};
-  })()`);
-  assert.ok(drag.source,"Provider widget should enter floating drag mode: "+JSON.stringify(drag));
-  assert.ok(Math.abs(drag.dx-36)<12&&Math.abs(drag.dy-57.6)<12,
-    "Dragged widget must move at 45% gain, not full pointer speed: "+JSON.stringify(drag));
-  await send("Input.dispatchMouseEvent",{type:"mouseReleased",x:dragStart.x+80,y:dragStart.y+128,
-    button:"left",buttons:0,clickCount:1});
-  await evaluate('document.querySelector("#layout-cancel").click()');
-  console.log("CHROME_INTERACTION_SMOKE_PASS",JSON.stringify({visibility,trendScroll,providerScroll,drag}));
+  assert.deepEqual(spendSurface.missing,[],"Spend-first controls missing: "+JSON.stringify(spendSurface));
+  assert.equal(spendSurface.sidebar,"none","Legacy sidebar should not occupy spend surface");
+  assert.match(spendSurface.title??"",/AI spend overview/i);
+  console.log("CHROME_INTERACTION_SMOKE_PASS",JSON.stringify({visibility,trendScroll,providerScroll,spendSurface}));
 }catch(error){
   console.error("CHROME_SMOKE_ROOT_CAUSE:",error?.stack??String(error));
   throw error;

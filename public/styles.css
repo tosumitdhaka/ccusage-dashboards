@@ -649,3 +649,128 @@ button:focus-visible,select:focus-visible,.nav-link:focus-visible,input:focus-vi
 .layout-widget-chip input{accent-color:var(--color-accent-teal);cursor:pointer}
 .layout-toolbar-footer{margin-top:14px;padding-top:10px;border-top:1px solid rgba(255,255,255,.05)}
 .layout-tip{font-size:11px;color:var(--color-text-muted)}
+
+
+/* ===== Spend-first surface (v0.5 concept) =====
+   A content-height dashboard: no nested wheel traps, no layout chrome in the
+   primary workflow, and cost is the dominant visual hierarchy. */
+body.spend-surface{
+  --spend-bg:#090d13;--spend-panel:#111821;--spend-panel-2:#0f151e;
+  --spend-border:#202b38;--spend-muted:#8997a8;--spend-accent:#60dfbd;
+  background:var(--spend-bg)}
+body.spend-surface .shell{display:block;min-height:100vh}
+body.spend-surface .sidebar{display:none}
+body.spend-surface .main{background:linear-gradient(180deg,#0b1119 0,#090d13 420px);min-height:100vh}
+body.spend-surface .topbar{
+  min-height:68px;padding:10px clamp(18px,3vw,42px);background:rgba(9,13,19,.94);
+  border-color:#1b2632;box-shadow:none;gap:24px}
+body.spend-surface .topbar-brand{display:flex;align-items:center;gap:10px;min-width:max-content}
+body.spend-surface .topbar-brand-mark{display:grid;place-items:center;width:30px;height:30px;border:1px solid #31584e;border-radius:9px;color:var(--spend-accent);background:#10221f;font-size:18px}
+body.spend-surface .topbar-brand strong{display:block;font-size:15px;letter-spacing:-.02em}
+body.spend-surface .topbar-brand small{display:block;margin-top:2px;font-size:8px;font-weight:800;letter-spacing:.16em;color:#6f7f91}
+body.spend-surface .top-actions{margin-left:auto;gap:8px;flex-wrap:nowrap}
+body.spend-surface .top-filter{display:grid;gap:3px;min-width:128px}
+body.spend-surface .top-filter span{font-size:9px;font-weight:750;letter-spacing:.08em;text-transform:uppercase;color:#6f8092}
+body.spend-surface .top-filter select{height:34px;padding:0 30px 0 10px;border:1px solid #273443;border-radius:8px;background:#101720;color:#dce6f0;font-size:12px}
+body.spend-surface .top-action-primary,body.spend-surface .top-action-secondary,body.spend-surface .advanced-action{
+  height:34px;border-radius:8px;padding:0 12px;font-size:12px;font-weight:700}
+body.spend-surface .top-action-primary{border:1px solid #3c7c6c;background:#17332d;color:#dffff6}
+body.spend-surface .top-action-secondary,body.spend-surface .advanced-action{border:1px solid #273443;background:#101720;color:#cbd6e1}
+body.spend-surface .advanced-menu{position:relative}
+body.spend-surface .advanced-menu>summary{list-style:none;display:grid;place-items:center;width:34px;height:34px;border:1px solid #273443;border-radius:8px;background:#101720;color:#93a3b4;cursor:pointer}
+body.spend-surface .advanced-menu>summary::-webkit-details-marker{display:none}
+body.spend-surface .advanced-menu-panel{position:absolute;right:0;top:42px;z-index:120;display:grid;gap:6px;width:170px;padding:8px;border:1px solid #273443;border-radius:10px;background:#0d141d;box-shadow:0 18px 40px #0008}
+body.spend-surface .experimental-layout{display:none!important}
+body.spend-surface .content{max-width:1340px;padding:34px clamp(18px,3vw,42px) 42px}
+body.spend-surface .spend-hero{display:flex;align-items:end;justify-content:space-between;gap:28px;margin-bottom:16px}
+body.spend-surface .spend-hero h1{margin:7px 0 8px;font-size:clamp(30px,4vw,46px);letter-spacing:-.05em}
+body.spend-surface .spend-hero .intro{max-width:760px;font-size:13px;line-height:1.6;color:#8f9dae}
+body.spend-surface .hero-meta{display:grid;justify-items:end;gap:8px}
+body.spend-surface .local-data-pill{padding:6px 9px;border:1px solid #254039;border-radius:999px;color:#8ccbb9;background:#0d1917;font-size:10px}
+body.spend-surface .surface-nav{display:flex;gap:6px;margin-bottom:18px}
+body.spend-surface .surface-nav a{padding:7px 10px;border-radius:7px;color:#8b9bad;font-size:11px}
+body.spend-surface .surface-nav a:hover{background:#111923;color:#dce6ef}
+body.spend-surface .notice{margin-bottom:14px}
+body.spend-surface .dashboard-grid{
+  display:grid!important;grid-template-columns:repeat(12,minmax(0,1fr))!important;
+  grid-auto-rows:auto!important;gap:14px!important;align-items:start}
+body.spend-surface .dashboard-grid>[data-widget]{
+  grid-row:auto!important;height:auto!important;min-height:0!important;max-height:none!important;
+  overflow:visible!important;align-self:start!important;margin:0!important}
+body.spend-surface .dashboard-grid>[data-widget="kpis"]{grid-column:1/-1!important;order:1!important}
+body.spend-surface .dashboard-grid>[data-widget="trend"]{grid-column:1/-1!important;order:2!important}
+body.spend-surface .dashboard-grid>[data-widget="providers"]{grid-column:span 6!important;order:3!important}
+body.spend-surface .dashboard-grid>[data-widget="models"]{grid-column:span 6!important;order:4!important}
+body.spend-surface .dashboard-grid>[data-widget="sessions"]{grid-column:1/-1!important;order:5!important}
+body.spend-surface .dashboard-grid>[data-widget="cache"]{grid-column:span 6!important;order:6!important}
+body.spend-surface .dashboard-grid>[data-widget="guidance"]{grid-column:span 6!important;order:7!important}
+body.spend-surface .dashboard-grid>.custom-chart-card{grid-column:1/-1!important;order:8!important}
+body.spend-surface .dashboard-grid>[data-widget]>.widget-scroll-body{
+  flex:initial!important;overflow:visible!important;max-height:none!important;height:auto!important;
+  scrollbar-gutter:auto!important}
+body.spend-surface .dashboard-grid .bars,body.spend-surface .dashboard-grid .session-bars{
+  max-height:none!important;overflow:visible!important}
+body.spend-surface .dashboard-grid .table-wrap{overflow-x:auto!important;overflow-y:visible!important}
+body.spend-surface .kpi,body.spend-surface .panel,body.spend-surface .wide-card{
+  border:1px solid var(--spend-border);background:var(--spend-panel);border-radius:12px;box-shadow:none}
+body.spend-surface .spend-summary{display:grid!important;grid-template-columns:1.35fr repeat(3,minmax(0,1fr))!important;gap:10px!important}
+body.spend-surface .spend-summary .kpi{padding:18px 18px 16px;min-height:126px}
+body.spend-surface .spend-summary .spend-primary{background:linear-gradient(145deg,#14241f,#111821);border-color:#2e5b4f}
+body.spend-surface .spend-summary .spend-primary strong{font-size:clamp(34px,4.2vw,54px);color:#effffb}
+body.spend-surface .spend-summary .kpi strong{margin:18px 0 6px;font-size:clamp(24px,2.4vw,34px)}
+body.spend-surface .spend-summary .kpi p{line-height:1.45}
+body.spend-surface .usage-strip{grid-column:1/-1;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));border:1px solid var(--spend-border);border-radius:10px;background:#0d131c}
+body.spend-surface .usage-strip>div{padding:12px 16px;border-right:1px solid #1e2a37;display:grid;gap:6px}
+body.spend-surface .usage-strip>div:last-child{border-right:0}
+body.spend-surface .usage-strip span{font-size:10px;color:#718296;text-transform:uppercase;letter-spacing:.08em}
+body.spend-surface .usage-strip strong{font-size:16px;font-variant-numeric:tabular-nums}
+body.spend-surface .wide-card,body.spend-surface .panel{padding:20px}
+body.spend-surface .section-header{align-items:center}
+body.spend-surface .section-kicker{color:#6daea1;letter-spacing:.13em}
+body.spend-surface .section-header h2{font-size:17px;margin:5px 0 3px}
+body.spend-surface .chart-header-controls{opacity:1!important;pointer-events:auto!important}
+body.spend-surface .chart-header-controls label{font-size:10px;color:#7f90a3}
+body.spend-surface .chart-header-controls select{height:32px;background:#0d141d;border:1px solid #273443;border-radius:7px;color:#d5dfe9}
+/* Keep the spend surface analytical, not configuration-heavy. Advanced
+ * metric/series controls remain one click away through the visible options menu. */
+body.spend-surface [data-widget="providers"] .chart-header-controls,
+body.spend-surface [data-widget="models"] .chart-header-controls,
+body.spend-surface [data-widget="sessions"] .chart-header-controls{display:none!important}
+body.spend-surface [data-widget="trend"] .trend-controls label:not(:first-child){display:none!important}
+body.spend-surface [data-widget="kpis"]>.viz-menu-trigger{display:none!important}
+body.spend-surface .viz-menu-trigger{opacity:1!important}
+body.spend-surface [data-widget]:hover .viz-menu-trigger,body.spend-surface .viz-menu-trigger:focus-visible{opacity:1!important}
+body.spend-surface .chart-container{margin-top:12px;overflow:visible}
+body.spend-surface .chart-container svg{max-height:330px}
+body.spend-surface .bars{margin-top:16px;gap:15px}
+body.spend-surface .bar-track{height:7px;background:#1b2734}
+body.spend-surface .bar-value{color:#c7d4df}
+body.spend-surface .sessions-card .session-bars{margin-top:14px}
+body.spend-surface .sessions-card .table-wrap{margin-top:18px}
+body.spend-surface .cost-cell{color:#7de0c5;font-weight:750}
+body.spend-surface .token-grid{margin-top:16px}
+body.spend-surface .token-grid>div{background:#0d141d;border-color:#202c39}
+body.spend-surface .information{margin-top:16px}
+body.spend-surface footer{margin-top:22px}
+body.spend-surface #layout-toolbar{display:none!important}
+@media(max-width:1000px){
+  body.spend-surface .topbar{align-items:flex-start;flex-wrap:wrap}
+  body.spend-surface .top-actions{width:100%;margin-left:0;flex-wrap:wrap}
+  body.spend-surface .top-filter{flex:1 1 150px}
+  body.spend-surface .spend-summary{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  body.spend-surface .usage-strip{grid-template-columns:repeat(3,minmax(0,1fr))}
+  body.spend-surface .dashboard-grid>[data-widget="providers"],
+  body.spend-surface .dashboard-grid>[data-widget="models"],
+  body.spend-surface .dashboard-grid>[data-widget="cache"],
+  body.spend-surface .dashboard-grid>[data-widget="guidance"]{grid-column:1/-1!important}
+}
+@media(max-width:640px){
+  body.spend-surface .content{padding:24px 14px 32px}
+  body.spend-surface .spend-hero{display:block}
+  body.spend-surface .hero-meta{justify-items:start;margin-top:12px}
+  body.spend-surface .surface-nav{overflow-x:auto}
+  body.spend-surface .spend-summary{grid-template-columns:1fr!important}
+  body.spend-surface .usage-strip{grid-template-columns:repeat(2,minmax(0,1fr))}
+  body.spend-surface .usage-strip>div{border-bottom:1px solid #1e2a37}
+  body.spend-surface .topbar-brand{width:100%}
+}

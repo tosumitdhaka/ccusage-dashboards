@@ -39,22 +39,16 @@ test("top header #header-period has Period date range options (7d, 14d, 30d, 90d
   }
 });
 
-test("secondary filter bar with global granularity pills and provider/model filters is removed from public/index.html", async () => {
+test("spend surface keeps one topbar filter set for period, provider and model", async () => {
   const html = await readFile(new URL("../public/index.html", import.meta.url), "utf8");
   const ts = await readFile(new URL("../src/client/dashboard.ts", import.meta.url), "utf8");
   const js = await readFile(new URL("../public/dashboard.js", import.meta.url), "utf8");
-
-  // Ensure secondary filter section is removed
-  assert.ok(!html.includes('class="filters"'), "Secondary filter section .filters must be removed from HTML");
-  assert.ok(!html.includes('class="time-pills"'), "Global time-pills container must be removed from HTML");
-  assert.ok(!html.includes('class="agent-filter"'), "Secondary agent/model filter labels must be removed from HTML");
-  assert.ok(!html.includes('id="agent"'), "#agent select must be removed from the overview page");
-  assert.ok(!html.includes('id="model"'), "#model select must be removed from the overview page");
-
-  // Verify client controller guards removed element lookups defensively
+  assert.ok(!html.includes('class="filters"'), "Legacy secondary filter section must stay removed");
+  const topbar=html.match(/<header class="topbar">([\s\S]*?)<\/header>/)?.[1]??"";
+  for(const id of ["header-period","agent","model"])assert.ok(topbar.includes('id="'+id+'"'),"Missing topbar filter "+id);
   for (const [name, code] of [["dashboard.ts", ts], ["dashboard.js", js]]) {
-    assert.match(code, /const agent(?:El|Select)\s*=\s*\$\(["']agent["']\)/, `${name} must guard agent element lookup`);
-    assert.match(code, /const model(?:El|Select)\s*=\s*\$\(["']model["']\)/, `${name} must guard model element lookup`);
+    assert.match(code, /const agent(?:El|Select)\s*=\s*\$\(["']agent["']\)/, `${name} must wire provider filter`);
+    assert.match(code, /const model(?:El|Select)\s*=\s*\$\(["']model["']\)/, `${name} must wire model filter`);
   }
 });
 
@@ -69,7 +63,7 @@ test("customize button is present on .topbar header and layout toolbar provides 
 
   // Customize button must be in the topbar actions
   assert.ok(topbarHtml.includes('id="customize"'), "Customize button must be present in .topbar");
-  assert.ok(topbarHtml.includes("⚙ Customize"), "Customize button text must be present in .topbar");
+  assert.ok(topbarHtml.includes(">Settings</button>"), "Settings button text must be present in .topbar");
 
   // #layout-toolbar provides all layout & customization configuration
   assert.ok(html.includes('id="layout-toolbar"'), "Missing #layout-toolbar");

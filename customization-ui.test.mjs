@@ -79,7 +79,8 @@ test("unlocked view, free grid placement and options editor expose explicit cont
  const css=await readFile(new URL("./public/styles.css",import.meta.url),"utf8");
  for(const id of ["visual-editor","visual-editor-form","visual-editor-dimensions","visual-dimension-options"]) 
    assert.ok(html.includes('id="'+id+'"'));
- assert.ok(html.includes("Layout Locked"));
+ assert.ok(html.includes('class="advanced-action experimental-layout"'));
+ assert.ok(css.includes("body.spend-surface .experimental-layout{display:none!important}"));
  assert.ok(!html.includes(">↕ Arrange<"));
  assert.ok(js.includes('header.draggable=false'));
  assert.ok(js.includes("start.x+Math.round(dx/stepX)"));

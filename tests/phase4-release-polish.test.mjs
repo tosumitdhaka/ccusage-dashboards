@@ -123,11 +123,9 @@ test("layout editing controls streamline locked and unlocked button states", asy
   const ts = await readFile(new URL("../src/client/dashboard.ts", import.meta.url), "utf8");
   const js = await readFile(new URL("../public/dashboard.js", import.meta.url), "utf8");
 
-  // HTML has the locked button labelled '🔒 Edit Layout'
-  assert.ok(
-    html.includes(">🔒 Edit Layout</button>"),
-    "Expected #layout-edit button text to be '🔒 Edit Layout'"
-  );
+  // Spend surface keeps the legacy layout editor only as a hidden advanced tool.
+  assert.ok(html.includes('id="layout-edit"'), "Expected #layout-edit advanced control");
+  assert.ok(html.includes('experimental-layout'), "Layout editing must be marked advanced/experimental");
   assert.ok(
     html.includes('id="layout-save"'),
     "Expected #layout-save button to exist"
@@ -136,14 +134,8 @@ test("layout editing controls streamline locked and unlocked button states", asy
     html.includes('id="layout-cancel"'),
     "Expected #layout-cancel button to exist"
   );
-  assert.ok(
-    html.includes(">✓ Save Layout</button>"),
-    "Expected Save Layout button text"
-  );
-  assert.ok(
-    html.includes(">✕ Cancel</button>"),
-    "Expected Cancel button text with clear glyph"
-  );
+  assert.ok(html.includes("✓ Save layout</button>"), "Expected save layout control");
+  assert.ok(html.includes("✕ Cancel</button>"), "Expected cancel layout control");
 
   // When arranging, the redundant 'Layout Unlocked' button is hidden
   for (const [name, code] of [["dashboard.ts", ts], ["dashboard.js", js]]) {

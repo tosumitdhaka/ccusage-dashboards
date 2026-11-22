@@ -42,10 +42,10 @@ test("public/index.html includes accessible table-wrap region, column headers, a
   );
 
   // Verify th elements have scope="col"
-  assert.ok(html.includes('<th scope="col">Agent</th>'), "Missing scope='col' on Agent header");
+  assert.ok(html.includes('<th scope="col">Provider</th>'), "Missing scope='col' on Provider header");
   assert.ok(html.includes('<th scope="col">Session</th>'), "Missing scope='col' on Session header");
-  assert.ok(html.includes('<th scope="col">Reported tokens</th>'), "Missing scope='col' on Reported tokens header");
-  assert.ok(html.includes('<th scope="col">API-equivalent</th>'), "Missing scope='col' on API-equivalent header");
+  assert.ok(html.includes('<th scope="col">Tokens</th>'), "Missing scope='col' on Tokens header");
+  assert.ok(html.includes('<th scope="col">Est. spend</th>'), "Missing scope='col' on Est. spend header");
   assert.ok(html.includes('<th scope="col">Last activity</th>'), "Missing scope='col' on Last activity header");
 
   // Verify autofocus on primary modal dialog inputs
