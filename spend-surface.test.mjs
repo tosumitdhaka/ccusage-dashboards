@@ -37,3 +37,11 @@ test("spend summary derives day average, blended rate and spend leaders from pri
   assert.ok(ts.includes('percent(topProvider.value/cost)'));
   assert.ok(ts.includes('SPEND_SURFACE_MIGRATION_KEY'));
 });
+
+test("primary spend cards suppress dense inline configuration while retaining options menus",async()=>{
+  const css=await readFile(new URL("./public/styles.css",import.meta.url),"utf8");
+  assert.ok(css.includes('body.spend-surface [data-widget="providers"] .chart-header-controls'));
+  assert.ok(css.includes('body.spend-surface [data-widget="models"] .chart-header-controls'));
+  assert.ok(css.includes('body.spend-surface [data-widget="sessions"] .chart-header-controls'));
+  assert.ok(css.includes('body.spend-surface [data-widget="trend"] .trend-controls label:not(:first-child)'));
+});

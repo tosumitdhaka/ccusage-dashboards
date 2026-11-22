@@ -19,7 +19,10 @@ const report={
    inputTokens:151000,outputTokens:96000,cacheReadTokens:48000,cacheCreationTokens:6000,modelBreakdowns:models("all",day)};
  }),
  weekly:[],monthly:[],
- session:Array.from({length:12},(_,i)=>({period:"session-"+i,session:"session-"+i,agent:names[i%3],totalTokens:15000+i*2700,totalCost:2+i*.4,inputTokens:8700,outputTokens:4200,modelBreakdowns:[models("codex",i)[i]]}))
+ session:Array.from({length:12},(_,i)=>({period:"session-"+i,session:"session-"+i,agent:names[i%3],
+   totalTokens:15000+i*2700,totalCost:2+i*.4,inputTokens:8700,outputTokens:4200,
+   metadata:{lastActivity:new Date(Date.UTC(2026,8,20+(i%6),10+i,0,0)).toISOString()},
+   modelBreakdowns:[models("codex",i)[i]]}))
 };
 const temp=await mkdtemp(join(tmpdir(),"ccusage-audit-"));
 let browser,server,socket;

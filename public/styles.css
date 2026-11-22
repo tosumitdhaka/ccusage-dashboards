@@ -731,6 +731,13 @@ body.spend-surface .section-header h2{font-size:17px;margin:5px 0 3px}
 body.spend-surface .chart-header-controls{opacity:1!important;pointer-events:auto!important}
 body.spend-surface .chart-header-controls label{font-size:10px;color:#7f90a3}
 body.spend-surface .chart-header-controls select{height:32px;background:#0d141d;border:1px solid #273443;border-radius:7px;color:#d5dfe9}
+/* Keep the spend surface analytical, not configuration-heavy. Advanced
+ * metric/series controls remain one click away through the visible options menu. */
+body.spend-surface [data-widget="providers"] .chart-header-controls,
+body.spend-surface [data-widget="models"] .chart-header-controls,
+body.spend-surface [data-widget="sessions"] .chart-header-controls{display:none!important}
+body.spend-surface [data-widget="trend"] .trend-controls label:not(:first-child){display:none!important}
+body.spend-surface [data-widget="kpis"]>.viz-menu-trigger{display:none!important}
 body.spend-surface .viz-menu-trigger{opacity:1!important}
 body.spend-surface [data-widget]:hover .viz-menu-trigger,body.spend-surface .viz-menu-trigger:focus-visible{opacity:1!important}
 body.spend-surface .chart-container{margin-top:12px;overflow:visible}
